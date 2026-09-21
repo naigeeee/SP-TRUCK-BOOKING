@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "PH Truck Booking Centralised Operations",
+    "title": "SP PH Truck Booking Centralised Operations",
     "version": "0.1.0"
   },
   "paths": {

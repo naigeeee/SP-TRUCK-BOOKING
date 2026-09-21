@@ -1,5 +1,5 @@
 """
-PH Truck Booking Centralised Operation Request Database
+SP PH Truck Booking Centralised Operation Request Database
 """
 
 import os
@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import pymysql
 
-APP_NAME = "PH Truck Booking Centralised Operations"
+APP_NAME = "SP PH Truck Booking Centralised Operations"
 
 app = FastAPI(title=APP_NAME, docs_url="/api/docs")
 
