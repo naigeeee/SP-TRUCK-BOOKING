@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PH Truck Booking - Centralised Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--pri:#2563EB;--pri-l:#3B82F6;--pri-d:#1D4ED8;--ok:#10B981;--warn:#F59E0B;--err:#EF4444;--info:#8B5CF6;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--muted:#64748B;--bdr:#E2E8F0;--side:#0F172A;--side-t:#CBD5E1;--sh:0 1px 3px rgba(0,0,0,.1);--sh2:0 4px 15px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:260px;background:var(--side);color:var(--side-t);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s}
+.sidebar-header{padding:20px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-header h2{color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.sidebar-header .sub{font-size:11px;color:var(--side-t);margin-top:4px}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;color:var(--side-t);text-decoration:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;border-left:3px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav-item.active{background:rgba(37,99,235,.15);color:#fff;border-left-color:var(--pri-l)}
+.nav-item i{width:20px;text-align:center;font-size:15px}
+.nav-div{height:1px;background:rgba(255,255,255,.1);margin:8px 20px}
+.nav-lbl{padding:8px 20px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.3)}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,.1)}
+.user-row{display:flex;align-items:center;gap:10px}
+.u-av{width:32px;height:32px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:13px}
+.u-name{font-weight:600;color:#fff;font-size:13px}
+.u-role{font-size:11px;color:var(--side-t)}
+.local-badge{display:inline-block;background:var(--warn);color:#000;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-top:6px}
+.main{flex:1;margin-left:260px;padding:24px;min-height:100vh}
+.pg-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.pg-hdr h1{font-size:24px;font-weight:800;display:flex;align-items:center;gap:10px}
+.pg-hdr .acts{display:flex;gap:10px}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--sh);border:1px solid var(--bdr)}
+.card-h{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.card-h h3{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-b{padding:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat{background:var(--card);border-radius:12px;padding:20px;box-shadow:var(--sh);border:1px solid var(--bdr);display:flex;align-items:center;gap:16px;transition:transform .2s,box-shadow .2s}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--sh2)}
+.s-ico{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.s-ico.bl{background:#DBEAFE;color:var(--pri)}.s-ico.gn{background:#D1FAE5;color:var(--ok)}.s-ico.yl{background:#FEF3C7;color:var(--warn)}.s-ico.rd{background:#FEE2E2;color:var(--err)}.s-ico.pp{background:#EDE9FE;color:var(--info)}
+.s-info{flex:1}.s-lbl{font-size:12px;color:var(--muted);font-weight:500}.s-val{font-size:24px;font-weight:800;margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .2s;text-decoration:none}
+.btn-p{background:var(--pri);color:#fff}.btn-p:hover{background:var(--pri-d)}
+.btn-s{background:var(--ok);color:#fff}.btn-s:hover{background:#059669}
+.btn-d{background:var(--err);color:#fff}.btn-d:hover{background:#DC2626}
+.btn-o{background:transparent;color:var(--txt);border:1px solid var(--bdr)}.btn-o:hover{background:var(--bg)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em}
+.fi,.fs,.ft{width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-family:inherit;transition:border-color .2s;background:#fff}
+.fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.ft{min-height:80px;resize:vertical}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:12px 16px;background:var(--bg);font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bdr);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+tr:hover td{background:#F8FAFC}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;gap:4px}
+.b-bl{background:#DBEAFE;color:#1D4ED8}.b-gn{background:#D1FAE5;color:#065F46}.b-yl{background:#FEF3C7;color:#92400E}.b-rd{background:#FEE2E2;color:#991B1B}.b-pp{background:#EDE9FE;color:#5B21B6}.b-gy{background:#F1F5F9;color:#475569}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
+.mo.on{display:flex}
+.modal{background:var(--card);border-radius:16px;width:90%;max-width:650px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:10000;position:relative}
+.modal-h{padding:20px 24px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.modal-h h3{font-size:18px;font-weight:700}
+.mc-x{width:32px;height:32px;border-radius:8px;border:none;background:var(--bg);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-b{padding:24px}
+.modal-f{padding:16px 24px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:10px}
+.fb{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.fg2{display:flex;align-items:center;gap:6px}
+.fg2 label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.f-input{padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;min-width:120px}
+.s-input{padding:8px 12px 8px 36px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;width:280px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748B' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 10px center}
+.toast-c{position:fixed;top:20px;right:20px;z-index:10001;display:flex;flex-direction:column;gap:8px}.sugs-body{display:none}.expanded .sugs-body{display:block}
+.toast{padding:12px 20px;border-radius:8px;color:#fff;font-size:13px;font-weight:500;box-shadow:var(--sh2);animation:slIn .3s ease;display:flex;align-items:center;gap:8px}
+.t-ok{background:var(--ok)}.t-err{background:var(--err)}.t-info{background:var(--info)}
+@keyframes slIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.pg{display:none}.pg.on{display:block}
+.empty{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty i{font-size:48px;margin-bottom:12px;opacity:.5}.empty p{font-size:14px;margin-top:8px}
+.tabs{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:10px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s}
+.tab.on{background:var(--card);color:var(--txt);box-shadow:var(--sh)}
+.att-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px;margin-bottom:8px}
+.att-info{display:flex;align-items:center;gap:10px}.att-info i{font-size:18px;color:var(--pri)}
+.att-nm{font-weight:500}.att-sz{color:var(--muted);font-size:11px}
+.m-toggle{display:none;position:fixed;top:12px;left:12px;z-index:150;width:40px;height:40px;border-radius:10px;background:var(--side);color:#fff;border:none;font-size:18px;cursor:pointer}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0;padding:16px;padding-top:60px}.m-toggle{display:flex;align-items:center;justify-content:center}.fr,.fr3{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.fb{flex-direction:column;align-items:stretch}.s-input{width:100%}}
+.port-map-wrap{width:100%;height:350px;border-radius:10px;overflow:hidden;margin-bottom:16px;border:1px solid var(--bdr)}
+.port-map-wrap-sm{width:100%;height:180px;border-radius:8px;overflow:hidden;border:1px solid var(--bdr);margin-top:8px;position:relative;z-index:1}
+.port-map-wrap-sm .leaflet-container,.port-map-wrap-sm .leaflet-pane,.port-map-wrap-sm .leaflet-tile-pane{z-index:1!important}
+.lib-map-section{margin-bottom:20px}
+</style>
+</head>
+<body>
+<button class="m-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
+<div class="layout">
+<aside class="sidebar">
+<div class="sidebar-header"><h2><i class="fas fa-truck"></i> PH Truck Booking</h2><div class="sub">Centralised Operations</div></div>
+<nav class="sidebar-nav">
+<div class="nav-lbl">Main</div>
+<a class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard"><i class="fas fa-chart-line"></i> Dashboard</a>
+<a class="nav-item" onclick="showPage('new-request')" data-page="new-request"><i class="fas fa-plus-circle"></i> New Request</a>
+<a class="nav-item" onclick="showPage('masterlist')" data-page="masterlist"><i class="fas fa-list-alt"></i> Masterlist</a>
+<a class="nav-item" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation</a>
+<div class="nav-div"></div><div class="nav-lbl">Operations</div>
+<a class="nav-item" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet</a>
+<a class="nav-item adm" onclick="showPage('rates')" data-page="rates" style="display:none"><i class="fas fa-dollar-sign"></i> Rate Management</a>
+<a class="nav-item adm" onclick="showPage('evaluation')" data-page="evaluation" style="display:none"><i class="fas fa-star"></i> Vendor Speed Performance</a>
+<a class="nav-item adm" onclick="showPage('cost')" data-page="cost" style="display:none"><i class="fas fa-chart-pie"></i> Cost Analysis</a>
+<div class="nav-div"></div><div class="nav-lbl">Administration</div>
+<a class="nav-item adm" onclick="showPage('library')" data-page="library" style="display:none"><i class="fas fa-book"></i> Master Library</a>
+<a class="nav-item madm" onclick="showPage('users')" data-page="users" style="display:none"><i class="fas fa-users-cog"></i> User Roles</a>
+</nav>
+<div class="sidebar-footer">
+<div class="user-row"><div class="u-av" id="uAv">N</div><div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole">...</div></div></div>
+<div id="localBadge"></div>
+</div>
+</aside>
+
+<main class="main">
+
+<!-- Dashboard -->
+<section class="pg on" id="pg-dashboard">
+<div class="pg-hdr"><h1><i class="fas fa-chart-line" style="color:var(--pri)"></i> Dashboard</h1><div class="acts"><button class="btn btn-o" onclick="loadDash()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
+<div class="stats" id="dStats"></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-history"></i> Recent Requests</h3></div>
+<div class="card-b"><div class="tw"><table><thead><tr><th>Request #</th><th>Requestor</th><th>Account</th><th>Department</th><th>Origin Port</th><th>Destination Port</th><th>Pickup</th><th>Status</th></tr></thead><tbody id="dRecent"></tbody></table></div></div></div>
+</section>
+
+<!-- New Request -->
+<section class="pg" id="pg-new-request">
+<div class="pg-hdr"><h1><i class="fas fa-plus-circle" style="color:var(--ok)"></i> New Truck Request</h1></div>
+<div class="card"><div class="card-b">
+<form id="reqForm" onsubmit="submitReq(event)">
+<div class="fr"><div class="fg"><label class="fl">Account *</label><select class="fs" id="rAcct" required></select></div><div class="fg"><label class="fl">Department *</label><select class="fs" id="rDept" required></select></div></div>
+<div class="fr"><div class="fg"><label class="fl">Origin Port *</label><select class="fs" id="rOrigin" required></select></div><div class="fg"><label class="fl">Destination Port *</label><select class="fs" id="rDest" required></select></div></div>
+<div class="fr"><div class="fg"><label class="fl">Packaging Type *</label><select class="fs" id="rPkg" required></select></div><div class="fg"><label class="fl">Quantity *</label><input type="number" class="fi" id="rQty" value="1" min="1" required></div></div>
+<div class="fr3"><div class="fg"><label class="fl">Call Date/Time</label><input type="datetime-local" class="fi" id="rCall"></div><div class="fg"><label class="fl">Pickup Date/Time</label><input type="datetime-local" class="fi" id="rPickup"></div><div class="fg"><label class="fl">Customs Cleared Date/Time</label><input type="datetime-local" class="fi" id="rCustoms"></div></div>
+<div class="fr"><div class="fg"><label class="fl">Booking Date</label><input type="date" class="fi" id="rBooking" readonly></div><div class="fg"><label class="fl">Weight (KG)</label><input type="number" step="0.01" class="fi" id="rWt" value="0"></div><div class="fg"><label class="fl">Volume (CBM)</label><input type="number" step="0.01" class="fi" id="rVol" value="0"></div></div>
+<div class="fg"><label class="fl">Special Instructions</label><textarea class="ft" id="rNotes" rows="3" placeholder="Any special handling requirements..."></textarea></div>
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px"><button type="reset" class="btn btn-o"><i class="fas fa-undo"></i> Reset</button><button type="submit" class="btn btn-p"><i class="fas fa-paper-plane"></i> Submit Request</button></div>
+</form>
+</div></div>
+</section>
+
+<!-- Masterlist -->
+<section class="pg" id="pg-masterlist">
+<div class="pg-hdr"><h1><i class="fas fa-list-alt" style="color:var(--info)"></i> Masterlist</h1><div class="acts"><button class="btn btn-o" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
+<div class="card"><div class="card-b">
+<div class="fb" style="flex-wrap:wrap;gap:8px"><input type="text" class="s-input" id="mlSrch" placeholder="Search request #, name..." oninput="loadML()" style="width:180px"><div class="fg2"><label>Status</label><select class="f-input" id="mlSt" onchange="loadML()"></select></div><div class="fg2"><label>Account</label><select class="f-input" id="mlAcct" onchange="loadML()"></select></div><div class="fg2"><label>Dept</label><select class="f-input" id="mlDept" onchange="loadML()"></select></div><div class="fg2"><label>Origin</label><select class="f-input" id="mlOrg" onchange="loadML()"></select></div><div class="fg2"><label>Destination</label><select class="f-input" id="mlDst" onchange="loadML()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="mlTT" onchange="loadML()"></select></div><div class="fg2"><label>Vendor</label><select class="f-input" id="mlVendor" onchange="loadML()"></select></div><div class="fg2"><label>Booking From</label><input type="date" class="f-input" id="mlBookFrom" onchange="loadML()"></div><div class="fg2"><label>Booking To</label><input type="date" class="f-input" id="mlBookTo" onchange="loadML()"></div><div class="fg2"><label>Pickup From</label><input type="date" class="f-input" id="mlPickFrom" onchange="loadML()"></div><div class="fg2"><label>Pickup To</label><input type="date" class="f-input" id="mlPickTo" onchange="loadML()"></div></div>
+<div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortML('request_number')">Request # <i class="fas fa-sort"></i></th><th>Requestor</th><th style="cursor:pointer" onclick="sortML('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('department_name')">Dept <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('packaging_type_name')">Packaging <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('quantity')">Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('plate_number')">Plate # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th>Drop #</th><th style="cursor:pointer" onclick="sortML('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('pickup_datetime')">Pickup <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('status_name')">Status <i class="fas fa-sort"></i></th><th>Consol</th><th>Attachments</th><th>Updated By</th><th>Updated At</th><th>Actions</th></tr></thead><tbody id="mlTbl"></tbody></table></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><span id="mlCnt" style="font-size:13px;color:var(--muted)"></span><div style="display:flex;gap:8px"><button class="btn btn-sm btn-o" id="mlPrev" onclick="mlPage(-1)"><i class="fas fa-chevron-left"></i></button><span id="mlPg" style="font-size:13px;padding:4px 10px"></span><button class="btn btn-sm btn-o" id="mlNxt" onclick="mlPage(1)"><i class="fas fa-chevron-right"></i></button></div></div>
+</div></div>
+</section>
+
+<!-- Pending Allocation -->
+<section class="pg" id="pg-pending">
+<div class="pg-hdr"><h1><i class="fas fa-clock" style="color:var(--warn)"></i> Pending Allocation</h1></div>
+<div id="pendList"></div>
+</section>
+
+<!-- Fleet -->
+<section class="pg" id="pg-fleet">
+<div class="pg-hdr"><h1><i class="fas fa-truck-moving" style="color:var(--ok)"></i> Fleet Management</h1><div class="acts adm" style="display:none"><button class="btn btn-p" onclick="showTruckModal()"><i class="fas fa-plus"></i> Add Truck</button></div></div>
+<div class="fb"><div class="fg2"><label>Status</label><select class="f-input" id="fStatus" onchange="loadFleet()"><option value="">All</option><option value="available">Available</option><option value="assigned">Assigned</option><option value="busy">Busy</option><option value="maintenance">Maintenance</option></select></div></div>
+<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Plate #</th><th>Truck Type</th><th>Vendor</th><th>Driver</th><th>Phone</th><th>Current Requests</th><th>Status</th><th class="adm" style="display:none">Actions</th></tr></thead><tbody id="fTbl"></tbody></table></div></div></div>
+</section>
+
+<!-- Rates -->
+<section class="pg" id="pg-rates">
+<div class="pg-hdr"><h1><i class="fas fa-dollar-sign" style="color:var(--ok)"></i> Rate Management</h1><div class="acts"><button class="btn btn-p" onclick="showRateModal()"><i class="fas fa-plus"></i> Add Rate</button></div></div>
+<div class="fb"><input type="text" class="s-input" id="rSrch" placeholder="Search vendor..." oninput="loadRates()" style="width:200px"><div class="fg2"><label>Origin</label><select class="f-input" id="rOrg" onchange="loadRates()"></select></div><div class="fg2"><label>Dest</label><select class="f-input" id="rDst" onchange="loadRates()"></select></div></div>
+<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Vendor</th><th>Truck Type</th><th>Origin Port</th><th>Destination Port</th><th>Rate/Trip</th><th>Effective</th><th>Expiry</th><th>Actions</th></tr></thead><tbody id="rTbl"></tbody></table></div></div></div>
+</section>
+
+<!-- Vendor Evaluation -->
+<section class="pg" id="pg-evaluation">
+<div class="pg-hdr"><h1><i class="fas fa-star" style="color:var(--warn)"></i> Vendor Speed Performance</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="exportEvalCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
+<div class="card" style="margin-bottom:20px"><div class="card-h"><h3><i class="fas fa-filter"></i> Filters</h3></div><div class="card-b">
+<div class="fb" style="flex-wrap:wrap;gap:8px"><input type="text" class="s-input" id="evSrch" placeholder="Search request #..." oninput="loadEvals()" style="width:180px"><div class="fg2"><label>Vendor</label><select class="f-input" id="evVendor" onchange="loadEvals()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="evTT" onchange="loadEvals()"></select></div><div class="fg2"><label>Origin</label><select class="f-input" id="evOrg" onchange="loadEvals()"></select></div><div class="fg2"><label>Destination</label><select class="f-input" id="evDst" onchange="loadEvals()"></select></div><div class="fg2"><label>Account</label><select class="f-input" id="evAcct" onchange="loadEvals()"></select></div><div class="fg2"><label>Department</label><select class="f-input" id="evDept" onchange="loadEvals()"></select></div><div class="fg2"><label>Date From</label><input type="date" class="f-input" id="evFrom" onchange="loadEvals()"></div><div class="fg2"><label>Date To</label><input type="date" class="f-input" id="evTo" onchange="loadEvals()"></div></div>
+</div></div>
+<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortEval('request_number')">Request # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('drop_sequence')">Drop # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('department_name')">Dept <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortEval('status_name')">Status <i class="fas fa-sort"></i></th><th style="background:#EFF6FF;cursor:pointer" onclick="sortEval('lt_customs_to_arrival')">Customs to Arrival <i class="fas fa-sort"></i></th><th style="background:#EFF6FF;cursor:pointer" onclick="sortEval('lt_pickup_to_arrival')">Pickup to Arrival <i class="fas fa-sort"></i></th><th style="background:#F0FDF4;cursor:pointer" onclick="sortEval('lt_arrival_to_start_load')">Arrival to Start Load <i class="fas fa-sort"></i></th><th style="background:#F0FDF4;cursor:pointer" onclick="sortEval('lt_start_load_to_end_load')">Start to End Load <i class="fas fa-sort"></i></th><th style="background:#FFF7ED;cursor:pointer" onclick="sortEval('lt_end_load_to_arrived_dest')">End Load to Arrived Dest <i class="fas fa-sort"></i></th><th style="background:#FFF7ED;cursor:pointer" onclick="sortEval('lt_arrived_dest_to_start_unload')">Arrived to Start Unload <i class="fas fa-sort"></i></th><th style="background:#FFF7ED;cursor:pointer" onclick="sortEval('lt_start_unload_to_end_unload')">Start to End Unload <i class="fas fa-sort"></i></th><th style="background:#FDF2F8;cursor:pointer" onclick="sortEval('lt_full_leg')">Full Leg <i class="fas fa-sort"></i></th></tr></thead><tbody id="evTbl"></tbody></table></div></div></div>
+</section>
+
+<!-- Cost Analysis -->
+<section class="pg" id="pg-cost">
+<div class="pg-hdr"><h1><i class="fas fa-chart-pie" style="color:var(--info)"></i> Cost Analysis</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="exportCostCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
+<div class="card" style="margin-bottom:20px"><div class="card-h"><h3><i class="fas fa-filter"></i> Filters</h3></div><div class="card-b">
+<div class="fr3"><div class="fg"><label class="fl">Date From *</label><input type="date" class="fi" id="cFrom" required></div><div class="fg"><label class="fl">Date To *</label><input type="date" class="fi" id="cTo" required></div><div class="fg"><label class="fl">Account *</label><select class="fs" id="cAcct" required></select></div></div>
+<div class="fr3"><div class="fg"><label class="fl">Department *</label><select class="fs" id="cDept" required></select></div><div class="fg"><label class="fl">Origin Port</label><select class="fs" id="cOrg"></select></div><div class="fg"><label class="fl">Destination Port</label><select class="fs" id="cDst"></select></div></div>
+<div class="fr3"><div class="fg"><label class="fl">Vendor</label><select class="fs" id="cVendor"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="cStatus"></select></div><div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="loadCost()"><i class="fas fa-search"></i> Generate Report</button></div></div>
+</div></div>
+<div id="costRes" style="display:none"><div class="stats" id="cStats"></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-table"></i> Detailed Breakdown</h3></div><div class="card-b"><div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortCost('request_number')">Request # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('pickup_datetime')">Pickup <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('estimated_cost')">Est. Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('actual_cost')">Actual Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('status_name')">Status <i class="fas fa-sort"></i></th><th>Foul Trip Reason</th></tr></thead><tbody id="cTbl"></tbody></table></div></div></div>
+</div>
+</section>
+
+<!-- Master Library -->
+<section class="pg" id="pg-library">
+<div class="pg-hdr"><h1><i class="fas fa-book" style="color:var(--pri)"></i> Master Library</h1></div>
+<div class="tabs" id="libTabs"><button class="tab on" onclick="libTab('ports',this)">Ports</button><button class="tab" onclick="libTab('accounts',this)">Accounts</button><button class="tab" onclick="libTab('departments',this)">Departments</button><button class="tab" onclick="libTab('packaging_types',this)">Packaging</button><button class="tab" onclick="libTab('truck_statuses',this)">Statuses</button><button class="tab" onclick="libTab('truck_types',this)">Truck Types</button><button class="tab" onclick="libTab('vendors',this)">Vendors</button></div>
+<div class="card"><div class="card-b" id="libC"></div></div>
+</section>
+
+<!-- User Roles -->
+<section class="pg" id="pg-users">
+<div class="pg-hdr"><h1><i class="fas fa-users-cog" style="color:var(--pri)"></i> User Role Management</h1></div>
+<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody id="uTbl"></tbody></table></div></div></div>
+</section>
+
+</main>
+</div>
+
+<div class="toast-c" id="toasts"></div>
+<div class="mo" id="overlay"><div class="modal"><div class="modal-h"><h3 id="mTitle">Modal</h3><button class="mc-x" onclick="closeM()"><i class="fas fa-times"></i></button></div><div class="modal-b" id="mBody"></div><div class="modal-f" id="mFoot"></div></div></div>
+
+<script>
+let user=null,ports=[],accts=[],depts=[],pkgs=[],tts=[],sts=[],vendors=[];
+let mlPg=1,mlSort='created_at',mlDir='desc',mlTotal=0;
+
+async function init(){
+  try{
+    const me=await(await fetch('/api/me')).json();
+    user=me;
+    document.getElementById('uName').textContent=user.name;
+    document.getElementById('uRole').textContent=user.role.replace(/_/g,' ');
+    document.getElementById('uAv').textContent=user.name.charAt(0).toUpperCase();
+    const md=await(await fetch('/api/local-mode')).json();
+    if(md.local_mode)document.getElementById('localBadge').innerHTML='<span class="local-badge">Local Mode - Data not saved</span>';
+    const isAdmin=['master_admin','admin'].includes(user.role);
+    const isMaster=user.role==='master_admin';
+    document.querySelectorAll('.adm').forEach(e=>e.style.display=isAdmin?'':'none');
+    document.querySelectorAll('.madm').forEach(e=>e.style.display=isMaster?'':'none');
+    await loadMaster();
+    loadDash();
+    initBookingDate();
+  }catch(e){console.error(e)}
+}
+
+async function loadMaster(){
+  [ports,accts,depts,pkgs,tts,sts,vendors]=await Promise.all([
+    fetch('/api/ports').then(r=>r.json()),
+    fetch('/api/accounts').then(r=>r.json()),
+    fetch('/api/departments').then(r=>r.json()),
+    fetch('/api/packaging-types').then(r=>r.json()),
+    fetch('/api/truck-types').then(r=>r.json()),
+    fetch('/api/truck-statuses').then(r=>r.json()),
+    fetch('/api/vendors').then(r=>r.json())
+  ]);
+  popSel('rAcct',accts,'id','name','Select Account');
+  popSel('rDept',depts,'id','name','Select Department');
+  popSel('rOrigin',ports,'id','name','Select Origin');
+  popSel('rDest',ports,'id','name','Select Destination');
+  popSel('rPkg',pkgs,'id','name','Select Packaging',true);
+  popSel('mlSt',sts,'id','name','All Statuses',true);
+  popSel('mlAcct',accts,'id','name','All Accounts',true);
+  popSel('mlDept',depts,'id','name','All Depts',true);
+  popSel('rOrg',ports,'id','name','All Origins',true);
+  popSel('rDst',ports,'id','name','All Destinations',true);
+  popSel('cAcct',accts,'id','name','Select Account');
+  popSel('cDept',depts,'id','name','Select Department');
+  popSel('cOrg',ports,'id','name','All Origins',true);
+  popSel('cDst',ports,'id','name','All Destinations',true);
+  popSel('cVendor',vendors,'id','name','All Vendors',true);
+  popSel('cStatus',sts,'id','name','All Statuses',true);
+  popSel('mlOrg',ports,'id','name','All',true);
+  popSel('mlDst',ports,'id','name','All',true);
+  popSel('mlTT',tts,'id','name','All',true);
+  popSel('mlVendor',vendors,'id','name','All',true);
+  popSel('evVendor',vendors,'id','name','All Vendors',true);
+  popSel('evTT',tts,'id','name','All Truck Types',true);
+  popSel('evOrg',ports,'id','name','All Origins',true);
+  popSel('evDst',ports,'id','name','All Destinations',true);
+  popSel('evAcct',accts,'id','name','All Accounts',true);
+  popSel('evDept',depts,'id','name','All Departments',true);
+}
+
+async function refreshMasterData(){
+  await loadMaster();
+}
+
+function popSel(id,items,vk,lk,ph,empty=false){
+  const s=document.getElementById(id);if(!s)return;
+  s.innerHTML=empty?'<option value="">-- '+ph+' --</option>':'';
+  items.forEach(i=>{s.innerHTML+='<option value="'+i[vk]+'">'+i[lk]+'</option>'});
+}
+
+function showPage(pg){
+  document.querySelectorAll('.pg').forEach(s=>s.classList.remove('on'));
+  document.getElementById('pg-'+pg).classList.add('on');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const nav=document.querySelector('.nav-item[data-page="'+pg+'"]');
+  if(nav)nav.classList.add('active');
+  document.querySelector('.sidebar').classList.remove('open');
+  const loaders={dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,rates:loadRates,evaluation:loadEvals,cost:()=>{},library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers};
+  if(loaders[pg])loaders[pg]();
+}
+
+function toast(msg,type='ok'){
+  const c=document.getElementById('toasts');
+  const t=document.createElement('div');
+  t.className='toast t-'+(type==='ok'?'ok':type==='error'?'err':'info');
+  t.innerHTML='<i class="fas fa-'+(type==='ok'?'check-circle':type==='error'?'exclamation-circle':'info-circle')+'"></i> '+msg;
+  c.appendChild(t);setTimeout(()=>t.remove(),4000);
+}
+
+function fmtN(n){return parseFloat(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtD(d){if(!d)return'-';try{return new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}}
+function fmtS(b){if(!b)return'0 B';const u=['B','KB','MB','GB'];let i=0;let s=parseFloat(b);while(s>=1024&&i<3){s/=1024;i++}return s.toFixed(1)+' '+u[i]}
+function stBadge(name,color){return'<span class="badge" style="background:'+(color||'#6B7280')+'20;color:'+(color||'#6B7280')+'">'+(name||'')+'</span>'}
+
+// Dashboard
+async function loadDash(){
+  try{
+    const d=await(await fetch('/api/dashboard')).json();
+    document.getElementById('dStats').innerHTML=[
+      {ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:d.total_requests||0},
+      {ico:'fa-hourglass-half',c:'yl',l:'Pending',v:d.pending_allocation||0},
+      {ico:'fa-truck',c:'pp',l:'In Transit',v:d.in_transit||0},
+      {ico:'fa-check-circle',c:'gn',l:'Delivered',v:d.delivered||0},
+      {ico:'fa-times-circle',c:'rd',l:'Cancelled',v:d.cancelled||0},
+      {ico:'fa-truck',c:'gn',l:'Available Trucks',v:d.available_trucks||0},
+      {ico:'fa-money-bill-wave',c:'bl',l:'Total Cost',v:'₱'+fmtN(d.total_cost||0)},
+    ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+    const tb=document.getElementById('dRecent');
+    if(d.recent_requests&&d.recent_requests.length){
+      tb.innerHTML=d.recent_requests.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
+    }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-inbox"></i><p>No requests yet</p></td></tr>'}
+  }catch(e){console.error(e);toast('Dashboard load failed','error')}
+}
+
+// New Request
+async function submitReq(e){
+  e.preventDefault();
+  const origin=document.getElementById('rOrigin').value;
+  const dest=document.getElementById('rDest').value;
+  if(origin&&dest&&origin===dest){toast('Origin port cannot be the same as destination port','error');return}
+  const pkgId=document.getElementById('rPkg').value;
+  const qty=+document.getElementById('rQty').value||0;
+  if(!pkgId){toast('Packaging Type is required','error');return}
+  if(qty<=0){toast('Quantity must be greater than 0','error');return}
+  const today=new Date().toISOString().slice(0,10);
+  const body={
+    account_id:+document.getElementById('rAcct').value,
+    department_id:+document.getElementById('rDept').value,
+    origin_port_id:+document.getElementById('rOrigin').value,
+    destination_port_id:+document.getElementById('rDest').value,
+    packaging_type_id:+pkgId,
+    pickup_datetime:document.getElementById('rPickup').value||null,
+    call_datetime:document.getElementById('rCall').value||null,
+    customs_cleared_datetime:document.getElementById('rCustoms').value||null,
+    booking_date:today,
+    quantity:qty,
+    weight_kg:+document.getElementById('rWt').value||0,
+    volume_cbm:+document.getElementById('rVol').value||0,
+    special_instructions:document.getElementById('rNotes').value,
+    estimated_cost:0,
+    status_id:1
+  };
+  try{
+    const res=await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok){const err=await res.json();throw new Error(err.detail||'Failed')}
+    const r=await res.json();
+    toast('Request '+r.request_number+' created!');
+    document.getElementById('reqForm').reset();
+    initBookingDate();
+  }catch(e){toast(e.message,'error')}
+}
+
+function initBookingDate(){
+  const bd=document.getElementById('rBooking');
+  if(bd)bd.value=new Date().toISOString().slice(0,10);
+}
+
+// Masterlist
+let mlConsolData={};
+async function loadML(){
+  const p=new URLSearchParams({page:mlPg,per_page:50,sort_by:mlSort,sort_dir:mlDir});
+  const s=document.getElementById('mlSrch').value,st=document.getElementById('mlSt').value,a=document.getElementById('mlAcct').value,d=document.getElementById('mlDept').value;
+  const org=document.getElementById('mlOrg')?.value||'';
+  const dst=document.getElementById('mlDst')?.value||'';
+  const tt=document.getElementById('mlTT')?.value||'';
+  const vid=document.getElementById('mlVendor')?.value||'';
+  const bkFrom=document.getElementById('mlBookFrom')?.value||'';
+  const bkTo=document.getElementById('mlBookTo')?.value||'';
+  const pkFrom=document.getElementById('mlPickFrom')?.value||'';
+  const pkTo=document.getElementById('mlPickTo')?.value||'';
+  if(s)p.set('search',s);if(st)p.set('status_id',st);if(a)p.set('account_id',a);if(d)p.set('department_id',d);
+  if(org)p.set('origin_port_id',org);if(dst)p.set('destination_port_id',dst);if(tt)p.set('truck_type_id',tt);
+  if(vid)p.set('vendor_id',vid);if(bkFrom)p.set('booking_from',bkFrom);if(bkTo)p.set('booking_to',bkTo);
+  if(pkFrom)p.set('pickup_from',pkFrom);if(pkTo)p.set('pickup_to',pkTo);
+  try{
+    const data=await(await fetch('/api/requests?'+p.toString())).json();
+    mlTotal=data.total||0;
+    document.getElementById('mlCnt').textContent='Showing '+(data.items||[]).length+' of '+mlTotal;
+    document.getElementById('mlPg').textContent='Page '+mlPg;
+    document.getElementById('mlPrev').disabled=mlPg<=1;
+    document.getElementById('mlNxt').disabled=mlPg*50>=mlTotal;
+    const tb=document.getElementById('mlTbl');
+    if(data.items&&data.items.length){
+      tb.innerHTML=data.items.map(r=>{
+        const consolTag=r.assigned_truck_id&&data.items.filter(x=>x.assigned_truck_id===r.assigned_truck_id&&x.id!==r.id).length>0;
+        const attInd=(r.attachments&&r.attachments.length)?'<i class="fas fa-paperclip" style="color:var(--pri)" title="'+r.attachments.length+' attachment(s)"></i> '+r.attachments.length:'-';
+        let dropCell='-';
+        if(r.trip_id&&r.status_id===2){
+          const siblings=data.items.filter(x=>x.assigned_truck_id===r.assigned_truck_id&&x.status_id===2&&x.trip_id);
+          const maxDrop=siblings.length;
+          const curDrop=r.drop_sequence||0;
+          const canUp=curDrop>1;
+          const canDn=curDrop<maxDrop;
+          dropCell='<div style="display:flex;align-items:center;gap:4px"><button class="btn btn-sm btn-o" onclick="reorderDrop('+r.id+','+curDrop+','+(curDrop-1)+')" style="padding:2px 6px;font-size:10px"'+(canUp?'':' disabled')+'><i class="fas fa-chevron-up"></i></button><strong style="min-width:18px;text-align:center">'+curDrop+'</strong><button class="btn btn-sm btn-o" onclick="reorderDrop('+r.id+','+curDrop+','+(curDrop+1)+')" style="padding:2px 6px;font-size:10px"'+(canDn?'':' disabled')+'><i class="fas fa-chevron-down"></i></button></div>';
+        }else if(r.trip_id&&r.drop_sequence){
+          dropCell='<strong>'+r.drop_sequence+'</strong>';
+        }
+        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+dropCell+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td><td><button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':'')+'</td></tr>';
+      }).join('');
+    }else{tb.innerHTML='<tr><td colspan="21" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
+  }catch(e){console.error(e)}
+}
+function sortML(f){if(mlSort===f)mlDir=mlDir==='desc'?'asc':'desc';else{mlSort=f;mlDir='desc'}loadML()}
+function mlPage(d){mlPg+=d;if(mlPg<1)mlPg=1;loadML()}
+async function reorderDrop(rid,oldSeq,newSeq){
+  if(newSeq<1)return;
+  try{await fetch('/api/requests/'+rid+'/drop-sequence',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({drop_sequence:newSeq})});toast('Drop # updated');loadML()}catch(e){toast('Failed','error')}
+}
+
+async function viewReq(id){
+  try{
+    const r=await(await fetch('/api/requests/'+id)).json();
+    const atts=(r.attachments||[]).map(a=>'<div class="att-item"><div class="att-info"><i class="fas fa-file"></i><div><div class="att-nm">'+a.original_filename+'</div><div class="att-sz">'+fmtS(a.file_size)+'</div></div></div><a href="/api/attachments/'+a.id+'/download" class="btn btn-sm btn-p"><i class="fas fa-download"></i></a></div>').join('');
+    document.getElementById('mTitle').textContent=r.request_number;
+    document.getElementById('mBody').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><label class="fl">Requestor</label><p>'+(r.requestor_name||'')+' ('+(r.requestor_email||'')+')</p></div><div><label class="fl">Status</label><p>'+stBadge(r.status_name,r.status_color)+'</p></div><div><label class="fl">Account</label><p>'+(r.account_name||'')+'</p></div><div><label class="fl">Department</label><p>'+(r.department_name||'')+'</p></div><div><label class="fl">Origin</label><p>'+(r.origin_port_name||'')+'</p></div><div><label class="fl">Destination</label><p>'+(r.destination_port_name||'')+'</p></div><div><label class="fl">Call Date/Time</label><p>'+fmtD(r.call_datetime)+'</p></div><div><label class="fl">Pickup</label><p>'+fmtD(r.pickup_datetime)+'</p></div><div><label class="fl">Customs Cleared</label><p>'+fmtD(r.customs_cleared_datetime)+'</p></div><div><label class="fl">Booking Date</label><p>'+(r.booking_date||'-')+'</p></div><div><label class="fl">Truck Type</label><p>'+(r.truck_type_name||'')+'</p></div><div><label class="fl">Packaging</label><p>'+(r.packaging_type_name||'')+'</p></div><div><label class="fl">Quantity</label><p>'+(r.quantity||0)+'</p></div><div><label class="fl">Weight</label><p>'+(r.weight_kg||0)+' KG</p></div><div><label class="fl">Volume</label><p>'+(r.volume_cbm||0)+' CBM</p></div></div>'+(r.special_instructions?'<div style="margin-top:16px"><label class="fl">Special Instructions</label><p>'+r.special_instructions+'</p></div>':'')+'<div style="margin-top:16px"><label class="fl">Attachments ('+(r.attachments||[]).length+'/8)</label>'+(atts||'<p style="color:var(--muted);font-size:13px">No attachments</p>')+'</div>';
+    document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Close</button>';
+    document.getElementById('overlay').classList.add('on');
+  }catch(e){toast('Failed to load request','error')}
+}
+
+async function editReq(id){
+  try{
+    const r=await(await fetch('/api/requests/'+id)).json();
+    const tripDateVal=(r.trip_date||'').slice(0,10);
+    function toDT(v){if(!v)return'';const s=String(v).replace(' ','T').slice(0,16);return s}
+    document.getElementById('mTitle').textContent='Edit '+r.request_number;
+    document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Account</label><select class="fs" id="eAcct"></select></div><div class="fg"><label class="fl">Department</label><select class="fs" id="eDept"></select></div></div><div class="fr"><div class="fg"><label class="fl">Origin</label><select class="fs" id="eOrg"></select></div><div class="fg"><label class="fl">Destination</label><select class="fs" id="eDst"></select></div></div><div class="fr"><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="eTT"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="eSt"></select></div></div><div class="fr3"><div class="fg"><label class="fl">Pickup</label><input type="datetime-local" class="fi" id="ePickup" value="'+toDT(r.pickup_datetime)+'"></div><div class="fg"><label class="fl">Call Date</label><input type="datetime-local" class="fi" id="eCall" value="'+toDT(r.call_datetime)+'"></div><div class="fg"><label class="fl">Customs Cleared</label><input type="datetime-local" class="fi" id="eCustoms" value="'+toDT(r.customs_cleared_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Qty</label><input type="number" class="fi" id="eQty" value="'+(r.quantity||0)+'"></div><div class="fg"><label class="fl">Weight</label><input type="number" step="0.01" class="fi" id="eWt" value="'+(r.weight_kg||0)+'"></div><div class="fg"><label class="fl">Volume</label><input type="number" step="0.01" class="fi" id="eVol" value="'+(r.volume_cbm||0)+'"></div></div><div class="fg"><label class="fl">Instructions</label><textarea class="ft" id="eNotes">'+(r.special_instructions||'')+'</textarea></div><hr style="margin:12px 0;border-color:var(--bdr)"><h4 style="font-size:14px;font-weight:600;margin-bottom:12px">Trip Details</h4><div class="fg"><label class="fl">Foul Trip Reason</label><input class="fi" id="eFoul" value="'+(r.foul_trip_reason||'')+'" placeholder="Required if Foul Trip status"></div><div class="fr3"><div class="fg"><label class="fl">Arrived Pickup</label><input type="datetime-local" class="fi" id="eArrPickup" value="'+toDT(r.arrived_pickup_datetime)+'"></div><div class="fg"><label class="fl">Start Loading</label><input type="datetime-local" class="fi" id="eStartLoad" value="'+toDT(r.start_loading_datetime)+'"></div><div class="fg"><label class="fl">End Loading</label><input type="datetime-local" class="fi" id="eEndLoad" value="'+toDT(r.end_loading_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Destination</label><input type="datetime-local" class="fi" id="eArrDest" value="'+toDT(r.arrived_dest_datetime)+'"></div><div class="fg"><label class="fl">Start Unloading</label><input type="datetime-local" class="fi" id="eStartUnload" value="'+toDT(r.start_unloading_datetime)+'"></div><div class="fg"><label class="fl">End Unloading</label><input type="datetime-local" class="fi" id="eEndUnload" value="'+toDT(r.end_unloading_datetime)+'"></div></div><div class="fg"><label class="fl">Attachments ('+(r.attachments||[]).length+'/8)</label><div id="eAtts"></div><input type="file" class="fi" id="eFile" multiple accept="*/*" style="margin-top:8px"></div>';
+    popSel('eAcct',accts,'id','name');popSel('eDept',depts,'id','name');popSel('eOrg',ports,'id','name');popSel('eDst',ports,'id','name');popSel('eTT',tts,'id','name');
+    const validTrans={1:[1,2,3,4,5,6,7],2:[1,2,3,4,5,6,7],3:[3,4,5,6,7],4:[4,6],5:[5,6],6:[3,4,5,6,7],7:[6,7]};
+    const allowed=validTrans[r.status_id]||[r.status_id];
+    const filteredSts=sts.filter(s=>allowed.includes(s.id));
+    popSel('eSt',filteredSts,'id','name');
+    document.getElementById('eAcct').value=r.account_id;document.getElementById('eDept').value=r.department_id;document.getElementById('eOrg').value=r.origin_port_id;document.getElementById('eDst').value=r.destination_port_id;document.getElementById('eTT').value=r.truck_type_id;document.getElementById('eSt').value=r.status_id;
+    document.getElementById('eAtts').innerHTML=(r.attachments||[]).map(a=>'<div class="att-item"><div class="att-info"><i class="fas fa-file"></i><div><div class="att-nm">'+a.original_filename+'</div><div class="att-sz">'+fmtS(a.file_size)+'</div></div></div><div><a href="/api/attachments/'+a.id+'/download" class="btn btn-sm btn-o"><i class="fas fa-download"></i></a> <button class="btn btn-sm btn-d" onclick="delAtt('+a.id+','+id+')"><i class="fas fa-trash"></i></button></div></div>').join('');
+    document.getElementById('eFile').onchange=async()=>{const files=document.getElementById('eFile').files;for(const f of files){const fd=new FormData();fd.append('file',f);await fetch('/api/requests/'+id+'/attachments',{method:'POST',body:fd});toast(f.name+' uploaded')}editReq(id)};
+    document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveReq('+id+')"><i class="fas fa-save"></i> Save</button>';
+    document.getElementById('overlay').classList.add('on');
+  }catch(e){toast('Failed','error')}
+}
+
+async function saveReq(id){
+  const statusId=+document.getElementById('eSt').value;
+  if(statusId===4){
+    const arrPick=document.getElementById('eArrPickup').value;
+    const startLoad=document.getElementById('eStartLoad').value;
+    const endLoad=document.getElementById('eEndLoad').value;
+    const arrDest=document.getElementById('eArrDest').value;
+    const startUnload=document.getElementById('eStartUnload').value;
+    const endUnload=document.getElementById('eEndUnload').value;
+    if(!arrPick||!startLoad||!endLoad||!arrDest||!startUnload||!endUnload){toast('Delivered status requires: Arrived Pickup, Start Loading, End Loading, Arrived Destination, Start Unloading, End Unloading','error');return}
+    const events=[{v:arrPick,l:'Arrived Pickup'},{v:startLoad,l:'Start Loading'},{v:endLoad,l:'End Loading'},{v:arrDest,l:'Arrived Destination'},{v:startUnload,l:'Start Unloading'},{v:endUnload,l:'End Unloading'}];
+    for(let i=1;i<events.length;i++){
+      if(events[i].v<events[i-1].v){toast(events[i].l+' ('+events[i].v+') cannot be earlier than '+events[i-1].l+' ('+events[i-1].v+')','error');return}
+    }
+  }
+  if(statusId===7){
+    const foulReason=document.getElementById('eFoul').value;
+    if(!foulReason||!foulReason.trim()){toast('Foul Trip reason is required','error');return}
+  }
+  const body={account_id:+document.getElementById('eAcct').value,department_id:+document.getElementById('eDept').value,origin_port_id:+document.getElementById('eOrg').value,destination_port_id:+document.getElementById('eDst').value,truck_type_id:+document.getElementById('eTT').value,status_id:statusId,pickup_datetime:document.getElementById('ePickup').value||null,call_datetime:document.getElementById('eCall').value||null,customs_cleared_datetime:document.getElementById('eCustoms').value||null,quantity:+document.getElementById('eQty').value||0,weight_kg:+document.getElementById('eWt').value||0,volume_cbm:+document.getElementById('eVol').value||0,special_instructions:document.getElementById('eNotes').value,arrived_pickup_datetime:document.getElementById('eArrPickup').value||null,start_loading_datetime:document.getElementById('eStartLoad').value||null,end_loading_datetime:document.getElementById('eEndLoad').value||null,arrived_dest_datetime:document.getElementById('eArrDest').value||null,start_unloading_datetime:document.getElementById('eStartUnload').value||null,end_unloading_datetime:document.getElementById('eEndUnload').value||null,foul_trip_reason:document.getElementById('eFoul').value};
+  try{const res=await fetch('/api/requests/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail||'Failed')}toast('Request updated');closeM();loadML();loadDash()}catch(e){toast(e.message,'error')}
+}
+
+async function delReq(id){if(!confirm('Delete this request?'))return;try{await fetch('/api/requests/'+id,{method:'DELETE'});toast('Deleted');loadML()}catch(e){toast('Failed','error')}}
+
+async function delAtt(aid,rid){if(!confirm('Delete attachment?'))return;try{await fetch('/api/attachments/'+aid,{method:'DELETE'});toast('Deleted');editReq(rid)}catch(e){toast('Failed','error')}}
+
+function exportCSV(){
+  toast('Exporting... (use Print to save as PDF)','info');
+}
+
+// Pending Allocations
+let pendData=[];
+function parseDt(s){if(!s)return null;try{return new Date(s.replace(' ','T'))}catch(e){return null}}
+function fmtDtShort(s){const d=parseDt(s);if(!d)return'-';return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+', '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
+function groupPendItems(items){
+  const byOrigin={};
+  items.forEach(item=>{
+    const oid=item.origin_port_id||0;
+    if(!byOrigin[oid])byOrigin[oid]={origin_id:oid,origin_name:item.origin_port_name||'Unknown',groups:[]};
+    const ref=parseDt(item.call_datetime)||parseDt(item.pickup_datetime);
+    let placed=false;
+    if(ref){
+      for(const g of byOrigin[oid].groups){
+        if(!g._hasRef)continue;
+        const gRef=parseDt(g.call_datetime)||parseDt(g.pickup_datetime);
+        if(gRef&&Math.abs(ref-gRef)<=14400000){
+          g.items.push(item);placed=true;break;
+        }
+      }
+    }
+    if(!placed){
+      const grp={call_datetime:item.call_datetime,pickup_datetime:item.pickup_datetime,items:[item],_hasRef:!!ref};
+      if(!ref){
+        let noDateGrp=byOrigin[oid].groups.find(g=>!g._hasRef);
+        if(noDateGrp){noDateGrp.items.push(item);return}
+      }
+      byOrigin[oid].groups.push(grp);
+    }
+  });
+  byOrigin.forEach&&Object.values(byOrigin).forEach(og=>{
+    og.groups.sort((a,b)=>{
+      if(!a._hasRef&&!b._hasRef)return 0;
+      if(!a._hasRef)return 1;
+      if(!b._hasRef)return-1;
+      const aRef=parseDt(a.call_datetime)||parseDt(a.pickup_datetime);
+      const bRef=parseDt(b.call_datetime)||parseDt(b.pickup_datetime);
+      return(aRef&&bRef)?aRef-bRef:0;
+    });
+    og.groups.forEach(g=>{
+      g.items.sort((a,b)=>{
+        const aRef=parseDt(a.call_datetime)||parseDt(a.pickup_datetime);
+        const bRef=parseDt(b.call_datetime)||parseDt(b.pickup_datetime);
+        if(aRef&&bRef)return aRef-bRef;
+        if(aRef)return-1;
+        if(bRef)return 1;
+        return 0;
+      });
+    });
+  });
+  return Object.values(byOrigin);
+}
+async function loadPend(){
+  try{
+    pendData=await(await fetch('/api/pending-allocations')).json();
+    const el=document.getElementById('pendList');
+    if(!pendData.length){el.innerHTML='<div class="card"><div class="card-b"><div class="empty"><i class="fas fa-check-circle"></i><p>No pending allocations</p></div></div></div>';return}
+    let html='<div class="card" style="margin-bottom:16px"><div class="card-b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><label class="fl" style="margin:0"><input type="checkbox" id="selectAllPend" onchange="toggleSelectAll()"> Select All</label><span id="selCount" style="font-size:13px;color:var(--muted)"></span></div><div id="pendOriginWarn" style="display:none;padding:8px 12px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E;margin-bottom:4px"><i class="fas fa-info-circle"></i> Only requests with the same origin port can be consolidated together.</div></div></div>';
+    const originGroups=groupPendItems(pendData);
+    originGroups.forEach(og=>{
+      html+='<div style="margin-bottom:20px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;background:var(--pri);color:#fff;border-radius:8px;font-weight:600;font-size:14px"><i class="fas fa-map-marker-alt"></i> '+og.origin_name+' <span style="font-weight:400;font-size:12px;opacity:.8">('+og.groups.length+' time window(s), '+og.groups.reduce((a,g)=>a+g.items.length,0)+' requests)</span></div>';
+      og.groups.forEach((grp,gi)=>{
+        const grpDt=parseDt(grp.call_datetime)||parseDt(grp.pickup_datetime);
+        const allDates=grp.items.map(i=>parseDt(i.call_datetime)||parseDt(i.pickup_datetime)).filter(Boolean);
+        let windowLabel='';
+        if(!grp._hasRef){
+          windowLabel='No Date / Pending Scheduling';
+        }else if(allDates.length>1){
+          const earliest=new Date(Math.min(...allDates));
+          const latest=new Date(Math.max(...allDates));
+          windowLabel=fmtDtShort(earliest.toISOString())+' - '+fmtDtShort(latest.toISOString());
+        }else if(grpDt){
+          windowLabel=fmtDtShort(grpDt.toISOString());
+        }
+        if(windowLabel){
+          const bgClr=grp._hasRef?'#EFF6FF':'#F3F4F6';
+          const txtClr=grp._hasRef?'var(--pri)':'#6B7280';
+          html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;margin-left:8px;padding:4px 10px;background:'+bgClr+';border-radius:6px;font-size:12px;color:'+txtClr+';font-weight:500"><i class="fas fa-clock"></i> '+windowLabel+'</div>';
+        }
+        grp.items.forEach(item=>{
+          const sugs=(item.consolidation_suggestions||[]);
+          html+='<div class="card pend-card" style="margin-bottom:10px;margin-left:16px"><div class="card-b" style="padding:14px 18px"><div style="display:flex;align-items:flex-start;gap:12px"><input type="checkbox" class="pend-check" data-id="'+item.id+'" data-truck-type="'+(item.truck_type_id||0)+'" data-qty="'+(item.quantity||0)+'" data-pkg="'+(item.packaging_type_id||0)+'" data-origin="'+(item.origin_port_id||0)+'" onchange="onPendCheck()" style="margin-top:4px;width:18px;height:18px;cursor:pointer"><div style="flex:1"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--pri);font-size:14px">'+item.request_number+'</strong>'+stBadge(item.status_name||'Pending','#F59E0B')+'</div><div class="fr" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:0"><div><label class="fl">Requestor</label><p style="font-size:13px">'+(item.requestor_name||'')+'</p></div><div><label class="fl">Department</label><p style="font-size:13px">'+(item.department_name||'')+'</p></div><div><label class="fl">Origin Port</label><p style="font-size:13px">'+(item.origin_port_name||'')+'</p></div><div><label class="fl">Destination Port</label><p style="font-size:13px">'+(item.destination_port_name||'')+'</p></div><div><label class="fl">Pickup</label><p style="font-size:13px">'+fmtD(item.pickup_datetime)+'</p></div></div><div class="fr" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:6px;margin-bottom:0"><div><label class="fl">Call Date</label><p style="font-size:13px">'+fmtD(item.call_datetime)+'</p></div><div><label class="fl">Packaging</label><p style="font-size:13px">'+(item.packaging_type_name||'-')+'</p></div><div><label class="fl">Qty</label><p style="font-size:13px">'+(item.quantity||0)+'</p></div><div><label class="fl">Weight / Volume</label><p style="font-size:13px">'+(item.weight_kg||0)+' KG / '+(item.volume_cbm||0)+' CBM</p></div><div></div></div>'+(sugs.length?'<div style="margin-top:8px;border:1px solid #FCD34D;border-radius:6px;overflow:hidden"><div class="sugs-toggle" onclick="this.parentElement.classList.toggle(\'expanded\');this.querySelector(\'i\').className=this.parentElement.classList.contains(\'expanded\')?\'fas fa-chevron-up\':\'fas fa-chevron-down\'" style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#FEF3C7;border-radius:6px;font-size:12px;cursor:pointer;user-select:none"><i class="fas fa-chevron-down" style="color:var(--warn);font-size:10px"></i><i class="fas fa-link" style="color:var(--warn)"></i> <strong>'+sugs.length+'</strong> consolidation suggestion(s)</div><div class="sugs-body" style="padding:6px 10px 10px">'+sugs.map(s=>'<div style="margin-top:5px;padding:6px 8px;background:#fff;border-radius:4px;border:1px solid #FCD34D"><strong style="color:var(--pri)">'+s.request_number+'</strong> — '+s.requestor_name+'<br>Pickup: '+fmtD(s.pickup_datetime)+' | Qty: '+s.quantity+' | '+s.packaging_type_name+'<br>Weight: '+(s.weight_kg||0)+' KG | Volume: '+(s.volume_cbm||0)+' CBM<br><span style="color:var(--muted);font-style:italic">'+(s.reason||'')+'</span></div>').join('')+'</div></div>':'')+'</div></div></div></div>';
+        });
+      });
+      html+='</div>';
+    });
+    html+='<div id="pendAssignPanel" style="display:none"><div class="card" style="border:2px solid var(--pri)"><div class="card-h" style="background:rgba(37,99,235,.05)"><h3><i class="fas fa-truck" style="color:var(--pri)"></i> Assign to Truck</h3></div><div class="card-b"><div id="consolWarn" style="display:none;padding:12px;background:#FEE2E2;border-radius:8px;margin-bottom:12px;font-size:13px;color:#DC2626"><i class="fas fa-exclamation-triangle"></i> <span id="consolWarnTxt"></span></div><div id="dropOrderSection" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg);border-radius:8px"><label class="fl" style="margin-bottom:8px">Step 1: Set Drop Point Order (1st = first delivery)</label><div id="dropOrderRows"></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 2: Select Truck Type *</label><select class="fs" id="pendTruckType" onchange="onTruckTypeChange()"><option value="">Select truck type...</option></select></div><div class="fg"><label class="fl">Step 3: Select Truck *</label><select class="fs" id="pendTruck" onchange="onPendTruckChange()"><option value="">Select truck type first...</option></select></div></div><div class="fr" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Plate Number</label><input class="fi" id="pendPlate" readonly placeholder="Auto-populated"></div><div class="fg"><label class="fl">Driver Name</label><input class="fi" id="pendDriver" readonly placeholder="Auto-populated"></div><div class="fg"><label class="fl">Driver Phone</label><input class="fi" id="pendPhone" readonly placeholder="Auto-populated"></div><div></div></div><div id="consolSummary" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div style="display:flex;gap:10px"><button class="btn btn-p" onclick="allocateSelected()"><i class="fas fa-check"></i> Allocate Selected</button><button class="btn btn-o" onclick="clearPendSelection()"><i class="fas fa-times"></i> Cancel</button></div></div></div></div>';
+    el.innerHTML=html;
+  }catch(e){console.error(e)}
+}
+
+function toggleSelectAll(){
+  const checked=document.getElementById('selectAllPend').checked;
+  const firstOrigin=pendData.length?pendData[0].origin_port_id:null;
+  document.querySelectorAll('.pend-check').forEach(c=>{
+    if(checked){c.checked=(+c.dataset.origin===firstOrigin)}else{c.checked=false}
+  });
+  onPendCheck();
+}
+
+let pendSelectedOrigin=null;
+let pendAllTrucks=[];
+function onPendCheck(){
+  const allChecks=[...document.querySelectorAll('.pend-check:checked')];
+  const panel=document.getElementById('pendAssignPanel');
+  const cnt=document.getElementById('selCount');
+  const warnEl=document.getElementById('pendOriginWarn');
+  cnt.textContent=allChecks.length+' selected';
+  if(!allChecks.length){panel.style.display='none';warnEl.style.display='none';pendSelectedOrigin=null;return}
+  const firstOrigin=+allChecks[0].dataset.origin;
+  if(pendSelectedOrigin===null)pendSelectedOrigin=firstOrigin;
+  const sameOrigin=allChecks.filter(c=>+c.dataset.origin===pendSelectedOrigin);
+  const otherOrigin=allChecks.filter(c=>+c.dataset.origin!==pendSelectedOrigin);
+  if(otherOrigin.length>0){
+    warnEl.style.display='block';
+    otherOrigin.forEach(c=>c.checked=false);
+    pendSelectedOrigin=null;
+    onPendCheck();
+    return;
+  }
+  warnEl.style.display='none';
+  panel.style.display='block';
+  pendAllTrucks=[];
+  const truckMap=new Map();
+  sameOrigin.forEach(c=>{
+    const item=pendData.find(p=>p.id===+c.dataset.id);
+    if(item&&item.available_trucks){
+      item.available_trucks.forEach(t=>{
+        if((t.remaining_qty===undefined||t.remaining_qty>0)&&!truckMap.has(t.id)){
+          const origins=t.assigned_origins||[];
+          if(origins.length===0||origins.includes(pendSelectedOrigin)){
+            truckMap.set(t.id,t);
+          }
+        }
+      });
+    }
+  });
+  pendAllTrucks=[...truckMap.values()];
+  const ttSel=document.getElementById('pendTruckType');
+  ttSel.innerHTML='<option value="">Select truck type...</option>';
+  const types=new Map();
+  pendAllTrucks.forEach(t=>{if(!types.has(t.truck_type_id))types.set(t.truck_type_id,t.truck_type_name||'Truck')});
+  types.forEach((name,id)=>{ttSel.innerHTML+='<option value="'+id+'">'+name+'</option>'});
+  const dropSection=document.getElementById('dropOrderSection');
+  const dropRows=document.getElementById('dropOrderRows');
+  if(sameOrigin.length>1){
+    dropSection.style.display='block';
+    let dropHtml='';
+    sameOrigin.forEach((c,i)=>{
+      const item=pendData.find(p=>p.id===+c.dataset.id);
+      const rn=item?item.request_number:c.dataset.id;
+      const destName=item?item.destination_port_name:'';
+      const originName=item?item.origin_port_name:'';
+      const pkgName=item?item.packaging_type_name:'';
+      const qty=item?item.quantity:0;
+      const pickup=item?fmtD(item.pickup_datetime):'';
+      const callDt=item?fmtD(item.call_datetime):'-';
+      const opts=[1,2,3,4,5,6,7,8,9,10].map(n=>'<option value="'+n+'"'+(n===i+1?' selected':'')+'>'+n+'</option>').join('');
+      const totalDrops=sameOrigin.length;
+      const dropOpts=Array.from({length:totalDrops},(_, n)=>'<option value="'+(n+1)+'"'+(n===i?' selected':'')+'>'+(n+1)+'</option>').join('');
+      dropHtml+='<div style="display:grid;grid-template-columns:auto auto 1fr;gap:6px 12px;align-items:center;margin-bottom:8px;padding:8px 10px;background:var(--bg);border-radius:6px;font-size:12px"><span style="font-size:11px;color:var(--muted);white-space:nowrap"><b>Drop</b></span><select class="fs drop-order-select" data-pa-id="'+c.dataset.id+'" onchange="onDropOrderSwap(this)" style="width:55px;font-size:13px;font-weight:700;padding:4px 6px">'+dropOpts+'</select><div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center"><strong style="color:var(--pri)">'+rn+'</strong><span><b>From:</b> '+originName+'</span><span><b>To:</b> '+destName+'</span><span><b>Pkg:</b> '+pkgName+'</span><span><b>Qty:</b> '+qty+'</span><span><b>Pickup:</b> '+pickup+'</span><span><b>Call:</b> '+callDt+'</span></div></div>';
+    });
+    dropRows.innerHTML=dropHtml;
+  }else{
+    dropSection.style.display='none';
+    dropRows.innerHTML='';
+  }
+  document.getElementById('pendTruck').innerHTML='<option value="">Select truck type first...</option>';
+  document.getElementById('pendPlate').value='';
+  document.getElementById('pendDriver').value='';
+  document.getElementById('pendPhone').value='';
+  document.getElementById('consolWarn').style.display='none';
+  document.getElementById('consolSummary').style.display='none';
+}
+function onTruckTypeChange(){
+  const ttId=+document.getElementById('pendTruckType').value||0;
+  const sel=document.getElementById('pendTruck');
+  sel.innerHTML='<option value="">Select truck...</option>';
+  if(!ttId)return;
+  const sameType=pendAllTrucks.filter(t=>t.truck_type_id===ttId).sort((a,b)=>(a.rate_per_trip||999999)-(b.rate_per_trip||999999));
+  const cheapestRate=sameType.filter(t=>t.rate_per_trip>0).sort((a,b)=>a.rate_per_trip-b.rate_per_trip);
+  sameType.forEach(t=>{
+    const pkgLabel=t.majority_pkg_name||'units';
+    const statusLabel=t.status==='assigned'?' [Assigned]':'';
+    const remainLabel=t.remaining_qty!==undefined?t.remaining_qty:'?';
+    const isRec=cheapestRate.length>=2&&t.rate_per_trip===cheapestRate[0].rate_per_trip;
+    const recLabel=isRec?' *(RECOMMENDED)*':'';
+    const optText=t.plate_number+' ('+t.vendor_name+') ['+remainLabel+' remaining ('+pkgLabel+')]'+recLabel+statusLabel;
+    sel.innerHTML+='<option value="'+t.id+'" data-driver="'+(t.driver_name||'')+'" data-phone="'+(t.driver_phone||'')+'" data-tt="'+(t.truck_type_id||0)+'" data-max-qty="'+(t.max_qty||0)+'" data-cur-qty="'+(t.current_qty||0)+'" data-remain-qty="'+(t.remaining_qty||999)+'"'+(isRec?' style="font-weight:700;color:#DC2626"':'')+'>'+optText+'</option>';
+  });
+}
+
+function onPendTruckChange(){
+  const sel=document.getElementById('pendTruck');
+  const opt=sel.options[sel.selectedIndex];
+  const checked=[...document.querySelectorAll('.pend-check:checked')];
+  if(!opt||!opt.value||!checked.length){
+    document.getElementById('pendPlate').value='';
+    document.getElementById('pendDriver').value='';
+    document.getElementById('pendPhone').value='';
+    document.getElementById('consolWarn').style.display='none';
+    document.getElementById('consolSummary').style.display='none';
+    return;
+  }
+  document.getElementById('pendPlate').value=opt.text.split(' (')[0];
+  document.getElementById('pendDriver').value=opt.getAttribute('data-driver')||'';
+  document.getElementById('pendPhone').value=opt.getAttribute('data-phone')||'';
+  const maxQty=parseInt(opt.dataset.maxQty)||0;
+  const curQty=parseInt(opt.dataset.curQty)||0;
+  const remainQty=parseInt(opt.dataset.remainQty)||999;
+  let totalQty=0;
+  const pkgCounts={};
+  checked.forEach(c=>{
+    const qty=parseInt(c.dataset.qty)||0;
+    totalQty+=qty;
+    const pkgId=c.dataset.pkg||'0';
+    pkgCounts[pkgId]=(pkgCounts[pkgId]||0)+qty;
+  });
+  const pkgName=pendData.find(p=>p.id===+checked[0].dataset.id)?.packaging_type_name||'units';
+  const warnEl=document.getElementById('consolWarn');
+  const warnTxt=document.getElementById('consolWarnTxt');
+  const optData=opt.value?pendAllTrucks.find(t=>t.id===+opt.value):null;
+  const pkgCaps=optData?.pkg_capacities||{};
+  const pkgNameMap={};
+  checked.forEach(c=>{
+    const pd=pendData.find(p=>p.id===+c.dataset.id);
+    if(pd)pkgNameMap[c.dataset.pkg]=pd.packaging_type_name||'units';
+  });
+  const msgs=[];
+  for(const [pkgId,pkgQty] of Object.entries(pkgCounts)){
+    const capInfo=pkgCaps[pkgId];
+    if(capInfo&&pkgQty>capInfo.max){
+      msgs.push('<strong>'+(pkgNameMap[pkgId]||pkgId)+'</strong>: '+pkgQty+' ordered vs '+capInfo.max+' capacity');
+    }
+  }
+  if(msgs.length){
+    warnEl.style.display='block';
+    warnEl.style.background='#FEE2E2';
+    warnEl.style.color='#DC2626';
+    warnTxt.innerHTML='<i class="fas fa-exclamation-triangle"></i> <strong>Overload Warning:</strong> '+msgs.join('; ')+'. You can still proceed, but this will overbook the truck.';
+  }else{
+    warnEl.style.display='none';
+    if(checked.length>1){
+      const sumEl=document.getElementById('consolSummary');
+      sumEl.style.display='block';
+      sumEl.innerHTML='<i class="fas fa-layer-group" style="color:var(--info)"></i> <strong>Consolidation Summary:</strong> '+checked.length+' requests | Total: '+totalQty+' '+pkgName+(maxQty>0?' (Remaining: '+remainQty+' '+pkgName+', Max: '+maxQty+')':'');
+    }else{document.getElementById('consolSummary').style.display='none'}
+  }
+}
+
+function clearPendSelection(){
+  document.querySelectorAll('.pend-check').forEach(c=>c.checked=false);
+  document.getElementById('selectAllPend').checked=false;
+  pendSelectedOrigin=null;
+  pendAllTrucks=[];
+  onPendCheck();
+}
+
+function onDropOrderSwap(changedSelect){
+  const newVal=+changedSelect.value;
+  const paId=+changedSelect.dataset.paId;
+  const allSelects=[...document.querySelectorAll('.drop-order-select')];
+  for(const s of allSelects){
+    if(+s.dataset.paId===paId)continue;
+    if(+s.value===newVal){
+      const occupied=allSelects.filter(x=>x!==s).map(x=>+x.value);
+      let swapTo=1;
+      while(occupied.includes(swapTo))swapTo++;
+      s.value=swapTo;
+      break;
+    }
+  }
+}
+
+async function allocateSelected(){
+  const sel=document.getElementById('pendTruck');
+  if(!sel||!sel.value){toast('Select a truck','error');return}
+  const checked=[...document.querySelectorAll('.pend-check:checked')];
+  if(!checked.length){toast('Select at least one request','error');return}
+  const opt=sel.options[sel.selectedIndex];
+  const maxQty=parseInt(opt.dataset.maxQty)||0;
+  const remainQty=parseInt(opt.dataset.remainQty)||999;
+  let totalQty=0;
+  const pkgCounts={};
+  checked.forEach(c=>{
+    const qty=parseInt(c.dataset.qty)||0;
+    totalQty+=qty;
+    const pkgId=c.dataset.pkg||'0';
+    pkgCounts[pkgId]=(pkgCounts[pkgId]||0)+qty;
+  });
+  const majorityPkgId=Object.keys(pkgCounts).reduce((a,b)=>pkgCounts[a]>pkgCounts[b]?a:b,'0');
+  const pkgName=pendData.find(p=>p.id===+checked[0].dataset.id)?.packaging_type_name||'units';
+  if(maxQty>0&&totalQty>remainQty){
+    if(!confirm('WARNING: Total quantity ('+totalQty+' '+pkgName+') exceeds remaining truck capacity ('+remainQty+' '+pkgName+'). This will overbook the truck.\n\nDo you want to proceed anyway?')){return}
+  }
+  const truckId=+sel.value;
+  try{
+    const primaryId=+checked[0].dataset.id;
+    const consolidateIds=checked.slice(1).map(c=>+c.dataset.id);
+    const dropOrderSelects=document.querySelectorAll('.drop-order-select');
+    let primaryDropSeq=null;
+    const consolidateDropSeqs={};
+    dropOrderSelects.forEach(ds=>{
+      const paId=+ds.dataset.paId;
+      const seq=+ds.value;
+      if(paId===primaryId){primaryDropSeq=seq}
+      else{consolidateDropSeqs[paId]=seq}
+    });
+    const body={truck_id:truckId,consolidate_request_ids:consolidateIds};
+    if(primaryDropSeq)body.drop_sequence=primaryDropSeq;
+    if(Object.keys(consolidateDropSeqs).length)body.consolidate_drop_sequences=consolidateDropSeqs;
+    const res=await fetch('/api/pending-allocations/'+primaryId+'/allocate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok){const e=await res.json();throw new Error(e.detail||'Failed')}
+    toast('Truck allocated successfully!');
+    clearPendSelection();
+    loadPend();loadML();loadDash();loadFleet();
+  }catch(e){toast(e.message,'error')}
+}
+
+// Fleet
+async function loadFleet(){
+  try{
+    const st=document.getElementById('fStatus').value;
+    const data=await(await fetch('/api/trucks'+(st?'?status='+st:''))).json();
+    const tb=document.getElementById('fTbl');
+    const isAdmin=['master_admin','admin'].includes(user.role);
+    if(data.length){
+      tb.innerHTML=data.map(t=>{
+        const reqs=t.current_requests||[];
+        let reqHtml='<span style="color:var(--muted);font-size:12px">-</span>';
+        if(reqs.length){
+          reqHtml=reqs.map(r=>'<span class="badge b-bl" style="margin:1px;font-size:10px;cursor:pointer" onclick="viewReq('+r.id+')" title="'+r.origin_port_name+' → '+r.destination_port_name+' | '+r.status_name+'">'+r.request_number+'</span>').join(' ');
+        }
+        const statusBadge=t.status==='available'?'<span class="badge b-gn"><i class="fas fa-circle" style="font-size:6px"></i> Available</span>':t.status==='assigned'?'<span class="badge b-bl"><i class="fas fa-circle" style="font-size:6px"></i> Assigned</span>':t.status==='busy'?'<span class="badge b-rd"><i class="fas fa-circle" style="font-size:6px"></i> Busy</span>':'<span class="badge b-yl"><i class="fas fa-circle" style="font-size:6px"></i> Maintenance</span>';
+        const histBtn=(t.history_count||0)>0?'<button class="btn btn-sm btn-o" onclick="viewTruckHistory('+t.id+',\''+t.plate_number+'\')" title="View History ('+t.history_count+')"><i class="fas fa-history"></i> '+t.history_count+'</button>':'';
+        return'<tr><td><strong>'+t.plate_number+'</strong></td><td>'+(t.truck_type_name||'')+'</td><td>'+(t.vendor_name||'')+'</td><td>'+(t.driver_name||'-')+'</td><td>'+(t.driver_phone||'-')+'</td><td>'+reqHtml+'</td><td>'+statusBadge+'</td>'+(isAdmin?'<td><button class="btn btn-sm btn-o" onclick="editTruck('+JSON.stringify(t).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delTruck('+t.id+')"><i class="fas fa-trash"></i></button> '+histBtn+'</td>':'')+'</tr>';
+      }).join('');
+    }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-truck"></i><p>No trucks found</p></td></tr>'}
+  }catch(e){console.error(e)}
+}
+
+async function viewTruckHistory(tid,plate){
+  try{
+    const hist=await(await fetch('/api/trucks/'+tid+'/history')).json();
+    document.getElementById('mTitle').textContent='History - '+plate;
+    let html='<div style="max-height:400px;overflow-y:auto">';
+    if(hist.length){
+      html+='<table><thead><tr><th>Request #</th><th>Requestor</th><th>Origin Port</th><th>Destination Port</th><th>Qty</th><th>Weight</th><th>Volume</th><th>Pickup</th><th>Archived</th></tr></thead><tbody>';
+      hist.forEach(h=>{
+        html+='<tr><td><strong style="color:var(--pri)">'+(h.request_number||'')+'</strong></td><td>'+(h.requestor_name||'')+'</td><td>'+(h.origin_port_name||'')+'</td><td>'+(h.destination_port_name||'')+'</td><td>'+(h.quantity||0)+'</td><td>'+(h.weight_kg||0)+' KG</td><td>'+(h.volume_cbm||0)+' CBM</td><td>'+fmtD(h.pickup_datetime)+'</td><td>'+fmtD(h.archived_at)+'</td></tr>';
+      });
+      html+='</tbody></table>';
+    }else{html+='<div class="empty"><i class="fas fa-history"></i><p>No history records</p></div>'}
+    html+='</div>';
+    document.getElementById('mBody').innerHTML=html;
+    document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Close</button>';
+    document.getElementById('overlay').classList.add('on');
+  }catch(e){toast('Failed to load history','error')}
+}
+
+function showTruckModal(truck){
+  const t=truck||{};
+  document.getElementById('mTitle').textContent=t.id?'Edit Truck':'Add Truck';
+  document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Plate Number *</label><input class="fi" id="tPlate" value="'+(t.plate_number||'')+'"></div><div class="fg"><label class="fl">Truck Type *</label><select class="fs" id="tTT"></select></div></div><div class="fr"><div class="fg"><label class="fl">Vendor *</label><select class="fs" id="tVendor"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="tStatus"><option value="available">Available</option><option value="assigned">Assigned</option><option value="busy">Busy</option><option value="maintenance">Maintenance</option></select></div></div><div class="fr"><div class="fg"><label class="fl">Driver Name</label><input class="fi" id="tDriver" value="'+(t.driver_name||'')+'"></div><div class="fg"><label class="fl">Driver Phone</label><input class="fi" id="tPhone" value="'+(t.driver_phone||'')+'"></div></div>';
+  popSel('tTT',tts,'id','name');if(t.truck_type_id)document.getElementById('tTT').value=t.truck_type_id;
+  popSel('tVendor',vendors,'id','name','Select Vendor',true);if(t.vendor_id)document.getElementById('tVendor').value=t.vendor_id;
+  if(t.status)document.getElementById('tStatus').value=t.status;
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveTruck('+(t.id||'null')+')"><i class="fas fa-save"></i> Save</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+
+function editTruck(t){showTruckModal(t)}
+
+async function saveTruck(id){
+  const plate=document.getElementById('tPlate').value.trim();
+  const ttId=document.getElementById('tTT').value;
+  const vendorId=document.getElementById('tVendor').value;
+  if(!plate||!ttId||!vendorId){toast('Plate Number, Truck Type and Vendor are required','error');return}
+  const body={plate_number:plate,truck_type_id:+ttId,vendor_id:+vendorId||null,status:document.getElementById('tStatus').value,driver_name:document.getElementById('tDriver').value,driver_phone:document.getElementById('tPhone').value};
+  try{
+    const url=id?'/api/trucks/'+id:'/api/trucks';
+    const method=id?'PUT':'POST';
+    const res=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok){const e=await res.json();throw new Error(e.detail||'Failed')}
+    toast(id?'Truck updated':'Truck added');closeM();loadFleet();
+  }catch(e){toast(e.message,'error')}
+}
+
+async function delTruck(id){if(!confirm('Delete truck?'))return;try{await fetch('/api/trucks/'+id,{method:'DELETE'});toast('Deleted');loadFleet()}catch(e){toast('Failed','error')}}
+
+// Rates
+async function loadRates(){
+  try{
+    const v=document.getElementById('rSrch').value;
+    const o=document.getElementById('rOrg').value;
+    const d=document.getElementById('rDst').value;
+    let url='/api/vendor-rates?';
+    if(v)url+='vendor_name='+encodeURIComponent(v)+'&';
+    if(o)url+='origin_port_id='+o+'&';
+    if(d)url+='destination_port_id='+d+'&';
+    const data=await(await fetch(url)).json();
+    const tb=document.getElementById('rTbl');
+    if(data.length){
+      tb.innerHTML=data.map(r=>'<tr><td><strong>'+r.vendor_name+'</strong></td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtD(r.effective_date)+'</td><td>'+fmtD(r.expiry_date)+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>').join('');
+    }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-dollar-sign"></i><p>No rates found</p></td></tr>'}
+  }catch(e){console.error(e)}
+}
+
+function showRateModal(rate){
+  const r=rate||{};
+  const drops=r.destination_drops||[];
+  document.getElementById('mTitle').textContent=r.id?'Edit Rate':'Add Rate';
+  document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Vendor *</label><select class="fs" id="rvVendor"></select></div><div class="fg"><label class="fl">Truck Type *</label><select class="fs" id="rvTT"></select></div></div><div class="fr"><div class="fg"><label class="fl">Origin *</label><select class="fs" id="rvOrg"></select></div><div class="fg"><label class="fl">Main Destination *</label><select class="fs" id="rvDst"></select></div></div><div class="fr"><div class="fg"><label class="fl">Rate/Trip (PHP) *</label><input type="number" step="0.01" class="fi" id="rvTrip" value="'+(r.rate_per_trip||0)+'"></div><div class="fg"><label class="fl">Default Rate (PHP)</label><small style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">Fallback rate applied to destinations that are not the main destination and not listed in Additional Destination Drops below</small><input type="number" step="0.01" class="fi" id="rvDefault" value="'+(r.default_rate||0)+'"></div></div><div class="fr"><div class="fg"><label class="fl">Effective Date *</label><input type="date" class="fi" id="rvEff" value="'+(r.effective_date||'')+'"></div><div class="fg"><label class="fl">Expiry Date</label><input type="date" class="fi" id="rvExp" value="'+(r.expiry_date||'')+'"></div></div><div style="margin-top:12px"><label class="fl">Additional Destination Drops (optional, up to 5)</label><div id="dropRows">'+drops.map((d,i)=>'<div class="fr" style="margin-bottom:6px;align-items:flex-end"><div class="fg"><select class="fs drop-port" data-idx="'+i+'"></select></div><div class="fg"><input type="number" step="0.01" class="fi drop-rate" data-idx="'+i+'" placeholder="Rate/Trip (PHP)" value="'+(d.rate_per_trip||0)+'"></div><div class="fg" style="flex:0"><button class="btn btn-sm btn-d" onclick="removeDropRow('+i+')"><i class="fas fa-times"></i></button></div></div>').join('')+'</div><button type="button" class="btn btn-sm btn-o" onclick="addDropRow()" style="margin-top:6px"><i class="fas fa-plus"></i> Add Drop</button></div>';
+  popSel('rvVendor',vendors,'id','name','Select Vendor',true);popSel('rvTT',tts,'id','name');popSel('rvOrg',ports,'id','name');popSel('rvDst',ports,'id','name');
+  if(r.vendor_id)document.getElementById('rvVendor').value=r.vendor_id;
+  if(r.truck_type_id)document.getElementById('rvTT').value=r.truck_type_id;
+  if(r.origin_port_id)document.getElementById('rvOrg').value=r.origin_port_id;
+  if(r.destination_port_id)document.getElementById('rvDst').value=r.destination_port_id;
+  document.querySelectorAll('.drop-port').forEach(sel=>{popSelById(sel,ports,'id','name');const idx=sel.dataset.idx;const d=drops[idx];if(d&&d.port_id)sel.value=d.port_id});
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveRate('+(r.id||'null')+')"><i class="fas fa-save"></i> Save</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+function popSelById(sel,items,vk,lk){sel.innerHTML='<option value="">-- Select --</option>';items.forEach(i=>{sel.innerHTML+='<option value="'+i[vk]+'">'+i[lk]+'</option>'})}
+function addDropRow(){
+  const el=document.getElementById('dropRows');
+  const cnt=el.querySelectorAll('.fr').length;
+  if(cnt>=5){toast('Maximum 5 drops','error');return}
+  const div=document.createElement('div');div.className='fr';div.style.marginBottom='6px';div.style.alignItems='flex-end';
+  div.innerHTML='<div class="fg"><select class="fs drop-port" data-idx="'+cnt+'"></select></div><div class="fg"><input type="number" step="0.01" class="fi drop-rate" data-idx="'+cnt+'" placeholder="Rate/Trip (PHP)"></div><div class="fg" style="flex:0"><button class="btn btn-sm btn-d" onclick="this.closest(\'.fr\').remove()"><i class="fas fa-times"></i></button></div>';
+  el.appendChild(div);
+  popSelById(div.querySelector('.drop-port'),ports,'id','name');
+}
+function removeDropRow(idx){const el=document.getElementById('dropRows');if(el.children[idx])el.children[idx].remove()}
+
+function editRate(r){showRateModal(r)}
+
+async function saveRate(id){
+  const dropEls=document.querySelectorAll('.drop-port');
+  const rateEls=document.querySelectorAll('.drop-rate');
+  const drops=[];
+  for(let i=0;i<dropEls.length;i++){
+    const pid=+dropEls[i].value;const rt=+rateEls[i].value||0;
+    if(pid)drops.push({port_id:pid,rate_per_trip:rt});
+  }
+  const vendor_id=+document.getElementById('rvVendor').value;
+  if(!vendor_id){toast('Vendor is required','error');return}
+  const tt_id=+document.getElementById('rvTT').value;
+  if(!tt_id){toast('Truck Type is required','error');return}
+  const org_id=+document.getElementById('rvOrg').value;
+  if(!org_id){toast('Origin is required','error');return}
+  const dst_id=+document.getElementById('rvDst').value;
+  if(!dst_id){toast('Main Destination is required','error');return}
+  const rate_trip=+document.getElementById('rvTrip').value||0;
+  if(rate_trip<=0){toast('Rate/Trip must be greater than 0','error');return}
+  const eff_date=document.getElementById('rvEff').value;
+  if(!eff_date){toast('Effective Date is required','error');return}
+  const body={vendor_id:vendor_id,vendor_name:document.getElementById('rvVendor').options[document.getElementById('rvVendor').selectedIndex].text,truck_type_id:tt_id,origin_port_id:org_id,destination_port_id:dst_id,rate_per_trip:rate_trip,default_rate:+document.getElementById('rvDefault').value||0,destination_drops:drops,effective_date:eff_date,expiry_date:document.getElementById('rvExp').value||null};
+  try{const url=id?'/api/vendor-rates/'+id:'/api/vendor-rates';const res=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail)}toast('Rate saved');closeM();loadRates()}catch(e){toast(e.message,'error')}
+}
+
+async function delRate(id){if(!confirm('Delete rate?'))return;try{await fetch('/api/vendor-rates/'+id,{method:'DELETE'});toast('Deleted');loadRates()}catch(e){toast('Failed','error')}}
+
+// Vendor Speed Performance
+let evalData=[];
+let evalSortKey='',evalSortDir='desc';
+async function loadEvals(){
+  try{
+    const sr=document.getElementById('evSrch')?.value||'';
+    const vid=document.getElementById('evVendor')?.value||'';
+    const tt=document.getElementById('evTT')?.value||'';
+    const org=document.getElementById('evOrg')?.value||'';
+    const dst=document.getElementById('evDst')?.value||'';
+    const acct=document.getElementById('evAcct')?.value||'';
+    const dept=document.getElementById('evDept')?.value||'';
+    const df=document.getElementById('evFrom')?.value||'';
+    const dt=document.getElementById('evTo')?.value||'';
+    let url='/api/vendor-evaluations?';
+    if(sr)url+='search='+encodeURIComponent(sr)+'&';
+    if(vid)url+='vendor_id='+vid+'&';
+    if(tt)url+='truck_type_id='+tt+'&';
+    if(org)url+='origin_port_id='+org+'&';
+    if(dst)url+='destination_port_id='+dst+'&';
+    if(acct)url+='account_id='+acct+'&';
+    if(dept)url+='department_id='+dept+'&';
+    if(df)url+='date_from='+df+'&';
+    if(dt)url+='date_to='+dt+'&';
+    evalData=await(await fetch(url)).json();
+    if(evalSortKey)evalData.sort((a,b)=>{
+      let va=a[evalSortKey]||'',vb=b[evalSortKey]||'';
+      if(typeof va==='number'&&typeof vb==='number')return evalSortDir==='asc'?va-vb:vb-va;
+      va=String(va).toLowerCase();vb=String(vb).toLowerCase();
+      return evalSortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    });
+    renderEvalTable();
+  }catch(e){console.error(e)}
+}
+function sortEval(key){
+  if(evalSortKey===key)evalSortDir=evalSortDir==='desc'?'asc':'desc';
+  else{evalSortKey=key;evalSortDir='desc'}
+  loadEvals();
+}
+function renderEvalTable(){
+  const tb=document.getElementById('evTbl');
+  if(evalData.length){
+    tb.innerHTML=evalData.map(r=>{
+      const lc=v=>v?'<span class="badge b-bl" style="font-size:11px">'+v+'</span>':'<span style="color:var(--muted)">-</span>';
+      return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.drop_sequence||'-')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.vendor_name||'')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+lc(r.lt_customs_to_arrival)+'</td><td>'+lc(r.lt_pickup_to_arrival)+'</td><td>'+lc(r.lt_arrival_to_start_load)+'</td><td>'+lc(r.lt_start_load_to_end_load)+'</td><td>'+lc(r.lt_end_load_to_arrived_dest)+'</td><td>'+lc(r.lt_arrived_dest_to_start_unload)+'</td><td>'+lc(r.lt_start_unload_to_end_unload)+'</td><td>'+lc(r.lt_full_leg)+'</td></tr>';
+    }).join('');
+  }else{tb.innerHTML='<tr><td colspan="19" class="empty"><i class="fas fa-star"></i><p>No data found</p></td></tr>'}
+}
+function showEvalModal(){}
+async function saveEval(){}
+function delEval(id){}
+function exportEvalCSV(){
+  if(!evalData||!evalData.length){toast('No data to export','error');return}
+  const headers=['Request #','Trip ID','Drop #','Account','Department','Origin Port','Destination Port','Truck Type','Vendor','Booking Date','Status','Customs to Arrival','Pickup to Arrival','Arrival to Start Load','Start to End Load','End Load to Arrived Dest','Arrived to Start Unload','Start to End Unload','Full Leg'];
+  const rows=[headers];
+  evalData.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.drop_sequence||'',r.account_name||'',r.department_name||'',r.origin_port_name||'',r.destination_port_name||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.status_name||'',r.lt_customs_to_arrival||'',r.lt_pickup_to_arrival||'',r.lt_arrival_to_start_load||'',r.lt_start_load_to_end_load||'',r.lt_end_load_to_arrived_dest||'',r.lt_arrived_dest_to_start_unload||'',r.lt_start_unload_to_end_unload||'',r.lt_full_leg||''])});
+  let csv='';rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n'});
+  const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='vendor-speed-performance-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// Cost Analysis
+let costData=null;
+async function loadCost(){
+  const f=document.getElementById('cFrom').value,t=document.getElementById('cTo').value,a=document.getElementById('cAcct').value,d=document.getElementById('cDept').value;
+  if(!f||!t||!a||!d){toast('Fill in date range, account and department','error');return}
+  const o=document.getElementById('cOrg').value;const ds=document.getElementById('cDst').value;
+  const vid=document.getElementById('cVendor').value;const sid=document.getElementById('cStatus').value;
+  let url='/api/cost-summary?date_from='+f+'&date_to='+t+'&account_id='+a+'&department_id='+d;
+  if(o)url+='&origin_port_id='+o;if(ds)url+='&destination_port_id='+ds;
+  if(vid)url+='&vendor_id='+vid;if(sid)url+='&status_id='+sid;
+  try{
+    const data=await(await fetch(url)).json();
+    costData=data;
+    costSortKey='';costSortDir='desc';
+    document.getElementById('costRes').style.display='block';
+    document.getElementById('cStats').innerHTML=[
+      {ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:data.total_requests||0},
+      {ico:'fa-calculator',c:'yl',l:'Estimated Cost',v:'₱'+fmtN(data.total_estimated_cost||0)},
+      {ico:'fa-money-bill',c:'gn',l:'Actual Cost',v:'₱'+fmtN(data.total_actual_cost||0)},
+    ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+    renderCostTable();
+  }catch(e){toast('Failed to load cost data','error')}
+}
+function exportCostCSV(){
+  if(!costData||!costData.requests||!costData.requests.length){toast('No data to export','error');return}
+  const rows=[['Request #','Trip ID','Origin','Destination','Truck Type','Vendor','Booking Date','Pickup','Est. Cost','Actual Cost','Status','Foul Trip Reason']];
+  costData.requests.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.origin_port_name||'',r.destination_port_name||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.pickup_datetime||'',r.estimated_cost||0,r.actual_cost||0,r.status_name||'',r.foul_trip_reason||''])});
+  let csv='';rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n'});
+  const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cost-analysis-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+let costSortKey='',costSortDir='desc';
+function sortCost(key){
+  if(costSortKey===key)costSortDir=costSortDir==='desc'?'asc':'desc';
+  else{costSortKey=key;costSortDir='desc'}
+  if(!costData||!costData.requests)return;
+  costData.requests.sort((a,b)=>{
+    let va=a[costSortKey]||'',vb=b[costSortKey]||'';
+    if(typeof va==='number'&&typeof vb==='number')return costSortDir==='asc'?va-vb:vb-va;
+    va=String(va).toLowerCase();vb=String(vb).toLowerCase();
+    return costSortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+  });
+  renderCostTable();
+}
+function renderCostTable(){
+  const tb=document.getElementById('cTbl');
+  if(!costData||!costData.requests||!costData.requests.length){tb.innerHTML='<tr><td colspan="12" class="empty"><i class="fas fa-inbox"></i><p>No data for selected filters</p></td></tr>';return}
+  tb.innerHTML=costData.requests.map(r=>'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>₱'+fmtN(r.estimated_cost||0)+'</td><td>₱'+fmtN(r.actual_cost||0)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.foul_trip_reason||'-')+'</td></tr>').join('');
+}
+
+// Master Library
+let currentLibTab='ports';
+let portMap=null,portMarkers=[];
+async function libTab(tbl,btn){
+  currentLibTab=tbl;
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  try{
+    const data=await(await fetch('/api/'+tbl.replace('_','-'))).json();
+    const el=document.getElementById('libC');
+    const labels={ports:'Port',accounts:'Account',departments:'Department',packaging_types:'Packaging Type',truck_statuses:'Status',truck_types:'Truck Type',vendors:'Vendor'};
+    const lbl=labels[tbl]||tbl;
+    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'s</h3><button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl+'</button></div>';
+    if(tbl==='ports'){
+      html+='<div class="lib-map-section"><div id="portMapContainer" class="port-map-wrap"></div></div>';
+    }
+    if(data.length){
+      html+='<table><thead><tr>';
+      if(tbl==='vendors'){html+='<th>Name</th><th>Contact Person</th><th>Phone</th><th>Email</th><th>Address</th>';}
+      else if(tbl==='ports'){html+='<th>Name</th><th>Code</th><th>Address</th><th>Lat</th><th>Lng</th>';}
+      else{html+='<th>Name</th><th>Code</th>';}
+      if(tbl==='truck_statuses')html+='<th>Color</th>';
+      if(tbl==='truck_types')html+='<th>Max KG</th><th>Max CBM</th><th>Capacities</th>';
+      html+='<th>Actions</th></tr></thead><tbody>';
+      data.forEach(r=>{
+        if(tbl==='vendors'){
+          html+='<tr><td><strong>'+r.name+'</strong></td><td>'+(r.contact_person||'-')+'</td><td>'+(r.phone||'-')+'</td><td>'+(r.email||'-')+'</td><td>'+(r.address||'-')+'</td>';
+        }else if(tbl==='ports'){
+          html+='<tr><td><strong>'+r.name+'</strong></td><td>'+r.code+'</td><td>'+(r.location||'-')+'</td><td>'+(r.latitude!=null?r.latitude.toFixed(4):'-')+'</td><td>'+(r.longitude!=null?r.longitude.toFixed(4):'-')+'</td>';
+        }else{
+          html+='<tr><td><strong>'+r.name+'</strong></td><td>'+r.code+'</td>';
+        }
+        if(tbl==='truck_statuses')html+='<td><span style="display:inline-block;width:24px;height:24px;border-radius:6px;background:'+(r.color||'#6B7280')+'"></span> '+r.color+'</td>';
+        if(tbl==='truck_types'){
+          html+='<td>'+(r.max_capacity_kg||0)+' kg</td><td>'+(r.max_capacity_cbm||0)+' cbm</td><td>';
+          if(r.capacities&&r.capacities.length)html+=r.capacities.map(c=>'<span class="badge b-bl">'+(c.packaging_type_name||'')+': '+c.max_quantity+'</span> ').join('');
+          html+='</td>';
+        }
+        html+='<td><button class="btn btn-sm btn-o" onclick="showEditLib(\''+tbl+'\','+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delLib(\''+tbl+'\','+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
+      });
+      html+='</tbody></table>';
+    }else{html+='<div class="empty"><i class="fas fa-book"></i><p>No '+lbl.toLowerCase()+'s yet</p></div>'}
+    el.innerHTML=html;
+    if(tbl==='ports')initPortMap(data);
+  }catch(e){console.error(e)}
+}
+
+function initPortMap(ports){
+  const c=document.getElementById('portMapContainer');
+  if(!c)return;
+  if(portMap){portMap.remove();portMap=null}
+  portMap=L.map(c).setView([12.8,121.7],6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors',maxZoom:18}).addTo(portMap);
+  portMarkers=[];
+  const portsWithCoords=ports.filter(p=>p.latitude!=null&&p.longitude!=null);
+  if(portsWithCoords.length){
+    portsWithCoords.forEach(p=>{
+      const m=L.marker([p.latitude,p.longitude]).addTo(portMap).bindPopup('<strong>'+p.name+'</strong><br>'+p.code+(p.location?'<br>'+p.location:''));
+      portMarkers.push(m);
+    });
+    const fg=L.featureGroup(portMarkers);
+    portMap.fitBounds(fg.getBounds().pad(0.1));
+  }else{
+    portMap.setView([12.8,121.7],6);
+  }
+  setTimeout(()=>portMap.invalidateSize(),100);
+}
+function initModalMap(onClick){
+  const c=document.getElementById('portModalMap');
+  if(!c)return null;
+  const m=L.map(c).setView([12.8,121.7],6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors',maxZoom:18}).addTo(m);
+  let marker=null;
+  if(onClick){
+    m.on('click',function(e){
+      if(marker)m.remove(marker);
+      marker=L.marker(e.latlng).addTo(m);
+      const la=document.getElementById('libLat');const lo=document.getElementById('libLng');
+      if(la)la.value=e.latlng.lat.toFixed(7);
+      if(lo)lo.value=e.latlng.lng.toFixed(7);
+    });
+  }
+  setTimeout(()=>m.invalidateSize(),100);
+  return m;
+}
+
+async function showAddLib(tbl){
+  if(tbl==='truck_types')await refreshPkgs();
+  capRowCount=0;
+  const labels={ports:'Port',accounts:'Account',departments:'Department',packaging_types:'Packaging Type',truck_statuses:'Status',truck_types:'Truck Type',vendors:'Vendor'};
+  const lbl=labels[tbl]||tbl;
+  document.getElementById('mTitle').textContent='Add '+lbl;
+  let html='';
+  if(tbl==='vendors'){
+    html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName"></div><div class="fg"><label class="fl">Contact Person</label><input class="fi" id="libContact"></div><div class="fg"><label class="fl">Phone</label><input class="fi" id="libPhone"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="libEmail" type="email"></div><div class="fg"><label class="fl">Address</label><textarea class="ft" id="libAddr"></textarea></div>';
+  }else{
+    html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName"></div><div class="fg"><label class="fl">Code *</label><input class="fi" id="libCode"></div>';
+    if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to set coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>';
+    if(tbl==='packaging_types')html+='<div class="fg"><label class="fl">Description</label><textarea class="ft" id="libDesc"></textarea></div>';
+    if(tbl==='truck_statuses')html+='<div class="fg"><label class="fl">Color</label><input type="color" class="fi" id="libColor" value="#6B7280" style="height:40px;padding:4px"></div>';
+    if(tbl==='truck_types'){
+      html+='<div class="fr"><div class="fg"><label class="fl">Max Capacity (KG)</label><input type="number" step="0.01" class="fi" id="libKg" value="0"></div><div class="fg"><label class="fl">Max Capacity (CBM)</label><input type="number" step="0.01" class="fi" id="libCbm" value="0"></div></div>';
+      html+='<div id="capSection"><label class="fl">Packaging Type Capacities</label><div id="capRows"></div><button type="button" class="btn btn-sm btn-o" onclick="addCapRow()" style="margin-top:8px"><i class="fas fa-plus"></i> Add Capacity</button></div>';
+    }
+  }
+  document.getElementById('mBody').innerHTML=html;
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveLib(\''+tbl+'\')"><i class="fas fa-save"></i> Save</button>';
+  document.getElementById('overlay').classList.add('on');
+  if(tbl==='truck_types')addCapRow();
+  if(tbl==='ports')initModalMap(true);
+}
+
+let capRowCount=0;
+async function refreshPkgs(){
+  try{pkgs=await(await fetch('/api/packaging-types')).json()}catch(e){}
+}
+function addCapRow(pkgId,pkgName,maxQty){
+  const pkgOpts=pkgs.map(p=>'<option value="'+p.id+'"'+(p.id==pkgId?' selected':'')+'>'+p.name+'</option>').join('');
+  const row=document.createElement('div');
+  row.className='fr';
+  row.style.marginBottom='8px';
+  row.innerHTML='<div class="fg"><select class="fs" id="capPkg_'+capRowCount+'"><option value="">Select Packaging</option>'+pkgOpts+'</select></div><div class="fg" style="display:flex;gap:8px;align-items:flex-end"><input type="number" class="fi" id="capQty_'+capRowCount+'" value="'+(maxQty||0)+'" placeholder="Max Qty" style="flex:1"><button type="button" class="btn btn-sm btn-d" onclick="this.closest(\'.fr\').remove()"><i class="fas fa-times"></i></button></div>';
+  document.getElementById('capRows').appendChild(row);
+  capRowCount++;
+}
+
+function getCapacities(){
+  const caps=[];
+  const rows=document.querySelectorAll('#capRows .fr');
+  rows.forEach((_,i)=>{
+    const pkg=document.getElementById('capPkg_'+i);
+    const qty=document.getElementById('capQty_'+i);
+    if(pkg&&pkg.value)caps.push({packaging_type_id:+pkg.value,max_quantity:+qty.value||0});
+  });
+  return caps;
+}
+
+function showAddLibWithReset(tbl){
+  showAddLib(tbl);
+}
+
+async function showEditLib(tbl,r){
+  if(tbl==='truck_types')await refreshPkgs();
+  capRowCount=0;
+  const labels={ports:'Port',accounts:'Account',departments:'Department',packaging_types:'Packaging Type',truck_statuses:'Status',truck_types:'Truck Type',vendors:'Vendor'};
+  const lbl=labels[tbl]||tbl;
+  document.getElementById('mTitle').textContent='Edit '+lbl;
+  let html='';
+  if(tbl==='vendors'){
+    html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName" value="'+(r.name||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Contact Person</label><input class="fi" id="libContact" value="'+(r.contact_person||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Phone</label><input class="fi" id="libPhone" value="'+(r.phone||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="libEmail" type="email" value="'+(r.email||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Address</label><textarea class="ft" id="libAddr">'+(r.address||'')+'</textarea></div>';
+  }else{
+    html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName" value="'+(r.name||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Code *</label><input class="fi" id="libCode" value="'+(r.code||'').replace(/"/g,'&quot;')+'"></div>';
+    if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc" value="'+(r.location||'').replace(/"/g,'&quot;')+'"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" value="'+(r.latitude!=null?r.latitude:'')+'" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" value="'+(r.longitude!=null?r.longitude:'')+'" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to update coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>';
+    if(tbl==='packaging_types')html+='<div class="fg"><label class="fl">Description</label><textarea class="ft" id="libDesc">'+(r.description||'')+'</textarea></div>';
+    if(tbl==='truck_statuses')html+='<div class="fg"><label class="fl">Color</label><input type="color" class="fi" id="libColor" value="'+(r.color||'#6B7280')+'" style="height:40px;padding:4px"></div>';
+    if(tbl==='truck_types'){
+      html+='<div class="fr"><div class="fg"><label class="fl">Max Capacity (KG)</label><input type="number" step="0.01" class="fi" id="libKg" value="'+(r.max_capacity_kg||0)+'"></div><div class="fg"><label class="fl">Max Capacity (CBM)</label><input type="number" step="0.01" class="fi" id="libCbm" value="'+(r.max_capacity_cbm||0)+'"></div></div>';
+      html+='<div id="capSection"><label class="fl">Packaging Type Capacities</label><div id="capRows"></div><button type="button" class="btn btn-sm btn-o" onclick="addCapRow()" style="margin-top:8px"><i class="fas fa-plus"></i> Add Capacity</button></div>';
+    }
+  }
+  document.getElementById('mBody').innerHTML=html;
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="updateLib(\''+tbl+'\','+r.id+')"><i class="fas fa-save"></i> Save</button>';
+  document.getElementById('overlay').classList.add('on');
+  if(tbl==='truck_types'){
+    if(r.capacities&&r.capacities.length){r.capacities.forEach(c=>addCapRow(c.packaging_type_id,c.packaging_type_name,c.max_quantity))}
+    else{addCapRow()}
+  }
+  if(tbl==='ports'){
+    const m=initModalMap(true);
+    if(m&&r.latitude!=null&&r.longitude!=null){L.marker([r.latitude,r.longitude]).addTo(m);m.setView([r.latitude,r.longitude],12)}
+  }
+}
+
+async function saveLib(tbl){
+  capRowCount=0;
+  let body={};
+  if(tbl==='vendors'){
+    body={name:document.getElementById('libName').value,contact_person:document.getElementById('libContact').value,phone:document.getElementById('libPhone').value,email:document.getElementById('libEmail').value,address:document.getElementById('libAddr').value};
+  }else{
+    body={name:document.getElementById('libName').value,code:document.getElementById('libCode').value};
+    if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null}
+    if(tbl==='packaging_types')body.description=document.getElementById('libDesc').value;
+    if(tbl==='truck_statuses')body.color=document.getElementById('libColor').value;
+    if(tbl==='truck_types'){body.max_capacity_kg=+document.getElementById('libKg').value||0;body.max_capacity_cbm=+document.getElementById('libCbm').value||0;body.capacities=getCapacities()}
+  }
+  try{const res=await fetch('/api/'+tbl.replace('_','-'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail)}toast('Added');closeM();await refreshMasterData();libTab(tbl,document.querySelector('.tab.on'))}catch(e){toast(e.message,'error')}
+}
+
+async function updateLib(tbl,id){
+  let body={};
+  if(tbl==='vendors'){
+    body={name:document.getElementById('libName').value,contact_person:document.getElementById('libContact').value,phone:document.getElementById('libPhone').value,email:document.getElementById('libEmail').value,address:document.getElementById('libAddr').value};
+  }else{
+    body={name:document.getElementById('libName').value,code:document.getElementById('libCode').value};
+    if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null}
+    if(tbl==='packaging_types')body.description=document.getElementById('libDesc').value;
+    if(tbl==='truck_statuses')body.color=document.getElementById('libColor').value;
+    if(tbl==='truck_types'){body.max_capacity_kg=+document.getElementById('libKg').value||0;body.max_capacity_cbm=+document.getElementById('libCbm').value||0;body.capacities=getCapacities()}
+  }
+  try{const res=await fetch('/api/'+tbl.replace('_','-')+'/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail)}toast('Updated');closeM();await refreshMasterData();libTab(tbl,document.querySelector('.tab.on'))}catch(e){toast(e.message,'error')}
+}
+
+async function delLib(tbl,id){if(!confirm('Delete this item?'))return;try{const url='/api/'+tbl.replace('_','-')+'/'+id;await fetch(url,{method:'DELETE'});toast('Deleted');await refreshMasterData();libTab(tbl,document.querySelector('.tab.on'))}catch(e){toast('Failed','error')}}
+
+// Users
+async function loadUsers(){
+  try{
+    const data=await(await fetch('/api/users')).json();
+    const tb=document.getElementById('uTbl');
+    const isMaster=user.role==='master_admin';
+    tb.innerHTML=data.map(u=>'<tr><td><strong>'+u.name+'</strong></td><td>'+u.email+'</td><td>'+(u.role==='master_admin'?'<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>':u.role==='admin'?'<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>':'<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>')+'</td><td>'+(u.email===user.email?'<span style="font-size:12px;color:var(--muted)">Current user</span>':isMaster?((u.role==='master_admin')?'<span style="font-size:12px;color:var(--muted)">-</span>':'<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto"><option value="normal_user"'+(u.role==='normal_user'?' selected':'')+'>Normal User</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>Admin</option></select>'):'<span style="font-size:12px;color:var(--muted)">-</span>')+'</td></tr>').join('');
+  }catch(e){console.error(e)}
+}
+
+async function setUserRole(id,role){
+  try{const res=await fetch('/api/users/'+id+'/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!res.ok)throw new Error('Failed');toast('Role updated');loadUsers()}catch(e){toast(e.message,'error')}
+}
+
+function closeM(){document.getElementById('overlay').classList.remove('on')}
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)e.stopPropagation()});
+
+init();
+</script>
+</body>
+</html>
