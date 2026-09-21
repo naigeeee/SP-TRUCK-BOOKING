@@ -506,7 +506,14 @@ for _tbl, _fields, _label in [
                 if t == "truck_types":
                     _store["truck_type_capacities"] = [c for c in _store["truck_type_capacities"] if c["truck_type_id"] != tid]
                 return {"ok": True}
-            db_x(f"UPDATE {t} SET is_active=0 WHERE id=%s", (tid,))
+            existing = db_1(f"SELECT id FROM {t} WHERE id=%s AND is_active=1", (tid,))
+            if not existing: raise HTTPException(404, "Not found")
+            try:
+                db_x(f"DELETE FROM {t} WHERE id=%s", (tid,))
+            except Exception as e:
+                if "foreign key constraint" in str(e).lower():
+                    raise HTTPException(400, "Cannot delete: this record is referenced by existing records. Remove dependent records first.")
+                raise
             return {"ok": True}
         return _fn
 
