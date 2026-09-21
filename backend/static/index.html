@@ -224,6 +224,7 @@ tr:hover td{background:#F8FAFC}
 <script>
 let user=null,ports=[],accts=[],depts=[],pkgs=[],tts=[],sts=[],vendors=[];
 let mlPg=1,mlSort='created_at',mlDir='desc',mlTotal=0;
+let isAdmin=false,isMaster=false;
 
 async function init(){
   try{
@@ -234,8 +235,8 @@ async function init(){
     document.getElementById('uAv').textContent=user.name.charAt(0).toUpperCase();
     const md=await(await fetch('/api/local-mode')).json();
     if(md.local_mode)document.getElementById('localBadge').innerHTML='<span class="local-badge">Local Mode - Data not saved</span>';
-    const isAdmin=['master_admin','admin'].includes(user.role);
-    const isMaster=user.role==='master_admin';
+    isAdmin=['master_admin','admin'].includes(user.role);
+    isMaster=user.role==='master_admin';
     document.querySelectorAll('.adm').forEach(e=>e.style.display=isAdmin?'':'none');
     document.querySelectorAll('.madm').forEach(e=>e.style.display=isMaster?'':'none');
     await loadMaster();
@@ -485,9 +486,9 @@ async function saveReq(id){
   try{const res=await fetch('/api/requests/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail||'Failed')}toast('Request updated');closeM();loadML();loadDash()}catch(e){toast(e.message,'error')}
 }
 
-async function delReq(id){if(!confirm('Delete this request?'))return;try{await fetch('/api/requests/'+id,{method:'DELETE'});toast('Deleted');loadML()}catch(e){toast('Failed','error')}}
+async function delReq(id){if(!confirm('Delete this request?'))return;try{const res=await fetch('/api/requests/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadML()}catch(e){toast('Failed','error')}}
 
-async function delAtt(aid,rid){if(!confirm('Delete attachment?'))return;try{await fetch('/api/attachments/'+aid,{method:'DELETE'});toast('Deleted');editReq(rid)}catch(e){toast('Failed','error')}}
+async function delAtt(aid,rid){if(!confirm('Delete attachment?'))return;try{const res=await fetch('/api/attachments/'+aid,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');editReq(rid)}catch(e){toast('Failed','error')}}
 
 function exportCSV(){
   toast('Exporting... (use Print to save as PDF)','info');
@@ -880,7 +881,7 @@ async function saveTruck(id){
   }catch(e){toast(e.message,'error')}
 }
 
-async function delTruck(id){if(!confirm('Delete truck?'))return;try{await fetch('/api/trucks/'+id,{method:'DELETE'});toast('Deleted');loadFleet()}catch(e){toast('Failed','error')}}
+async function delTruck(id){if(!confirm('Delete truck?'))return;try{const res=await fetch('/api/trucks/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadFleet()}catch(e){toast('Failed','error')}}
 
 // Rates
 async function loadRates(){
@@ -952,7 +953,7 @@ async function saveRate(id){
   try{const url=id?'/api/vendor-rates/'+id:'/api/vendor-rates';const res=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail)}toast('Rate saved');closeM();loadRates()}catch(e){toast(e.message,'error')}
 }
 
-async function delRate(id){if(!confirm('Delete rate?'))return;try{await fetch('/api/vendor-rates/'+id,{method:'DELETE'});toast('Deleted');loadRates()}catch(e){toast('Failed','error')}}
+async function delRate(id){if(!confirm('Delete rate?'))return;try{const res=await fetch('/api/vendor-rates/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadRates()}catch(e){toast('Failed','error')}}
 
 // Vendor Speed Performance
 let evalData=[];
@@ -1076,7 +1077,7 @@ async function libTab(tbl,btn){
     const el=document.getElementById('libC');
     const labels={ports:'Port',accounts:'Account',departments:'Department',packaging_types:'Packaging Type',truck_statuses:'Status',truck_types:'Truck Type',vendors:'Vendor'};
     const lbl=labels[tbl]||tbl;
-    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'s</h3><button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl+'</button></div>';
+    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'s</h3>'+(isAdmin?'<button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl+'</button>':'')+'</div>';
     if(tbl==='ports'){
       html+='<div class="lib-map-section"><div id="portMapContainer" class="port-map-wrap"></div></div>';
     }
@@ -1102,7 +1103,7 @@ async function libTab(tbl,btn){
           if(r.capacities&&r.capacities.length)html+=r.capacities.map(c=>'<span class="badge b-bl">'+(c.packaging_type_name||'')+': '+c.max_quantity+'</span> ').join('');
           html+='</td>';
         }
-        html+='<td><button class="btn btn-sm btn-o" onclick="showEditLib(\''+tbl+'\','+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delLib(\''+tbl+'\','+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
+        html+='<td>'+(isAdmin?'<button class="btn btn-sm btn-o" onclick="showEditLib(\''+tbl+'\','+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delLib(\''+tbl+'\','+r.id+')"><i class="fas fa-trash"></i></button>':'')+'</td></tr>';
       });
       html+='</tbody></table>';
     }else{html+='<div class="empty"><i class="fas fa-book"></i><p>No '+lbl.toLowerCase()+'s yet</p></div>'}
@@ -1266,7 +1267,7 @@ async function updateLib(tbl,id){
   try{const res=await fetch('/api/'+tbl.replace('_','-')+'/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail)}toast('Updated');closeM();await refreshMasterData();libTab(tbl,document.querySelector('.tab.on'))}catch(e){toast(e.message,'error')}
 }
 
-async function delLib(tbl,id){if(!confirm('Delete this item?'))return;try{const url='/api/'+tbl.replace('_','-')+'/'+id;await fetch(url,{method:'DELETE'});toast('Deleted');await refreshMasterData();libTab(tbl,document.querySelector('.tab.on'))}catch(e){toast('Failed','error')}}
+async function delLib(tbl,id){if(!confirm('Delete this item?'))return;try{const url='/api/'+tbl.replace('_','-')+'/'+id;const res=await fetch(url,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');await refreshMasterData();libTab(tbl,document.querySelector('.tab.on'))}catch(e){toast('Failed','error')}}
 
 // Users
 async function loadUsers(){

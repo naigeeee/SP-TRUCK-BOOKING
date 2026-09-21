@@ -510,10 +510,9 @@ for _tbl, _fields, _label in [
             return {"ok": True}
         return _fn
 
-    _del_param = _label.rstrip("s").replace("-", "_") + "_id"
     app.add_api_route(f"/api/{_label}", _make_list(), methods=["GET"])
     app.add_api_route(f"/api/{_label}", _make_create(), methods=["POST"])
-    app.add_api_route(f"/api/{_label}/{{{_del_param}}}", _make_delete(), methods=["DELETE"])
+    app.add_api_route(f"/api/{_label}/{{tid}}", _make_delete(), methods=["DELETE"])
 
 # Explicit PUT routes for master library items
 @app.put("/api/ports/{port_id}")
