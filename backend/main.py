@@ -492,7 +492,9 @@ for _tbl, _fields, _label in [
                 _store[t].append(rec)
                 return rec
             code = vals.get("code", "")
-            if db_1(f"SELECT id FROM {t} WHERE code=%s", (code,)): raise HTTPException(400, "Code exists")
+            existing = db_1(f"SELECT id FROM {t} WHERE code=%s AND is_active=1", (code,))
+            if existing: raise HTTPException(400, "Code exists")
+            db_x(f"DELETE FROM {t} WHERE code=%s AND is_active=0", (code,))
             cols = ", ".join(flds)
             phs = ", ".join(["%s"] * len(flds))
             i = db_i(f"INSERT INTO {t} ({cols}) VALUES ({phs})", tuple(vals[f] for f in flds))
@@ -691,7 +693,9 @@ async def create_tt(request: Request):
             cid = nid("truck_type_capacities")
             _store["truck_type_capacities"].append({"id": cid, "truck_type_id": tid, "packaging_type_id": c["packaging_type_id"], "max_quantity": c.get("max_quantity", 0), "created_at": nows()})
         return tt
-    if db_1("SELECT id FROM truck_types WHERE code=%s", (code,)): raise HTTPException(400, "Code exists")
+    existing_tt = db_1("SELECT id FROM truck_types WHERE code=%s AND is_active=1", (code,))
+    if existing_tt: raise HTTPException(400, "Code exists")
+    db_x("DELETE FROM truck_types WHERE code=%s AND is_active=0", (code,))
     tid = db_i("INSERT INTO truck_types (name,code,max_capacity_kg,max_capacity_cbm) VALUES (%s,%s,%s,%s)", (name, code, body.get("max_capacity_kg", 0), body.get("max_capacity_cbm", 0)))
     for c in caps:
         db_x("INSERT INTO truck_type_capacities (truck_type_id,packaging_type_id,max_quantity) VALUES (%s,%s,%s)", (tid, c["packaging_type_id"], c.get("max_quantity", 0)))
