@@ -1,0 +1,1 @@
+ALTER TABLE truck_requests MODIFY COLUMN truck_type_id BIGINT NULL;
