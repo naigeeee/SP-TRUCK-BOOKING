@@ -1941,6 +1941,162 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     return {**(s or {}), "requests": reqs}
 
 # ---------------------------------------------------------------------------
+# Google Sheets Sync Endpoints (public, no auth — for Apps Script)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/sync/masterlist")
+def sync_masterlist():
+    if LOCAL_MODE:
+        reqs = [row2d(r) for r in _store["truck_requests"]]
+        for r in reqs:
+            r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+            r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
+            r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
+            r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+            r["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
+            r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == r.get("truck_type_id")), "")
+            r["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
+            truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
+            r["plate_number"] = truck["plate_number"] if truck else ""
+            if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
+                truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
+                r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
+            else:
+                r["trip_id"] = None
+        return reqs
+    return db_q("""SELECT tr.*, a.name as account_name, d.name as department_name,
+        po.name as origin_port_name, pd.name as destination_port_name,
+        ts.name as status_name, ts.color as status_color,
+        COALESCE(tt.name, ttt.name) as truck_type_name, pt.name as packaging_type_name,
+        v.name as vendor_name, tk.plate_number
+        FROM truck_requests tr LEFT JOIN accounts a ON tr.account_id=a.id
+        LEFT JOIN departments d ON tr.department_id=d.id
+        LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+        LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
+        LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
+        LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
+        LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
+        ORDER BY tr.created_at DESC""")
+
+@app.get("/api/sync/fleet")
+def sync_fleet():
+    if LOCAL_MODE:
+        result = []
+        for t in _store["trucks"]:
+            tt = next((x for x in _store["truck_types"] if x["id"] == t.get("truck_type_id")), None)
+            v = next((x for x in _store["vendors"] if x["id"] == t.get("vendor_id")), None)
+            reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5)]
+            result.append({**t, "truck_type_name": tt["name"] if tt else "", "vendor_name": v["name"] if v else "", "active_requests": len(reqs)})
+        return result
+    return db_q("""SELECT t.*, tt.name as truck_type_name, v.name as vendor_name,
+        (SELECT COUNT(*) FROM truck_requests WHERE assigned_truck_id=t.id AND status_id NOT IN (4,5)) as active_requests
+        FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
+        LEFT JOIN vendors v ON t.vendor_id=v.id ORDER BY t.plate_number""")
+
+@app.get("/api/sync/rates")
+def sync_rates():
+    if LOCAL_MODE:
+        result = []
+        for r in _store["vendor_rates"]:
+            v = next((x for x in _store["vendors"] if x["id"] == r.get("vendor_id") or x["name"] == r.get("vendor_name")), None)
+            tt = next((x for x in _store["truck_types"] if x["id"] == r.get("truck_type_id")), None)
+            po = next((x for x in _store["ports"] if x["id"] == r.get("origin_port_id")), None)
+            pd = next((x for x in _store["ports"] if x["id"] == r.get("destination_port_id")), None)
+            result.append({**r, "vendor_name": v["name"] if v else r.get("vendor_name",""), "truck_type_name": tt["name"] if tt else "", "origin_port_name": po["name"] if po else "", "destination_port_name": pd["name"] if pd else ""})
+        return result
+    return db_q("""SELECT r.*, v.name as vendor_name, tt.name as truck_type_name,
+        po.name as origin_port_name, pd.name as destination_port_name
+        FROM vendor_rates r LEFT JOIN vendors v ON r.vendor_id=v.id
+        LEFT JOIN truck_types tt ON r.truck_type_id=tt.id
+        LEFT JOIN ports po ON r.origin_port_id=po.id
+        LEFT JOIN ports pd ON r.destination_port_id=pd.id ORDER BY v.name""")
+
+@app.get("/api/sync/evaluation")
+def sync_evaluation():
+    if LOCAL_MODE:
+        return []
+    return db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.requestor_email,
+        tr.pickup_datetime, tr.arrived_dest_datetime, tr.end_unloading_datetime,
+        tr.status_id, ts.name as status_name,
+        v.name as vendor_name, tk.plate_number,
+        po.name as origin_port_name, pd.name as destination_port_name,
+        DATEDIFF(tr.end_unloading_datetime, tr.pickup_datetime) as lead_time_days
+        FROM truck_requests tr
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
+        LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
+        LEFT JOIN ports po ON tr.origin_port_id=po.id
+        LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+        WHERE tr.status_id=4 ORDER BY tr.end_unloading_datetime DESC""")
+
+@app.get("/api/sync/cost")
+def sync_cost():
+    if LOCAL_MODE:
+        reqs = [row2d(r) for r in _store["truck_requests"]]
+        for r in reqs:
+            r["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
+            r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
+            r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+        return reqs
+    return db_q("""SELECT tr.*, ts.name as status_name,
+        po.name as origin_port_name, pd.name as destination_port_name,
+        v.name as vendor_name, tk.plate_number
+        FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
+        LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
+        ORDER BY tr.created_at DESC""")
+
+@app.get("/api/sync/ports")
+def sync_ports():
+    if LOCAL_MODE: return [row2d(x) for x in _store["ports"]]
+    return db_q("SELECT * FROM ports WHERE is_active=1 ORDER BY name")
+
+@app.get("/api/sync/accounts")
+def sync_accounts():
+    if LOCAL_MODE: return [row2d(x) for x in _store["accounts"]]
+    return db_q("SELECT * FROM accounts WHERE is_active=1 ORDER BY name")
+
+@app.get("/api/sync/departments")
+def sync_departments():
+    if LOCAL_MODE: return [row2d(x) for x in _store["departments"]]
+    return db_q("SELECT * FROM departments WHERE is_active=1 ORDER BY name")
+
+@app.get("/api/sync/packaging")
+def sync_packaging():
+    if LOCAL_MODE: return [row2d(x) for x in _store["packaging_types"]]
+    return db_q("SELECT * FROM packaging_types WHERE is_active=1 ORDER BY name")
+
+@app.get("/api/sync/statuses")
+def sync_statuses():
+    if LOCAL_MODE: return [row2d(x) for x in _store["truck_statuses"]]
+    return db_q("SELECT * FROM truck_statuses WHERE is_active=1 ORDER BY id")
+
+@app.get("/api/sync/truck-types")
+def sync_truck_types():
+    if LOCAL_MODE:
+        result = []
+        for t in _store["truck_types"]:
+            caps = [c for c in _store["truck_type_capacities"] if c["truck_type_id"] == t["id"]]
+            for c in caps:
+                c["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == c["packaging_type_id"]), "")
+            result.append({**t, "capacities": caps})
+        return result
+    rows = db_q("SELECT * FROM truck_types WHERE is_active=1 ORDER BY name")
+    for r in rows:
+        r["capacities"] = db_q("""SELECT c.*, pt.name as packaging_type_name
+            FROM truck_type_capacities c LEFT JOIN packaging_types pt ON c.packaging_type_id=pt.id
+            WHERE c.truck_type_id=%s""", (r["id"],))
+    return rows
+
+@app.get("/api/sync/vendors")
+def sync_vendors():
+    if LOCAL_MODE: return [row2d(x) for x in _store["vendors"]]
+    return db_q("SELECT * FROM vendors WHERE is_active=1 ORDER BY name")
+
+# ---------------------------------------------------------------------------
 # Frontend
 # ---------------------------------------------------------------------------
 
