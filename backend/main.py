@@ -1399,6 +1399,28 @@ async def update_request(rid: int, request: Request):
         db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
     return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
 
+@app.delete("/api/requests/clear-all")
+def clear_all_requests(request: Request):
+    require_master(request)
+    if LOCAL_MODE:
+        _store["truck_requests"] = []
+        _store["attachments"] = []
+        _store["pending_allocations"] = []
+        _store["truck_request_history"] = []
+        for t in _store["trucks"]:
+            t["status"] = "available"
+        _store["_cnt"]["truck_requests"] = 0
+        _store["_cnt"]["attachments"] = 0
+        _store["_cnt"]["pending_allocations"] = 0
+        _store["_cnt"]["truck_request_history"] = 0
+        return {"ok": True, "message": "All requests cleared"}
+    db_x("DELETE FROM attachments")
+    db_x("DELETE FROM pending_allocations")
+    db_x("DELETE FROM truck_request_history")
+    db_x("UPDATE trucks SET status='available'")
+    db_x("DELETE FROM truck_requests")
+    return {"ok": True, "message": "All requests cleared"}
+
 @app.delete("/api/requests/{rid}")
 def delete_request(rid: int, request: Request):
     get_user(request)

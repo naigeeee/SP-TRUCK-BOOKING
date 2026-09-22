@@ -153,7 +153,7 @@ tr:hover td{background:#F8FAFC}
 
 <!-- Masterlist -->
 <section class="pg" id="pg-masterlist">
-<div class="pg-hdr"><h1><i class="fas fa-list-alt" style="color:var(--info)"></i> Masterlist</h1><div class="acts"><button class="btn btn-o" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
+<div class="pg-hdr"><h1><i class="fas fa-list-alt" style="color:var(--info)"></i> Masterlist</h1><div class="acts"><button class="btn btn-o" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button> <button class="btn btn-d madm" style="display:none" onclick="clearAllRequests()"><i class="fas fa-trash-alt"></i> Clear All</button></div></div>
 <div class="card"><div class="card-b">
 <div class="fb" style="flex-wrap:wrap;gap:8px"><input type="text" class="s-input" id="mlSrch" placeholder="Search request #, name..." oninput="loadML()" style="width:180px"><div class="fg2"><label>Status</label><select class="f-input" id="mlSt" onchange="loadML()"></select></div><div class="fg2"><label>Account</label><select class="f-input" id="mlAcct" onchange="loadML()"></select></div><div class="fg2"><label>Dept</label><select class="f-input" id="mlDept" onchange="loadML()"></select></div><div class="fg2"><label>Origin</label><select class="f-input" id="mlOrg" onchange="loadML()"></select></div><div class="fg2"><label>Destination</label><select class="f-input" id="mlDst" onchange="loadML()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="mlTT" onchange="loadML()"></select></div><div class="fg2"><label>Vendor</label><select class="f-input" id="mlVendor" onchange="loadML()"></select></div><div class="fg2"><label>Booking From</label><input type="date" class="f-input" id="mlBookFrom" onchange="loadML()"></div><div class="fg2"><label>Booking To</label><input type="date" class="f-input" id="mlBookTo" onchange="loadML()"></div><div class="fg2"><label>Pickup From</label><input type="date" class="f-input" id="mlPickFrom" onchange="loadML()"></div><div class="fg2"><label>Pickup To</label><input type="date" class="f-input" id="mlPickTo" onchange="loadML()"></div></div>
 <div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortML('request_number')">Request # <i class="fas fa-sort"></i></th><th>Requestor</th><th style="cursor:pointer" onclick="sortML('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('department_name')">Dept <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('packaging_type_name')">Packaging <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('quantity')">Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('plate_number')">Plate # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th>Drop #</th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortML('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('pickup_datetime')">Pickup <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('status_name')">Status <i class="fas fa-sort"></i></th><th>Consol</th><th>Attachments</th><th>Updated By</th><th>Updated At</th><th>Actions</th></tr></thead><tbody id="mlTbl"></tbody></table></div>
@@ -510,6 +510,21 @@ async function saveReq(id){
 async function delReq(id){if(!confirm('Delete this request?'))return;try{const res=await fetch('/api/requests/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadML()}catch(e){toast('Failed','error')}}
 
 async function delAtt(aid,rid){if(!confirm('Delete attachment?'))return;try{const res=await fetch('/api/attachments/'+aid,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');editReq(rid)}catch(e){toast('Failed','error')}}
+
+function clearAllRequests(){
+  document.getElementById('mTitle').textContent='Clear All Requests';
+  document.getElementById('mBody').innerHTML='<p style="font-size:14px;color:var(--err)">This will permanently delete ALL truck requests from the system.</p><p style="font-size:13px;color:var(--muted);margin-top:8px">This action cannot be undone. All request data, attachments, allocations, and history will be removed.</p>';
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-ghost" onclick="closeM()">Cancel</button><button class="btn btn-d" onclick="confirmClearAll()"><i class="fas fa-trash-alt"></i> Clear All</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+
+async function confirmClearAll(){
+  try{
+    const res=await fetch('/api/requests/clear-all',{method:'DELETE'});
+    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');return}
+    toast('All requests cleared');closeM();loadML();
+  }catch(e){toast(e.message||'Failed','error')}
+}
 
 function exportCSV(){
   toast('Exporting... (use Print to save as PDF)','info');
