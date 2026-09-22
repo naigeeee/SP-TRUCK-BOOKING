@@ -1414,9 +1414,9 @@ def clear_all_requests(request: Request):
         _store["_cnt"]["pending_allocations"] = 0
         _store["_cnt"]["truck_request_history"] = 0
         return {"ok": True, "message": "All requests cleared"}
-    db_x("DELETE FROM attachments")
-    db_x("DELETE FROM pending_allocations")
     db_x("DELETE FROM truck_request_history")
+    db_x("DELETE FROM pending_allocations")
+    db_x("DELETE FROM attachments")
     db_x("UPDATE trucks SET status='available'")
     db_x("DELETE FROM truck_requests")
     return {"ok": True, "message": "All requests cleared"}
