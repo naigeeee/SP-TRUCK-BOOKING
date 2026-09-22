@@ -524,9 +524,10 @@ function clearAllRequests(){
 async function confirmClearAll(){
   try{
     const res=await fetch('/api/requests/clear-all',{method:'DELETE'});
-    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');return}
-    toast('All requests cleared');closeM();loadML();
-  }catch(e){toast(e.message||'Failed','error')}
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){toast(data.detail||data.message||'Failed (HTTP '+res.status+')','error');return}
+    toast(data.message||'All requests cleared');closeM();loadML();
+  }catch(e){toast(e.message||'Network error','error')}
 }
 
 function exportCSV(){
