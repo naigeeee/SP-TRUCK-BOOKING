@@ -1351,7 +1351,7 @@ async def update_request(rid: int, request: Request):
                         for t in _store["trucks"]:
                             if t["id"] == tid: t["status"] = "available"; break
                         for x in _store["truck_requests"]:
-                            if x.get("assigned_truck_id") == tid: x["assigned_truck_id"] = None
+                            if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5): x["assigned_truck_id"] = None
                     else:
                         recalculate_trip_rates(tid)
                 if new_status == 7:
@@ -1392,7 +1392,7 @@ async def update_request(rid: int, request: Request):
                 email = request.headers.get("X-Forwarded-Email", "")
                 archive_truck_requests(req["assigned_truck_id"], email)
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (req["assigned_truck_id"],))
-                db_x("UPDATE truck_requests SET assigned_truck_id=NULL WHERE assigned_truck_id=%s", (req["assigned_truck_id"],))
+                db_x("UPDATE truck_requests SET assigned_truck_id=NULL WHERE assigned_truck_id=%s AND status_id!=4", (req["assigned_truck_id"],))
             else:
                 recalculate_trip_rates(req["assigned_truck_id"])
     if new_status == 7:
