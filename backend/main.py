@@ -446,7 +446,7 @@ def get_user(request: Request):
                     u["name"] = name
                 return u
         uid = nid("users")
-        u = {"id": uid, "email": email, "name": name, "role": "normal_user", "is_active": True, "created_at": nows(), "updated_at": nows()}
+        u = {"id": uid, "email": email, "name": name, "role": "viewer", "is_active": True, "created_at": nows(), "updated_at": nows()}
         _store["users"].append(u)
         return u
     u = db_1("SELECT * FROM users WHERE email=%s", (email,))
@@ -455,7 +455,7 @@ def get_user(request: Request):
             db_x("UPDATE users SET name=%s WHERE id=%s", (name, u["id"]))
             u["name"] = name
         return u
-    db_x("INSERT INTO users (email,name,role) VALUES (%s,%s,'normal_user')", (email, name))
+    db_x("INSERT INTO users (email,name,role) VALUES (%s,%s,'viewer')", (email, name))
     return db_1("SELECT * FROM users WHERE email=%s", (email,))
 
 def require_admin(request):
@@ -498,7 +498,15 @@ async def set_role(uid: int, request: Request):
     user = require_master(request)
     body = await request.json()
     role = body.get("role")
-    if role not in ("admin", "normal_user"): raise HTTPException(400, "Invalid role")
+    if role not in ("viewer", "normal_user", "admin", "master_admin"): raise HTTPException(400, "Invalid role")
+    if uid == user["id"]: raise HTTPException(400, "Cannot change your own role")
+    target = db_1("SELECT * FROM users WHERE id=%s", (uid,))
+    if not target: raise HTTPException(404, "User not found")
+    if target["role"] == "master_admin" and role != "master_admin": raise HTTPException(403, "Cannot downgrade another master admin")
+    ROLE_HIERARCHY = {"viewer": 0, "normal_user": 1, "admin": 2, "master_admin": 3}
+    if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get(target["role"], 0):
+        if role != "master_admin" or target["role"] != "master_admin":
+            pass
     if LOCAL_MODE:
         for u in _store["users"]:
             if u["id"] == uid: u["role"] = role; u["updated_at"] = nows(); return row2d(u)
@@ -511,8 +519,15 @@ async def set_role_admin(uid: int, request: Request):
     user = require_admin(request)
     body = await request.json()
     role = body.get("role")
-    if role not in ("admin", "normal_user"): raise HTTPException(400, "Invalid role")
-    if user["role"] == "admin" and role != "normal_user": raise HTTPException(403, "Admins can only set normal_user")
+    if role not in ("viewer", "normal_user", "admin"): raise HTTPException(400, "Invalid role")
+    if uid == user["id"]: raise HTTPException(400, "Cannot change your own role")
+    target = db_1("SELECT * FROM users WHERE id=%s", (uid,))
+    if not target: raise HTTPException(404, "User not found")
+    if target["role"] == "master_admin": raise HTTPException(403, "Cannot change master admin role")
+    if target["role"] == "admin" and role != "admin": raise HTTPException(403, "Cannot downgrade another admin")
+    ROLE_HIERARCHY = {"viewer": 0, "normal_user": 1, "admin": 2}
+    if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get(target["role"], 0):
+        raise HTTPException(403, "Cannot downgrade role")
     if LOCAL_MODE:
         for u in _store["users"]:
             if u["id"] == uid: u["role"] = role; u["updated_at"] = nows(); return row2d(u)

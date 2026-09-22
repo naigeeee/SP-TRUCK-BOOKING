@@ -106,17 +106,17 @@ tr:hover td{background:#F8FAFC}
 <nav class="sidebar-nav">
 <div class="nav-lbl">Main</div>
 <a class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard"><i class="fas fa-chart-line"></i> Dashboard</a>
-<a class="nav-item" onclick="showPage('new-request')" data-page="new-request"><i class="fas fa-plus-circle"></i> New Request</a>
+<a class="nav-item vwr" onclick="showPage('new-request')" data-page="new-request"><i class="fas fa-plus-circle"></i> New Request</a>
 <a class="nav-item" onclick="showPage('masterlist')" data-page="masterlist"><i class="fas fa-list-alt"></i> Masterlist</a>
-<a class="nav-item" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation</a>
+<a class="nav-item vwr" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation</a>
 <div class="nav-div"></div><div class="nav-lbl">Operations</div>
-<a class="nav-item" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet</a>
+<a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet</a>
 <a class="nav-item adm" onclick="showPage('rates')" data-page="rates" style="display:none"><i class="fas fa-dollar-sign"></i> Rate Management</a>
 <a class="nav-item adm" onclick="showPage('evaluation')" data-page="evaluation" style="display:none"><i class="fas fa-star"></i> Vendor Speed Performance</a>
 <a class="nav-item adm" onclick="showPage('cost')" data-page="cost" style="display:none"><i class="fas fa-chart-pie"></i> Cost Analysis</a>
 <div class="nav-div"></div><div class="nav-lbl">Administration</div>
 <a class="nav-item adm" onclick="showPage('library')" data-page="library" style="display:none"><i class="fas fa-book"></i> Master Library</a>
-<a class="nav-item madm" onclick="showPage('users')" data-page="users" style="display:none"><i class="fas fa-users-cog"></i> User Roles</a>
+<a class="nav-item adm" onclick="showPage('users')" data-page="users" style="display:none"><i class="fas fa-users-cog"></i> User Roles</a>
 </nav>
 <div class="sidebar-footer">
 <div class="user-row"><div class="u-av" id="uAv">N</div><div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole">...</div></div></div>
@@ -224,7 +224,7 @@ tr:hover td{background:#F8FAFC}
 <script>
 let user=null,ports=[],accts=[],depts=[],pkgs=[],tts=[],sts=[],vendors=[];
 let mlPg=1,mlSort='created_at',mlDir='desc',mlTotal=0;
-let isAdmin=false,isMaster=false;
+let isAdmin=false,isMaster=false,isViewer=false,isNormal=false;
 
 async function init(){
   try{
@@ -237,8 +237,13 @@ async function init(){
     if(md.local_mode)document.getElementById('localBadge').innerHTML='<span class="local-badge">Local Mode - Data not saved</span>';
     isAdmin=['master_admin','admin'].includes(user.role);
     isMaster=user.role==='master_admin';
+    isViewer=user.role==='viewer';
+    isNormal=user.role==='normal_user';
     document.querySelectorAll('.adm').forEach(e=>e.style.display=isAdmin?'':'none');
     document.querySelectorAll('.madm').forEach(e=>e.style.display=isMaster?'':'none');
+    document.querySelectorAll('.vwr').forEach(e=>e.style.display=isViewer?'none':'');
+    document.querySelectorAll('.nrm').forEach(e=>e.style.display=(isViewer||isNormal)?'none':'');
+    document.querySelectorAll('.flt-only').forEach(e=>e.style.display=(isAdmin||isMaster)?'':'none');
     await loadMaster();
     loadDash();
     initBookingDate();
@@ -420,7 +425,7 @@ async function loadML(){
         }else if(r.trip_id&&r.drop_sequence){
           dropCell='<strong>'+r.drop_sequence+'</strong>';
         }
-        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td><td><button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':'')+'</td></tr>';
+        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+'</td></tr>';
       }).join('');
     }else{tb.innerHTML='<tr><td colspan="22" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
   }catch(e){console.error(e)}
@@ -1114,9 +1119,9 @@ async function libTab(tbl,btn){
   try{
     const data=await(await fetch('/api/'+tbl.replace('_','-'))).json();
     const el=document.getElementById('libC');
-    const labels={ports:'Port',accounts:'Account',departments:'Department',packaging_types:'Packaging Type',truck_statuses:'Status',truck_types:'Truck Type',vendors:'Vendor'};
+    const labels={ports:'Ports',accounts:'Accounts',departments:'Departments',packaging_types:'Packaging Types',truck_statuses:'Statuses',truck_types:'Truck Types',vendors:'Vendors'};
     const lbl=labels[tbl]||tbl;
-    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'s</h3>'+(isAdmin?'<button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl+'</button>':'')+'</div>';
+    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'</h3>'+(isAdmin?'<button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl.slice(0,-1)+'</button>':'')+'</div>';
     if(tbl==='ports'){
       html+='<div class="lib-map-section"><div id="portMapContainer" class="port-map-wrap"></div></div>';
     }
@@ -1315,13 +1320,19 @@ async function loadUsers(){
     const tb=document.getElementById('uTbl');
     const isMaster=user.role==='master_admin';
     const isAdmin=['master_admin','admin'].includes(user.role);
+    const ROLE_HIERARCHY={viewer:0,normal_user:1,admin:2,master_admin:3};
     tb.innerHTML=data.map(u=>{
       const nameDisplay=isAdmin?'<a href="#" onclick="editUserName('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\');return false" style="color:var(--pri);text-decoration:none;cursor:pointer" title="Edit name"><strong>'+u.name+'</strong> <i class="fas fa-pen" style="font-size:10px;opacity:0.5"></i></a>':'<strong>'+u.name+'</strong>';
-      const roleBadge=u.role==='master_admin'?'<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>':u.role==='admin'?'<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>':'<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>';
+      const roleBadge=u.role==='master_admin'?'<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>':u.role==='admin'?'<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>':u.role==='normal_user'?'<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>':'<span class="badge b-gn"><i class="fas fa-eye"></i> Viewer</span>';
       let actions='';
-      if(u.email===user.email) actions='<span style="font-size:12px;color:var(--muted)">Current user</span>';
-      else if(isMaster&&u.role!=='master_admin') actions='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto"><option value="normal_user"'+(u.role==='normal_user'?' selected':'')+'>Normal User</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>Admin</option></select>';
-      else actions='<span style="font-size:12px;color:var(--muted)">-</span>';
+      if(u.email===user.email){actions='<span style="font-size:12px;color:var(--muted)">Current user</span>';}
+      else if(isMaster){
+        if(u.role==='master_admin'){actions='<span style="font-size:12px;color:var(--muted)">-</span>';}
+        else{const opts=['viewer','normal_user','admin'].map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');actions='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto">'+opts+'</select>';}
+      }else if(isAdmin){
+        if(u.role==='master_admin'||u.role==='admin'){actions='<span style="font-size:12px;color:var(--muted)">-</span>';}
+        else{const opts=['viewer','normal_user','admin'].filter(r=>ROLE_HIERARCHY[r]>ROLE_HIERARCHY[u.role]||r===u.role).map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');actions='<select class="f-input" onchange="setUserRoleAdmin('+u.id+',this.value)" style="width:auto">'+opts+'</select>';}
+      }else{actions='<span style="font-size:12px;color:var(--muted)">-</span>';}
       return '<tr><td>'+nameDisplay+'</td><td>'+u.email+'</td><td>'+roleBadge+'</td><td>'+actions+'</td></tr>';
     }).join('');
   }catch(e){console.error(e)}
@@ -1346,7 +1357,11 @@ async function saveUserName(id){
 }
 
 async function setUserRole(id,role){
-  try{const res=await fetch('/api/users/'+id+'/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!res.ok)throw new Error('Failed');toast('Role updated');loadUsers()}catch(e){toast(e.message,'error')}
+  try{const res=await fetch('/api/users/'+id+'/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');return}toast('Role updated');loadUsers()}catch(e){toast(e.message||'Failed','error')}
+}
+
+async function setUserRoleAdmin(id,role){
+  try{const res=await fetch('/api/users/'+id+'/role-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');return}toast('Role updated');loadUsers()}catch(e){toast(e.message||'Failed','error')}
 }
 
 function closeM(){document.getElementById('overlay').classList.remove('on')}
