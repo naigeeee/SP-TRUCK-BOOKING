@@ -224,10 +224,7 @@ function syncSection(section) {
     return;
   }
   var data = JSON.parse(resp.getContentText());
-  if (!Array.isArray(data) || data.length === 0) {
-    Logger.log(section.sheet + ": no data");
-    return;
-  }
+  if (!Array.isArray(data)) data = [];
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(section.sheet);
@@ -236,6 +233,15 @@ function syncSection(section) {
   }
 
   var hdrs = HEADERS[section.sheet] || [];
+
+  if (data.length === 0) {
+    if (sh.getLastRow() > 1) {
+      sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
+    }
+    Logger.log(section.sheet + ": cleared (no data)");
+    return;
+  }
+
   var nested = NESTED_FIELDS[section.sheet] || {};
 
   var rows = data.map(function(row) {

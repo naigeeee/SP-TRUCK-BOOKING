@@ -1029,7 +1029,7 @@ async function saveRate(id){
   const eff_date=document.getElementById('rvEff').value;
   if(!eff_date){toast('Effective Date is required','error');return}
   const body={vendor_id:vendor_id,vendor_name:document.getElementById('rvVendor').options[document.getElementById('rvVendor').selectedIndex].text,truck_type_id:tt_id,origin_port_id:org_id,destination_port_id:dst_id,rate_per_trip:rate_trip,default_rate:+document.getElementById('rvDefault').value||0,destination_drops:drops,effective_date:eff_date,expiry_date:document.getElementById('rvExp').value||null};
-  try{const url=id?'/api/vendor-rates/'+id:'/api/vendor-rates';const res=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){const e=await res.json();throw new Error(e.detail)}toast('Rate saved');closeM();loadRates()}catch(e){toast(e.message,'error')}
+  try{const url=id?'/api/vendor-rates/'+id:'/api/vendor-rates';const res=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){let msg='Failed to save rate';try{const e=await res.json();msg=e.detail||msg}catch(ex){msg='Server error (HTTP '+res.status+')'}throw new Error(msg)}toast('Rate saved');closeM();loadRates()}catch(e){toast(e.message,'error')}
 }
 
 async function delRate(id){if(!confirm('Delete rate?'))return;try{const res=await fetch('/api/vendor-rates/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadRates()}catch(e){toast('Failed','error')}}

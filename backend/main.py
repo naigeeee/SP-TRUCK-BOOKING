@@ -1901,7 +1901,12 @@ async def update_rate(rid: int, request: Request):
         raise HTTPException(404, "Not found")
     sets, params = [], []
     for k in ("vendor_name", "vendor_id", "truck_type_id", "origin_port_id", "destination_port_id", "rate_per_trip", "destination_drops", "default_rate", "effective_date", "expiry_date", "is_active"):
-        if k in body: sets.append(f"{k}=%s"); params.append(body[k])
+        if k in body:
+            val = body[k]
+            if k == "destination_drops" and isinstance(val, list):
+                val = json.dumps(val)
+            sets.append(f"{k}=%s")
+            params.append(val)
     if not sets: raise HTTPException(400, "Nothing to update")
     params.append(rid)
     db_x(f"UPDATE vendor_rates SET {','.join(sets)} WHERE id=%s", tuple(params))
