@@ -770,7 +770,7 @@ function onDropOrderSwap(changedSelect){
 }
 
 function geoDist(lat1,lon1,lat2,lon2){
-  if(lat1==null||lon1==null||lat2==null||lon2==null)return null;
+  if(!lat1||!lon1||!lat2||!lon2)return null;
   const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return Math.round(R*2*Math.asin(Math.sqrt(a))*10)/10;
