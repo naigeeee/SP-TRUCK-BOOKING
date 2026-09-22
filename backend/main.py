@@ -126,6 +126,12 @@ _store = {
         {"id": 2, "name": "XYZ Transport", "contact_person": "Luis Garcia", "phone": "+639172222222", "email": "luis@xyz.com", "address": "Cebu", "is_active": True, "created_at": "2026-01-01 08:00:00"},
     ],
     "truck_request_history": [],
+    "role_visibility": {
+        "viewer": ["dashboard", "masterlist"],
+        "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
+        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility"],
+        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility"]
+    },
     "_cnt": {"users": 1, "ports": 3, "accounts": 1, "departments": 4, "packaging_types": 3,
              "truck_statuses": 7, "truck_types": 3, "truck_type_capacities": 6, "trucks": 4,
              "truck_requests": 0, "attachments": 0, "vendor_rates": 0,
@@ -547,6 +553,45 @@ async def update_user(uid: int, request: Request):
         raise HTTPException(404, "User not found")
     db_x("UPDATE users SET name=%s WHERE id=%s", (name, uid))
     return db_1("SELECT * FROM users WHERE id=%s", (uid,))
+
+DEFAULT_ROLE_VISIBILITY = {
+    "viewer": ["dashboard", "masterlist"],
+    "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility"]
+}
+
+@app.get("/api/role-visibility")
+def get_role_visibility(request: Request):
+    require_master(request)
+    if LOCAL_MODE:
+        return _store.get("role_visibility", DEFAULT_ROLE_VISIBILITY)
+    row = db_1("SELECT config FROM role_visibility WHERE id=1")
+    if row and row.get("config"):
+        if isinstance(row["config"], str):
+            return json.loads(row["config"])
+        return row["config"]
+    return DEFAULT_ROLE_VISIBILITY
+
+@app.put("/api/role-visibility")
+async def set_role_visibility(request: Request):
+    require_master(request)
+    body = await request.json()
+    if not isinstance(body, dict): raise HTTPException(400, "Invalid config")
+    valid_roles = {"viewer", "normal_user", "admin", "master_admin"}
+    for role, pages in body.items():
+        if role not in valid_roles: raise HTTPException(400, f"Invalid role: {role}")
+        if not isinstance(pages, list): raise HTTPException(400, f"Invalid pages for {role}")
+    if LOCAL_MODE:
+        _store["role_visibility"] = body
+        return {"ok": True}
+    existing = db_1("SELECT id FROM role_visibility WHERE id=1")
+    config_json = json.dumps(body)
+    if existing:
+        db_x("UPDATE role_visibility SET config=%s WHERE id=1", (config_json,))
+    else:
+        db_x("INSERT INTO role_visibility (id, config) VALUES (1, %s)", (config_json,))
+    return {"ok": True}
 
 # ---------------------------------------------------------------------------
 # Master data: Ports, Accounts, Departments, Packaging, Statuses, Truck Types
