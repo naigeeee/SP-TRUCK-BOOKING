@@ -252,7 +252,7 @@ async function init(){
       document.querySelectorAll('.nav-item[data-page]').forEach(n=>{
         const pg=n.dataset.page;
         if(pg&&!userPages.includes(pg))n.style.display='none';
-        else if(isAdmin||isMaster)n.style.display='';
+        else n.style.display='';
       });
     }catch(e){
       document.querySelectorAll('.adm').forEach(e=>e.style.display=isAdmin?'':'none');
