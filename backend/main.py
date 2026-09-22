@@ -1415,17 +1415,13 @@ def clear_all_requests(request: Request):
             _store["_cnt"]["pending_allocations"] = 0
             _store["_cnt"]["truck_request_history"] = 0
             return {"ok": True, "message": "All requests cleared"}
-        db_x("SET FOREIGN_KEY_CHECKS=0")
-        db_x("DELETE FROM truck_request_history")
-        db_x("DELETE FROM pending_allocations")
-        db_x("DELETE FROM attachments")
+        for tbl in ["truck_request_history", "pending_allocations", "attachments"]:
+            try: db_x(f"DELETE FROM {tbl}")
+            except Exception: pass
         db_x("UPDATE trucks SET status='available'")
         db_x("DELETE FROM truck_requests")
-        db_x("SET FOREIGN_KEY_CHECKS=1")
         return {"ok": True, "message": "All requests cleared"}
     except Exception as e:
-        try: db_x("SET FOREIGN_KEY_CHECKS=1")
-        except: pass
         raise HTTPException(500, str(e))
 
 @app.delete("/api/requests/{rid}")
@@ -2200,8 +2196,11 @@ def sync_masterlist():
         LEFT JOIN users bu ON tr.updated_by=bu.id
         ORDER BY tr.created_at DESC""")
     for r in reqs:
-        r["attachments"] = [{"original_filename": a["original_filename"], "file_size": a["file_size"]}
-            for a in db_q("SELECT original_filename, file_size FROM attachments WHERE truck_request_id=%s", (r["id"],))]
+        try:
+            r["attachments"] = [{"original_filename": a["original_filename"], "file_size": a["file_size"]}
+                for a in db_q("SELECT original_filename, file_size FROM attachments WHERE truck_request_id=%s", (r["id"],))]
+        except Exception:
+            r["attachments"] = []
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return reqs
