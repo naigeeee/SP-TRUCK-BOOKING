@@ -973,6 +973,7 @@ async function loadRates(){
     if(o)url+='origin_port_id='+o+'&';
     if(d)url+='destination_port_id='+d+'&';
     const data=await(await fetch(url)).json();
+    data.forEach(r=>{if(typeof r.destination_drops==='string'){try{r.destination_drops=JSON.parse(r.destination_drops)}catch(e){r.destination_drops=[]}}});
     const tb=document.getElementById('rTbl');
     if(data.length){
       tb.innerHTML=data.map(r=>'<tr><td><strong>'+r.vendor_name+'</strong></td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtD(r.effective_date)+'</td><td>'+fmtD(r.expiry_date)+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>').join('');
@@ -982,7 +983,8 @@ async function loadRates(){
 
 function showRateModal(rate){
   const r=rate||{};
-  const drops=r.destination_drops||[];
+  let drops=r.destination_drops||[];
+  if(typeof drops==='string'){try{drops=JSON.parse(drops)}catch(e){drops=[]}}
   document.getElementById('mTitle').textContent=r.id?'Edit Rate':'Add Rate';
   document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Vendor *</label><select class="fs" id="rvVendor"></select></div><div class="fg"><label class="fl">Truck Type *</label><select class="fs" id="rvTT"></select></div></div><div class="fr"><div class="fg"><label class="fl">Origin *</label><select class="fs" id="rvOrg"></select></div><div class="fg"><label class="fl">Main Destination *</label><select class="fs" id="rvDst"></select></div></div><div class="fr"><div class="fg"><label class="fl">Rate/Trip (PHP) *</label><input type="number" step="0.01" class="fi" id="rvTrip" value="'+(r.rate_per_trip||0)+'"></div><div class="fg"><label class="fl">Default Rate (PHP)</label><small style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">Fallback rate applied to destinations that are not the main destination and not listed in Additional Destination Drops below</small><input type="number" step="0.01" class="fi" id="rvDefault" value="'+(r.default_rate||0)+'"></div></div><div class="fr"><div class="fg"><label class="fl">Effective Date *</label><input type="date" class="fi" id="rvEff" value="'+(r.effective_date||'')+'"></div><div class="fg"><label class="fl">Expiry Date</label><input type="date" class="fi" id="rvExp" value="'+(r.expiry_date||'')+'"></div></div><div style="margin-top:12px"><label class="fl">Additional Destination Drops (optional, up to 5)</label><div id="dropRows">'+drops.map((d,i)=>'<div class="fr" style="margin-bottom:6px;align-items:flex-end"><div class="fg"><select class="fs drop-port" data-idx="'+i+'"></select></div><div class="fg"><input type="number" step="0.01" class="fi drop-rate" data-idx="'+i+'" placeholder="Rate/Trip (PHP)" value="'+(d.rate_per_trip||0)+'"></div><div class="fg" style="flex:0"><button class="btn btn-sm btn-d" onclick="removeDropRow('+i+')"><i class="fas fa-times"></i></button></div></div>').join('')+'</div><button type="button" class="btn btn-sm btn-o" onclick="addDropRow()" style="margin-top:6px"><i class="fas fa-plus"></i> Add Drop</button></div>';
   popSel('rvVendor',vendors,'id','name','Select Vendor',true);popSel('rvTT',tts,'id','name');popSel('rvOrg',ports,'id','name');popSel('rvDst',ports,'id','name');
