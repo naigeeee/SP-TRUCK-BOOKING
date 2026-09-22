@@ -590,7 +590,7 @@ DEFAULT_ROLE_VISIBILITY = {
 
 @app.get("/api/role-visibility")
 def get_role_visibility(request: Request):
-    require_master(request)
+    get_user(request)
     if LOCAL_MODE:
         return _store.get("role_visibility", DEFAULT_ROLE_VISIBILITY)
     row = db_1("SELECT config FROM role_visibility WHERE id=1")

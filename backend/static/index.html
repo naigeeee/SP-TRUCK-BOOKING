@@ -1368,7 +1368,8 @@ async function loadUsers(){
         let roleSelect='';
         if(isMaster&&u.role!=='master_admin'){
           canRemove=true;
-          const opts=['viewer','normal_user','admin'].map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');
+          const allRoles=['viewer','normal_user','admin','master_admin'];
+          const opts=allRoles.map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');
           roleSelect='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto">'+opts+'</select>';
         }else if(isAdmin&&ROLE_HIERARCHY[u.role]<ROLE_HIERARCHY['admin']){
           canRemove=true;
