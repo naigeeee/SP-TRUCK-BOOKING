@@ -5,6 +5,7 @@ SP PH Truck Booking Centralised Operation Request Database
 import os
 import json
 import uuid
+import math
 from datetime import datetime, timezone, date
 from urllib.parse import urlparse, unquote
 from typing import Optional
@@ -376,6 +377,53 @@ def db_i(sql, p=None):
 
 def gen_req_no():
     return f"REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}"
+
+def geodesic_distance_km(lat1, lon1, lat2, lon2):
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+        return None
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    return round(R * 2 * math.asin(math.sqrt(a)), 1)
+
+def get_port_coords_map():
+    ports = []
+    if LOCAL_MODE:
+        ports = [{"id": p["id"], "latitude": p.get("latitude"), "longitude": p.get("longitude")} for p in _store["ports"]]
+    else:
+        ports = db_q("SELECT id, latitude, longitude FROM ports WHERE is_active=1")
+    return {p["id"]: (float(p["latitude"]), float(p["longitude"])) if p.get("latitude") and p.get("longitude") else None for p in ports}
+
+def compute_distance_for_request(req, coords_map, prev_port_id=None):
+    if prev_port_id is None:
+        origin_coords = coords_map.get(req.get("origin_port_id"))
+    else:
+        origin_coords = coords_map.get(prev_port_id)
+    dest_coords = coords_map.get(req.get("destination_port_id"))
+    if origin_coords and dest_coords:
+        return geodesic_distance_km(origin_coords[0], origin_coords[1], dest_coords[0], dest_coords[1])
+    return None
+
+def add_distances_to_requests(reqs, coords_map):
+    trips = {}
+    for r in reqs:
+        tid = r.get("assigned_truck_id")
+        ds = r.get("drop_sequence")
+        if tid and ds is not None:
+            trips.setdefault(tid, []).append(r)
+    for tid in trips:
+        trips[tid].sort(key=lambda x: x.get("drop_sequence", 0))
+        prev_dest = None
+        for r in trips[tid]:
+            if r.get("drop_sequence") == 1:
+                r["distance_km"] = compute_distance_for_request(r, coords_map)
+            else:
+                r["distance_km"] = compute_distance_for_request(r, coords_map, prev_port_id=prev_dest)
+            prev_dest = r.get("destination_port_id")
+    for r in reqs:
+        if "distance_km" not in r:
+            r["distance_km"] = None
 
 def gen_name_from_email(email):
     local = email.split("@")[0]
@@ -1028,6 +1076,8 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             reqs.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
         else:
             reqs.sort(key=lambda x: x.get(sort_by, ""), reverse=(sort_dir == "desc"))
+        coords = get_port_coords_map()
+        add_distances_to_requests(reqs, coords)
         total = len(reqs)
         start = (page - 1) * per_page
         return {"items": reqs[start:start + per_page], "total": total, "page": page, "per_page": per_page}
@@ -1078,6 +1128,8 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             i["trip_id"] = None
     if sort_by == "trip_id":
         items.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
+    coords = get_port_coords_map()
+    add_distances_to_requests(items, coords)
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 @app.get("/api/requests/{rid}")
@@ -1366,7 +1418,11 @@ def list_pending(request: Request):
                 "packaging_type_id": req.get("packaging_type_id"), "quantity": req.get("quantity", 0),
                 "weight_kg": req.get("weight_kg", 0), "volume_cbm": req.get("volume_cbm", 0),
                 "origin_port_name": next((p["name"] for p in _store["ports"] if p["id"] == req.get("origin_port_id")), ""),
+                "origin_lat": next((p.get("latitude") for p in _store["ports"] if p["id"] == req.get("origin_port_id")), None),
+                "origin_lon": next((p.get("longitude") for p in _store["ports"] if p["id"] == req.get("origin_port_id")), None),
                 "destination_port_name": next((p["name"] for p in _store["ports"] if p["id"] == req.get("destination_port_id")), ""),
+                "dest_lat": next((p.get("latitude") for p in _store["ports"] if p["id"] == req.get("destination_port_id")), None),
+                "dest_lon": next((p.get("longitude") for p in _store["ports"] if p["id"] == req.get("destination_port_id")), None),
                 "department_name": next((d["name"] for d in _store["departments"] if d["id"] == req.get("department_id")), ""),
                 "packaging_type_name": next((p["name"] for p in _store["packaging_types"] if p["id"] == req.get("packaging_type_id")), ""),
                 "truck_type_name": next((t["name"] for t in _store["truck_types"] if t["id"] == req.get("truck_type_id")), ""),
@@ -1428,7 +1484,9 @@ def list_pending(request: Request):
     rows = db_q("""SELECT pa.*, tr.request_number, tr.requestor_name, tr.pickup_datetime, tr.call_datetime,
         tr.origin_port_id, tr.destination_port_id, tr.truck_type_id, tr.account_id, tr.department_id,
         tr.packaging_type_id, tr.quantity, tr.weight_kg, tr.volume_cbm,
-        po.name as origin_port_name, pd.name as destination_port_name, d.name as department_name,
+        po.name as origin_port_name, po.latitude as origin_lat, po.longitude as origin_lon,
+        pd.name as destination_port_name, pd.latitude as dest_lat, pd.longitude as dest_lon,
+        d.name as department_name,
         pt.name as packaging_type_name, tt.name as truck_type_name,
         tt.max_capacity_kg, tt.max_capacity_cbm
         FROM pending_allocations pa JOIN truck_requests tr ON pa.truck_request_id=tr.id
@@ -1838,6 +1896,8 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
                 "lt_start_unload_to_end_unload": _fmt_duration(r.get("start_unloading_datetime"), r.get("end_unloading_datetime")),
                 "lt_full_leg": _fmt_duration(r.get("arrived_pickup_datetime"), r.get("end_unloading_datetime")),
             })
+        coords = get_port_coords_map()
+        add_distances_to_requests(results, coords)
         return results
     wh = ["tr.assigned_truck_id IS NOT NULL", "tr.status_id = 4"]
     pa = []
@@ -1879,6 +1939,8 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
         row["lt_arrived_dest_to_start_unload"] = _fmt_duration(row.get("arrived_dest_datetime"), row.get("start_unloading_datetime"))
         row["lt_start_unload_to_end_unload"] = _fmt_duration(row.get("start_unloading_datetime"), row.get("end_unloading_datetime"))
         row["lt_full_leg"] = _fmt_duration(row.get("arrived_pickup_datetime"), row.get("end_unloading_datetime"))
+    coords = get_port_coords_map()
+    add_distances_to_requests(rows, coords)
     return rows
 
 @app.post("/api/vendor-evaluations")
@@ -1943,6 +2005,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             else:
                 rd["trip_id"] = None
             req_list.append(rd)
+        coords = get_port_coords_map()
+        add_distances_to_requests(req_list, coords)
         return {"total_requests": len(flt), "total_estimated_cost": est_total,
             "total_actual_cost": act_total,
             "requests": req_list}
@@ -1969,6 +2033,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             i["trip_id"] = compute_trip_id(truck_reqs, i["id"])
         else:
             i["trip_id"] = None
+    coords = get_port_coords_map()
+    add_distances_to_requests(reqs, coords)
     return {**(s or {}), "requests": reqs}
 
 # ---------------------------------------------------------------------------
@@ -1995,8 +2061,10 @@ def sync_masterlist():
                 r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
             else:
                 r["trip_id"] = None
+        coords = get_port_coords_map()
+        add_distances_to_requests(reqs, coords)
         return reqs
-    return db_q("""SELECT tr.*, a.name as account_name, d.name as department_name,
+    reqs = db_q("""SELECT tr.*, a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
         ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, pt.name as packaging_type_name,
@@ -2011,6 +2079,9 @@ def sync_masterlist():
         LEFT JOIN vendors v ON tk.vendor_id=v.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
         ORDER BY tr.created_at DESC""")
+    coords = get_port_coords_map()
+    add_distances_to_requests(reqs, coords)
+    return reqs
 
 @app.get("/api/sync/fleet")
 def sync_fleet():
@@ -2049,11 +2120,12 @@ def sync_rates():
 def sync_evaluation():
     if LOCAL_MODE:
         return []
-    return db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.requestor_email,
+    reqs = db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.requestor_email,
         tr.pickup_datetime, tr.arrived_dest_datetime, tr.end_unloading_datetime,
         tr.status_id, ts.name as status_name,
         v.name as vendor_name, tk.plate_number,
         po.name as origin_port_name, pd.name as destination_port_name,
+        tr.assigned_truck_id, tr.drop_sequence,
         DATEDIFF(tr.end_unloading_datetime, tr.pickup_datetime) as lead_time_days
         FROM truck_requests tr
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
@@ -2062,6 +2134,9 @@ def sync_evaluation():
         LEFT JOIN ports po ON tr.origin_port_id=po.id
         LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         WHERE tr.status_id=4 ORDER BY tr.end_unloading_datetime DESC""")
+    coords = get_port_coords_map()
+    add_distances_to_requests(reqs, coords)
+    return reqs
 
 @app.get("/api/sync/cost")
 def sync_cost():
@@ -2071,14 +2146,19 @@ def sync_cost():
             r["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
             r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
             r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+        coords = get_port_coords_map()
+        add_distances_to_requests(reqs, coords)
         return reqs
-    return db_q("""SELECT tr.*, ts.name as status_name,
+    reqs = db_q("""SELECT tr.*, ts.name as status_name,
         po.name as origin_port_name, pd.name as destination_port_name,
         v.name as vendor_name, tk.plate_number
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
         ORDER BY tr.created_at DESC""")
+    coords = get_port_coords_map()
+    add_distances_to_requests(reqs, coords)
+    return reqs
 
 @app.get("/api/sync/ports")
 def sync_ports():

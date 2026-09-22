@@ -34,7 +34,7 @@ var HEADERS = {
     "Origin Port","Destination Port","Truck Type","Packaging Type","Status",
     "Booking Date","Pickup Datetime","Arrived Dest Datetime","End Unloading Datetime",
     "Drop Sequence","Estimated Cost","Actual Cost","Helper Name",
-    "Trip ID","Vendor Name","Plate Number","Attachments","Notes",
+    "Trip ID","Vendor Name","Plate Number","Distance (KM)","Attachments","Notes",
     "Delivery Remarks","Created At","Updated At"
   ],
   "Fleet": [
@@ -49,10 +49,10 @@ var HEADERS = {
     "ID","Request Number","Requestor Name","Requestor Email",
     "Pickup Datetime","Arrived Dest Datetime","End Unloading Datetime",
     "Status","Vendor Name","Plate Number","Origin Port","Destination Port",
-    "Lead Time Days"
+    "Drop #","Distance (KM)","Lead Time Days"
   ],
   "Cost Analysis": [
-    "ID","Request Number","Status","Origin Port","Destination Port",
+    "ID","Request Number","Trip ID","Distance (KM)","Status","Origin Port","Destination Port",
     "Vendor Name","Plate Number","Estimated Cost","Actual Cost",
     "Booking Date","Created At"
   ],
@@ -82,6 +82,7 @@ var NESTED_FIELDS = {
     "Actual Cost": "actual_cost",
     "Helper Name": "helper_name",
     "Drop Sequence": "drop_sequence",
+    "Distance (KM)": "distance_km",
     "Attachments": "attachments",
     "Notes": "notes",
     "Delivery Remarks": "delivery_remarks"
@@ -112,6 +113,8 @@ var NESTED_FIELDS = {
     "Plate Number": "plate_number",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
+    "Drop #": "drop_sequence",
+    "Distance (KM)": "distance_km",
     "Lead Time Days": "lead_time_days"
   },
   "Cost Analysis": {
@@ -121,7 +124,9 @@ var NESTED_FIELDS = {
     "Vendor Name": "vendor_name",
     "Plate Number": "plate_number",
     "Estimated Cost": "estimated_cost",
-    "Actual Cost": "actual_cost"
+    "Actual Cost": "actual_cost",
+    "Distance (KM)": "distance_km",
+    "Trip ID": "trip_id"
   },
   "Ports":    { "Code": "code", "Name": "name", "Is Active": "is_active" },
   "Accounts": { "Code": "code", "Name": "name", "Is Active": "is_active" },
