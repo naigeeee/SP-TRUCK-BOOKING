@@ -377,18 +377,36 @@ def db_i(sql, p=None):
 def gen_req_no():
     return f"REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}"
 
+def gen_name_from_email(email):
+    local = email.split("@")[0]
+    parts = local.replace(".", " ").replace("_", " ").replace("-", " ").split()
+    return " ".join(p.capitalize() for p in parts) if parts else email
+
+def is_hash_name(name):
+    if not name or len(name) < 20: return False
+    return all(c in "0123456789abcdef" for c in name)
+
 def get_user(request: Request):
     email = request.headers.get("X-Forwarded-Email") or "nigel.ng@ninjavan.co"
     name = request.headers.get("X-Forwarded-User") or email
+    if is_hash_name(name):
+        name = gen_name_from_email(email)
     if LOCAL_MODE:
         for u in _store["users"]:
-            if u["email"] == email: return u
+            if u["email"] == email:
+                if is_hash_name(u["name"]):
+                    u["name"] = name
+                return u
         uid = nid("users")
         u = {"id": uid, "email": email, "name": name, "role": "normal_user", "is_active": True, "created_at": nows(), "updated_at": nows()}
         _store["users"].append(u)
         return u
     u = db_1("SELECT * FROM users WHERE email=%s", (email,))
-    if u: return u
+    if u:
+        if is_hash_name(u["name"]):
+            db_x("UPDATE users SET name=%s WHERE id=%s", (name, u["id"]))
+            u["name"] = name
+        return u
     db_x("INSERT INTO users (email,name,role) VALUES (%s,%s,'normal_user')", (email, name))
     return db_1("SELECT * FROM users WHERE email=%s", (email,))
 
@@ -452,6 +470,19 @@ async def set_role_admin(uid: int, request: Request):
             if u["id"] == uid: u["role"] = role; u["updated_at"] = nows(); return row2d(u)
         raise HTTPException(404, "User not found")
     db_x("UPDATE users SET role=%s WHERE id=%s", (role, uid))
+    return db_1("SELECT * FROM users WHERE id=%s", (uid,))
+
+@app.put("/api/users/{uid}")
+async def update_user(uid: int, request: Request):
+    user = require_admin(request)
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    if not name: raise HTTPException(400, "Name is required")
+    if LOCAL_MODE:
+        for u in _store["users"]:
+            if u["id"] == uid: u["name"] = name; u["updated_at"] = nows(); return row2d(u)
+        raise HTTPException(404, "User not found")
+    db_x("UPDATE users SET name=%s WHERE id=%s", (name, uid))
     return db_1("SELECT * FROM users WHERE id=%s", (uid,))
 
 # ---------------------------------------------------------------------------

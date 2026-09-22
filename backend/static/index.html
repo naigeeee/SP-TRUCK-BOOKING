@@ -1275,8 +1275,35 @@ async function loadUsers(){
     const data=await(await fetch('/api/users')).json();
     const tb=document.getElementById('uTbl');
     const isMaster=user.role==='master_admin';
-    tb.innerHTML=data.map(u=>'<tr><td><strong>'+u.name+'</strong></td><td>'+u.email+'</td><td>'+(u.role==='master_admin'?'<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>':u.role==='admin'?'<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>':'<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>')+'</td><td>'+(u.email===user.email?'<span style="font-size:12px;color:var(--muted)">Current user</span>':isMaster?((u.role==='master_admin')?'<span style="font-size:12px;color:var(--muted)">-</span>':'<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto"><option value="normal_user"'+(u.role==='normal_user'?' selected':'')+'>Normal User</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>Admin</option></select>'):'<span style="font-size:12px;color:var(--muted)">-</span>')+'</td></tr>').join('');
+    const isAdmin=['master_admin','admin'].includes(user.role);
+    tb.innerHTML=data.map(u=>{
+      const nameDisplay=isAdmin?'<a href="#" onclick="editUserName('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\');return false" style="color:var(--pri);text-decoration:none;cursor:pointer" title="Edit name"><strong>'+u.name+'</strong> <i class="fas fa-pen" style="font-size:10px;opacity:0.5"></i></a>':'<strong>'+u.name+'</strong>';
+      const roleBadge=u.role==='master_admin'?'<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>':u.role==='admin'?'<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>':'<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>';
+      let actions='';
+      if(u.email===user.email) actions='<span style="font-size:12px;color:var(--muted)">Current user</span>';
+      else if(isMaster&&u.role!=='master_admin') actions='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto"><option value="normal_user"'+(u.role==='normal_user'?' selected':'')+'>Normal User</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>Admin</option></select>';
+      else actions='<span style="font-size:12px;color:var(--muted)">-</span>';
+      return '<tr><td>'+nameDisplay+'</td><td>'+u.email+'</td><td>'+roleBadge+'</td><td>'+actions+'</td></tr>';
+    }).join('');
   }catch(e){console.error(e)}
+}
+
+function editUserName(id,currentName){
+  document.getElementById('mTitle').textContent='Edit User Name';
+  document.getElementById('mBody').innerHTML='<div style="padding:8px 0"><label class="f-lbl">Name</label><input class="f-input" id="editNameInput" value="'+currentName.replace(/"/g,'&quot;')+'" style="width:100%"></div>';
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-ghost" onclick="closeM()">Cancel</button><button class="btn btn-pri" onclick="saveUserName('+id+')">Save</button>';
+  document.getElementById('overlay').classList.add('on');
+  setTimeout(()=>{const inp=document.getElementById('editNameInput');inp.focus();inp.select()},100);
+}
+
+async function saveUserName(id){
+  const name=document.getElementById('editNameInput').value.trim();
+  if(!name){toast('Name is required','error');return}
+  try{
+    const res=await fetch('/api/users/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    if(!res.ok){const e=await res.json();throw new Error(e.detail||'Failed')}
+    toast('Name updated');closeM();loadUsers();
+  }catch(e){toast(e.message,'error')}
 }
 
 async function setUserRole(id,role){
