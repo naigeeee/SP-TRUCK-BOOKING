@@ -554,6 +554,30 @@ async def update_user(uid: int, request: Request):
     db_x("UPDATE users SET name=%s WHERE id=%s", (name, uid))
     return db_1("SELECT * FROM users WHERE id=%s", (uid,))
 
+@app.delete("/api/users/{uid}")
+async def remove_user(uid: int, request: Request):
+    caller = get_user(request)
+    caller_role = caller.get("role", "")
+    ROLE_HIERARCHY = {"viewer": 0, "normal_user": 1, "admin": 2, "master_admin": 3}
+    if LOCAL_MODE:
+        target = next((u for u in _store["users"] if u["id"] == uid), None)
+    else:
+        target = db_1("SELECT * FROM users WHERE id=%s", (uid,))
+    if not target: raise HTTPException(404, "User not found")
+    target_role = target.get("role", "")
+    if caller_role == "admin":
+        if ROLE_HIERARCHY.get(target_role, 0) >= ROLE_HIERARCHY["admin"]:
+            raise HTTPException(403, "Admin cannot remove another admin or master admin")
+    elif caller_role != "master_admin":
+        raise HTTPException(403, "Only admin or master admin can remove users")
+    if target.get("email") == caller.get("email"):
+        raise HTTPException(400, "Cannot remove yourself")
+    if LOCAL_MODE:
+        _store["users"] = [u for u in _store["users"] if u["id"] != uid]
+        return {"ok": True}
+    db_x("DELETE FROM users WHERE id=%s", (uid,))
+    return {"ok": True}
+
 DEFAULT_ROLE_VISIBILITY = {
     "viewer": ["dashboard", "masterlist"],
     "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
@@ -2116,6 +2140,11 @@ def sync_masterlist():
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
             r["plate_number"] = truck["plate_number"] if truck else ""
+            upd = next((u for u in _store["users"] if u["id"] == r.get("updated_by")), None)
+            r["updated_by_name"] = upd["name"] if upd else ""
+            r["updated_by_email"] = upd["email"] if upd else ""
+            atts = [a for a in _store["attachments"] if a.get("truck_request_id") == r["id"]]
+            r["attachments"] = [{"original_filename": a.get("original_filename",""), "file_size": a.get("file_size",0)} for a in atts]
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
@@ -2128,7 +2157,8 @@ def sync_masterlist():
         po.name as origin_port_name, pd.name as destination_port_name,
         ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, pt.name as packaging_type_name,
-        v.name as vendor_name, tk.plate_number
+        v.name as vendor_name, tk.plate_number,
+        bu.name as updated_by_name, bu.email as updated_by_email
         FROM truck_requests tr LEFT JOIN accounts a ON tr.account_id=a.id
         LEFT JOIN departments d ON tr.department_id=d.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
@@ -2138,7 +2168,11 @@ def sync_masterlist():
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
         LEFT JOIN vendors v ON tk.vendor_id=v.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
+        LEFT JOIN users bu ON tr.updated_by=bu.id
         ORDER BY tr.created_at DESC""")
+    for r in reqs:
+        r["attachments"] = [{"original_filename": a["original_filename"], "file_size": a["file_size"]}
+            for a in db_q("SELECT original_filename, file_size FROM attachments WHERE truck_request_id=%s", (r["id"],))]
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return reqs
@@ -2151,10 +2185,20 @@ def sync_fleet():
             tt = next((x for x in _store["truck_types"] if x["id"] == t.get("truck_type_id")), None)
             v = next((x for x in _store["vendors"] if x["id"] == t.get("vendor_id")), None)
             reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5)]
-            result.append({**t, "truck_type_name": tt["name"] if tt else "", "vendor_name": v["name"] if v else "", "active_requests": len(reqs)})
+            hist = [h for h in _store["truck_request_history"] if h.get("truck_id") == t["id"]]
+            caps = next((c for c in _store["truck_type_capacities"] if c.get("truck_type_id") == t.get("truck_type_id")), None)
+            result.append({**t, "truck_type_name": tt["name"] if tt else "", "vendor_name": v["name"] if v else "",
+                "active_requests": [{"id": r["id"], "request_number": r.get("request_number",""),
+                    "origin_port_name": next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), ""),
+                    "destination_port_name": next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), ""),
+                    "status_name": next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")}
+                    for r in reqs],
+                "history_count": len(hist), "capacity": caps.get("max_quantity") if caps else None})
         return result
     return db_q("""SELECT t.*, tt.name as truck_type_name, v.name as vendor_name,
-        (SELECT COUNT(*) FROM truck_requests WHERE assigned_truck_id=t.id AND status_id NOT IN (4,5)) as active_requests
+        (SELECT COUNT(*) FROM truck_requests WHERE assigned_truck_id=t.id AND status_id NOT IN (4,5)) as active_requests,
+        (SELECT COUNT(*) FROM truck_request_history WHERE truck_id=t.id) as history_count,
+        (SELECT max_quantity FROM truck_type_capacities WHERE truck_type_id=t.truck_type_id LIMIT 1) as capacity
         FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
         LEFT JOIN vendors v ON t.vendor_id=v.id ORDER BY t.plate_number""")
 
@@ -2167,7 +2211,8 @@ def sync_rates():
             tt = next((x for x in _store["truck_types"] if x["id"] == r.get("truck_type_id")), None)
             po = next((x for x in _store["ports"] if x["id"] == r.get("origin_port_id")), None)
             pd = next((x for x in _store["ports"] if x["id"] == r.get("destination_port_id")), None)
-            result.append({**r, "vendor_name": v["name"] if v else r.get("vendor_name",""), "truck_type_name": tt["name"] if tt else "", "origin_port_name": po["name"] if po else "", "destination_port_name": pd["name"] if pd else ""})
+            result.append({**r, "vendor_name": v["name"] if v else r.get("vendor_name",""), "truck_type_name": tt["name"] if tt else "",
+                "origin_port_name": po["name"] if po else "", "destination_port_name": pd["name"] if pd else ""})
         return result
     return db_q("""SELECT r.*, v.name as vendor_name, tt.name as truck_type_name,
         po.name as origin_port_name, pd.name as destination_port_name
@@ -2179,24 +2224,83 @@ def sync_rates():
 @app.get("/api/sync/evaluation")
 def sync_evaluation():
     if LOCAL_MODE:
-        return []
-    reqs = db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.requestor_email,
-        tr.pickup_datetime, tr.arrived_dest_datetime, tr.end_unloading_datetime,
-        tr.status_id, ts.name as status_name,
-        v.name as vendor_name, tk.plate_number,
+        reqs = []
+        for r in _store["truck_requests"]:
+            if r.get("status_id") != 4: continue
+            if not r.get("assigned_truck_id"): continue
+            truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
+            if not truck: continue
+            vname = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")), "")
+            ttn = next((t["name"] for t in _store["truck_types"] if t["id"] == r.get("truck_type_id")), "")
+            if not ttn: ttn = next((t["name"] for t in _store["truck_types"] if t["id"] == truck.get("truck_type_id")), "")
+            oname = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
+            dname = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+            acct_name = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+            dept_name = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
+            sn = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
+            sc = next((s["color"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
+            trip_id = None
+            if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
+                truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
+                trip_id = compute_trip_id(truck_reqs, r["id"])
+            reqs.append({"id": r["id"], "request_number": r.get("request_number", ""),
+                "trip_id": trip_id, "drop_sequence": r.get("drop_sequence"),
+                "account_name": acct_name, "department_name": dept_name,
+                "origin_port_name": oname, "destination_port_name": dname,
+                "truck_type_name": ttn, "vendor_name": vname,
+                "booking_date": r.get("booking_date"), "status_name": sn, "status_color": sc,
+                "pickup_datetime": r.get("pickup_datetime"),
+                "customs_cleared_datetime": r.get("customs_cleared_datetime"),
+                "arrived_pickup_datetime": r.get("arrived_pickup_datetime"),
+                "start_loading_datetime": r.get("start_loading_datetime"),
+                "end_loading_datetime": r.get("end_loading_datetime"),
+                "arrived_dest_datetime": r.get("arrived_dest_datetime"),
+                "start_unloading_datetime": r.get("start_unloading_datetime"),
+                "end_unloading_datetime": r.get("end_unloading_datetime"),
+            })
+        coords = get_port_coords_map()
+        add_distances_to_requests(reqs, coords)
+        for r in reqs:
+            r["lt_customs_to_arrival"] = _fmt_duration(r.get("customs_cleared_datetime"), r.get("arrived_pickup_datetime"))
+            r["lt_pickup_to_arrival"] = _fmt_duration(r.get("pickup_datetime"), r.get("arrived_pickup_datetime"))
+            r["lt_arrival_to_start_load"] = _fmt_duration(r.get("arrived_pickup_datetime"), r.get("start_loading_datetime"))
+            r["lt_start_load_to_end_load"] = _fmt_duration(r.get("start_loading_datetime"), r.get("end_loading_datetime"))
+            r["lt_end_load_to_arrived_dest"] = _fmt_duration(r.get("end_loading_datetime"), r.get("arrived_dest_datetime"))
+            r["lt_arrived_dest_to_start_unload"] = _fmt_duration(r.get("arrived_dest_datetime"), r.get("start_unloading_datetime"))
+            r["lt_start_unload_to_end_unload"] = _fmt_duration(r.get("start_unloading_datetime"), r.get("end_unloading_datetime"))
+            r["lt_full_leg"] = _fmt_duration(r.get("arrived_pickup_datetime"), r.get("end_unloading_datetime"))
+        return reqs
+    rows = db_q("""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime,
+        tr.customs_cleared_datetime, tr.arrived_pickup_datetime, tr.start_loading_datetime,
+        tr.end_loading_datetime, tr.arrived_dest_datetime, tr.start_unloading_datetime, tr.end_unloading_datetime,
+        tr.status_id, ts.name as status_name, ts.color as status_color,
+        a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
-        tr.assigned_truck_id, tr.drop_sequence,
-        DATEDIFF(tr.end_unloading_datetime, tr.pickup_datetime) as lead_time_days
-        FROM truck_requests tr
-        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
-        LEFT JOIN vendors v ON tk.vendor_id=v.id
-        LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
-        LEFT JOIN ports po ON tr.origin_port_id=po.id
-        LEFT JOIN ports pd ON tr.destination_port_id=pd.id
-        WHERE tr.status_id=4 ORDER BY tr.end_unloading_datetime DESC""")
+        COALESCE(tt.name, ttt.name) as truck_type_name, v.name as vendor_name,
+        tr.assigned_truck_id
+        FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
+        LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
+        LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
+        WHERE tr.status_id=4 AND tr.assigned_truck_id IS NOT NULL ORDER BY tr.end_unloading_datetime DESC""")
+    for row in rows:
+        if row.get("assigned_truck_id") and row.get("status_id") in (2, 3, 4, 5, 7):
+            truck_reqs = db_q("SELECT id, request_number, status_id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s", (row["assigned_truck_id"],))
+            row["trip_id"] = compute_trip_id(truck_reqs, row["id"])
+        else:
+            row["trip_id"] = None
+        row["lt_customs_to_arrival"] = _fmt_duration(row.get("customs_cleared_datetime"), row.get("arrived_pickup_datetime"))
+        row["lt_pickup_to_arrival"] = _fmt_duration(row.get("pickup_datetime"), row.get("arrived_pickup_datetime"))
+        row["lt_arrival_to_start_load"] = _fmt_duration(row.get("arrived_pickup_datetime"), row.get("start_loading_datetime"))
+        row["lt_start_load_to_end_load"] = _fmt_duration(row.get("start_loading_datetime"), row.get("end_loading_datetime"))
+        row["lt_end_load_to_arrived_dest"] = _fmt_duration(row.get("end_loading_datetime"), row.get("arrived_dest_datetime"))
+        row["lt_arrived_dest_to_start_unload"] = _fmt_duration(row.get("arrived_dest_datetime"), row.get("start_unloading_datetime"))
+        row["lt_start_unload_to_end_unload"] = _fmt_duration(row.get("start_unloading_datetime"), row.get("end_unloading_datetime"))
+        row["lt_full_leg"] = _fmt_duration(row.get("arrived_pickup_datetime"), row.get("end_unloading_datetime"))
     coords = get_port_coords_map()
-    add_distances_to_requests(reqs, coords)
-    return reqs
+    add_distances_to_requests(rows, coords)
+    return rows
 
 @app.get("/api/sync/cost")
 def sync_cost():
@@ -2206,16 +2310,34 @@ def sync_cost():
             r["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
             r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
             r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+            truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
+            tt_id = r.get("truck_type_id") or (truck.get("truck_type_id") if truck else None)
+            r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == tt_id), "")
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
+            r["plate_number"] = truck["plate_number"] if truck else ""
+            if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
+                truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
+                r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
+            else:
+                r["trip_id"] = None
         coords = get_port_coords_map()
         add_distances_to_requests(reqs, coords)
         return reqs
-    reqs = db_q("""SELECT tr.*, ts.name as status_name,
+    reqs = db_q("""SELECT tr.*, ts.name as status_name, ts.color as status_color,
         po.name as origin_port_name, pd.name as destination_port_name,
+        COALESCE(tt.name, ttt.name) as truck_type_name,
         v.name as vendor_name, tk.plate_number
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
         ORDER BY tr.created_at DESC""")
+    for i in reqs:
+        if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
+            truck_reqs = db_q("SELECT id, request_number, status_id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s", (i["assigned_truck_id"],))
+            i["trip_id"] = compute_trip_id(truck_reqs, i["id"])
+        else:
+            i["trip_id"] = None
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return reqs

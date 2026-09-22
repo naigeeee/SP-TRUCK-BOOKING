@@ -1342,13 +1342,22 @@ async function loadUsers(){
       const roleBadge=u.role==='master_admin'?'<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>':u.role==='admin'?'<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>':u.role==='normal_user'?'<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>':'<span class="badge b-gn"><i class="fas fa-eye"></i> Viewer</span>';
       let actions='';
       if(u.email===user.email){actions='<span style="font-size:12px;color:var(--muted)">Current user</span>';}
-      else if(isMaster){
-        if(u.role==='master_admin'){actions='<span style="font-size:12px;color:var(--muted)">-</span>';}
-        else{const opts=['viewer','normal_user','admin'].map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');actions='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto">'+opts+'</select>';}
-      }else if(isAdmin){
-        if(u.role==='master_admin'||u.role==='admin'){actions='<span style="font-size:12px;color:var(--muted)">-</span>';}
-        else{const opts=['viewer','normal_user','admin'].filter(r=>ROLE_HIERARCHY[r]>ROLE_HIERARCHY[u.role]||r===u.role).map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');actions='<select class="f-input" onchange="setUserRoleAdmin('+u.id+',this.value)" style="width:auto">'+opts+'</select>';}
-      }else{actions='<span style="font-size:12px;color:var(--muted)">-</span>';}
+      else{
+        let canRemove=false;
+        let roleSelect='';
+        if(isMaster&&u.role!=='master_admin'){
+          canRemove=true;
+          const opts=['viewer','normal_user','admin'].map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');
+          roleSelect='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto">'+opts+'</select>';
+        }else if(isAdmin&&ROLE_HIERARCHY[u.role]<ROLE_HIERARCHY['admin']){
+          canRemove=true;
+          const opts=['viewer','normal_user','admin'].filter(r=>ROLE_HIERARCHY[r]>ROLE_HIERARCHY[u.role]||r===u.role).map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');
+          roleSelect='<select class="f-input" onchange="setUserRoleAdmin('+u.id+',this.value)" style="width:auto">'+opts+'</select>';
+        }else{
+          roleSelect='<span style="font-size:12px;color:var(--muted)">-</span>';
+        }
+        actions=roleSelect+(canRemove?' <button class="btn btn-sm btn-d" onclick="removeUser('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\')" title="Remove user"><i class="fas fa-user-minus"></i></button>':'');
+      }
       return '<tr><td>'+nameDisplay+'</td><td>'+u.email+'</td><td>'+roleBadge+'</td><td>'+actions+'</td></tr>';
     }).join('');
   }catch(e){console.error(e)}
@@ -1378,6 +1387,21 @@ async function setUserRole(id,role){
 
 async function setUserRoleAdmin(id,role){
   try{const res=await fetch('/api/users/'+id+'/role-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');return}toast('Role updated');loadUsers()}catch(e){toast(e.message||'Failed','error')}
+}
+
+function removeUser(id,name){
+  document.getElementById('mTitle').textContent='Remove User';
+  document.getElementById('mBody').innerHTML='<p style="font-size:14px">Are you sure you want to remove <strong>'+name+'</strong>?</p><p style="font-size:13px;color:var(--muted);margin-top:8px">They will be removed from the system. If they access the app again, they will default to Viewer role.</p>';
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-ghost" onclick="closeM()">Cancel</button><button class="btn btn-d" onclick="confirmRemoveUser('+id+')"><i class="fas fa-user-minus"></i> Remove</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+
+async function confirmRemoveUser(id){
+  try{
+    const res=await fetch('/api/users/'+id,{method:'DELETE'});
+    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to remove user','error');return}
+    toast('User removed');closeM();loadUsers();
+  }catch(e){toast(e.message||'Failed','error')}
 }
 
 const ALL_PAGES=[

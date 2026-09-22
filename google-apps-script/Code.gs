@@ -11,7 +11,6 @@
 
 var BACKEND_URL = "https://sp-truck-booking--dev.ninjavan.apps.substrait.build";
 
-// Section → sheet tab name mapping
 var SECTIONS = [
   { key: "masterlist",    sheet: "Masterlist",           endpoint: "/api/sync/masterlist" },
   { key: "fleet",         sheet: "Fleet",                endpoint: "/api/sync/fleet" },
@@ -27,114 +26,154 @@ var SECTIONS = [
   { key: "vendors",       sheet: "Vendors",              endpoint: "/api/sync/vendors" }
 ];
 
-// Column headers for each sheet (order matters — matches API JSON keys)
 var HEADERS = {
   "Masterlist": [
-    "Request Number","Requestor Name","Requestor Email","Account","Department",
-    "Origin Port","Destination Port","Truck Type","Packaging Type","Status",
-    "Booking Date","Pickup Datetime","Arrived Dest Datetime","End Unloading Datetime",
-    "Drop Sequence","Estimated Cost","Actual Cost","Helper Name",
-    "Trip ID","Vendor Name","Plate Number","Distance (KM)","Attachments","Notes",
-    "Delivery Remarks","Created At","Updated At"
+    "Request #","Requestor Name","Requestor Email","Account","Department",
+    "Origin Port","Destination Port","Truck Type","Packaging","Quantity",
+    "Vendor","Plate #","Trip ID","Drop #","Distance (KM)",
+    "Booking Date","Pickup","Status",
+    "Est. Cost","Actual Cost","Foul Trip Reason",
+    "Helper Name","Arrived Dest Datetime","End Unloading Datetime",
+    "Attachments","Notes","Delivery Remarks",
+    "Updated By","Updated By Email","Updated At","Created At"
   ],
   "Fleet": [
-    "ID","Plate Number","Truck Type","Vendor","Status","Capacity",
-    "Driver Name","Driver Phone","Is Active","Active Requests","Created At"
+    "Plate #","Truck Type","Vendor","Driver Name","Driver Phone","Helper Name",
+    "Status","Capacity","Is Active","Current Requests","History Count","Created At"
   ],
   "Rate Management": [
-    "ID","Vendor","Truck Type","Origin Port","Destination Port",
-    "Rate Per Trip","Default Rate","Effective Date","Is Active","Created At"
+    "Vendor","Truck Type","Origin Port","Destination Port",
+    "Rate/Trip","Default Rate","Effective Date","Expiry Date","Is Active","Created At"
   ],
   "Vendor Speed Performance": [
-    "ID","Request Number","Requestor Name","Requestor Email",
-    "Pickup Datetime","Arrived Dest Datetime","End Unloading Datetime",
-    "Status","Vendor Name","Plate Number","Origin Port","Destination Port",
-    "Drop #","Distance (KM)","Lead Time Days"
+    "Request #","Trip ID","Drop #","Distance (KM)","Account","Department",
+    "Origin Port","Destination Port","Truck Type","Vendor",
+    "Booking Date","Status",
+    "Customs to Arrival","Pickup to Arrival",
+    "Arrival to Start Load","Start to End Load",
+    "End Load to Arrived Dest","Arrived to Start Unload",
+    "Start to End Unload","Full Leg"
   ],
   "Cost Analysis": [
-    "ID","Request Number","Trip ID","Distance (KM)","Status","Origin Port","Destination Port",
-    "Vendor Name","Plate Number","Estimated Cost","Actual Cost",
-    "Booking Date","Created At"
+    "Request #","Trip ID","Distance (KM)","Origin Port","Destination Port",
+    "Truck Type","Vendor","Plate #",
+    "Booking Date","Pickup",
+    "Est. Cost","Actual Cost","Status","Foul Trip Reason"
   ],
-  "Ports":        ["ID","Code","Name","Is Active","Created At"],
-  "Accounts":     ["ID","Code","Name","Is Active","Created At"],
-  "Departments":  ["ID","Code","Name","Is Active","Created At"],
-  "Packaging":    ["ID","Code","Name","Is Active","Created At"],
+  "Ports":        ["ID","Name","Code","Address","Latitude","Longitude","Is Active","Created At"],
+  "Accounts":     ["ID","Name","Code","Is Active","Created At"],
+  "Departments":  ["ID","Name","Code","Is Active","Created At"],
+  "Packaging":    ["ID","Name","Code","Is Active","Created At"],
   "Statuses":     ["ID","Name","Color","Is Active","Created At"],
-  "Truck Types":  ["ID","Code","Name","Is Active","Created At","Capacities"],
-  "Vendors":      ["ID","Code","Name","Contact Person","Phone","Is Active","Created At"]
+  "Truck Types":  ["ID","Name","Code","Max KG","Max CBM","Capacities","Is Active","Created At"],
+  "Vendors":      ["ID","Name","Contact Person","Phone","Email","Address","Is Active","Created At"]
 };
 
-// Key fields to extract from nested objects for master library lookups
 var NESTED_FIELDS = {
   "Masterlist": {
+    "Request #": "request_number",
+    "Requestor Name": "requestor_name",
+    "Requestor Email": "requestor_email",
     "Account": "account_name",
     "Department": "department_name",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
-    "Status": "status_name",
     "Truck Type": "truck_type_name",
-    "Packaging Type": "packaging_type_name",
-    "Vendor Name": "vendor_name",
+    "Packaging": "packaging_type_name",
+    "Quantity": "quantity",
+    "Vendor": "vendor_name",
+    "Plate #": "plate_number",
     "Trip ID": "trip_id",
-    "Plate Number": "plate_number",
-    "Estimated Cost": "estimated_cost",
-    "Actual Cost": "actual_cost",
-    "Helper Name": "helper_name",
-    "Drop Sequence": "drop_sequence",
+    "Drop #": "drop_sequence",
     "Distance (KM)": "distance_km",
+    "Booking Date": "booking_date",
+    "Pickup": "pickup_datetime",
+    "Status": "status_name",
+    "Est. Cost": "estimated_cost",
+    "Actual Cost": "actual_cost",
+    "Foul Trip Reason": "foul_trip_reason",
+    "Helper Name": "helper_name",
+    "Arrived Dest Datetime": "arrived_dest_datetime",
+    "End Unloading Datetime": "end_unloading_datetime",
     "Attachments": "attachments",
     "Notes": "notes",
-    "Delivery Remarks": "delivery_remarks"
+    "Delivery Remarks": "delivery_remarks",
+    "Updated By": "updated_by_name",
+    "Updated By Email": "updated_by_email",
+    "Updated At": "updated_at",
+    "Created At": "created_at"
   },
   "Fleet": {
+    "Plate #": "plate_number",
     "Truck Type": "truck_type_name",
     "Vendor": "vendor_name",
-    "Status": "status",
-    "Capacity": "capacity",
     "Driver Name": "driver_name",
     "Driver Phone": "driver_phone",
+    "Helper Name": "helper_name",
+    "Status": "status",
+    "Capacity": "capacity",
     "Is Active": "is_active",
-    "Active Requests": "active_requests"
+    "Current Requests": "active_requests",
+    "History Count": "history_count",
+    "Created At": "created_at"
   },
   "Rate Management": {
     "Vendor": "vendor_name",
     "Truck Type": "truck_type_name",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
-    "Rate Per Trip": "rate_per_trip",
+    "Rate/Trip": "rate_per_trip",
     "Default Rate": "default_rate",
     "Effective Date": "effective_date",
-    "Is Active": "is_active"
+    "Expiry Date": "expiry_date",
+    "Is Active": "is_active",
+    "Created At": "created_at"
   },
   "Vendor Speed Performance": {
-    "Status": "status_name",
-    "Vendor Name": "vendor_name",
-    "Plate Number": "plate_number",
-    "Origin Port": "origin_port_name",
-    "Destination Port": "destination_port_name",
+    "Request #": "request_number",
+    "Trip ID": "trip_id",
     "Drop #": "drop_sequence",
     "Distance (KM)": "distance_km",
-    "Lead Time Days": "lead_time_days"
-  },
-  "Cost Analysis": {
-    "Status": "status_name",
+    "Account": "account_name",
+    "Department": "department_name",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
-    "Vendor Name": "vendor_name",
-    "Plate Number": "plate_number",
-    "Estimated Cost": "estimated_cost",
-    "Actual Cost": "actual_cost",
-    "Distance (KM)": "distance_km",
-    "Trip ID": "trip_id"
+    "Truck Type": "truck_type_name",
+    "Vendor": "vendor_name",
+    "Booking Date": "booking_date",
+    "Status": "status_name",
+    "Customs to Arrival": "lt_customs_to_arrival",
+    "Pickup to Arrival": "lt_pickup_to_arrival",
+    "Arrival to Start Load": "lt_arrival_to_start_load",
+    "Start to End Load": "lt_start_load_to_end_load",
+    "End Load to Arrived Dest": "lt_end_load_to_arrived_dest",
+    "Arrived to Start Unload": "lt_arrived_dest_to_start_unload",
+    "Start to End Unload": "lt_start_unload_to_end_unload",
+    "Full Leg": "lt_full_leg"
   },
-  "Ports":    { "Code": "code", "Name": "name", "Is Active": "is_active" },
-  "Accounts": { "Code": "code", "Name": "name", "Is Active": "is_active" },
-  "Departments": { "Code": "code", "Name": "name", "Is Active": "is_active" },
-  "Packaging":   { "Code": "code", "Name": "name", "Is Active": "is_active" },
-  "Statuses":    { "Name": "name", "Color": "color", "Is Active": "is_active" },
-  "Truck Types": { "Code": "code", "Name": "name", "Is Active": "is_active", "Capacities": "capacities" },
-  "Vendors":     { "Code": "code", "Name": "name", "Contact Person": "contact_person", "Phone": "phone", "Is Active": "is_active" }
+  "Cost Analysis": {
+    "Request #": "request_number",
+    "Trip ID": "trip_id",
+    "Distance (KM)": "distance_km",
+    "Origin Port": "origin_port_name",
+    "Destination Port": "destination_port_name",
+    "Truck Type": "truck_type_name",
+    "Vendor": "vendor_name",
+    "Plate #": "plate_number",
+    "Booking Date": "booking_date",
+    "Pickup": "pickup_datetime",
+    "Est. Cost": "estimated_cost",
+    "Actual Cost": "actual_cost",
+    "Status": "status_name",
+    "Foul Trip Reason": "foul_trip_reason"
+  },
+  "Ports":    { "ID": "id", "Name": "name", "Code": "code", "Address": "location", "Latitude": "latitude", "Longitude": "longitude", "Is Active": "is_active" },
+  "Accounts": { "ID": "id", "Name": "name", "Code": "code", "Is Active": "is_active" },
+  "Departments": { "ID": "id", "Name": "name", "Code": "code", "Is Active": "is_active" },
+  "Packaging":   { "ID": "id", "Name": "name", "Code": "code", "Is Active": "is_active" },
+  "Statuses":    { "ID": "id", "Name": "name", "Color": "color", "Is Active": "is_active" },
+  "Truck Types": { "ID": "id", "Name": "name", "Code": "code", "Max KG": "max_capacity_kg", "Max CBM": "max_capacity_cbm", "Capacities": "capacities", "Is Active": "is_active" },
+  "Vendors":     { "ID": "id", "Name": "name", "Contact Person": "contact_person", "Phone": "phone", "Email": "email", "Address": "address", "Is Active": "is_active" }
 };
 
 // ============================================================
@@ -143,14 +182,12 @@ var NESTED_FIELDS = {
 
 function setupSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  // Remove default Sheet1 if empty
   var def = ss.getSheetByName("Sheet1");
   SECTIONS.forEach(function(s) {
     var sh = ss.getSheetByName(s.sheet);
     if (!sh) {
       sh = ss.insertSheet(s.sheet);
     }
-    // Write headers
     var hdrs = HEADERS[s.sheet] || [];
     if (hdrs.length) {
       sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
@@ -201,23 +238,24 @@ function syncSection(section) {
   var hdrs = HEADERS[section.sheet] || [];
   var nested = NESTED_FIELDS[section.sheet] || {};
 
-  // Build rows
   var rows = data.map(function(row) {
     return hdrs.map(function(h) {
       var key = nested[h] || h.toLowerCase().replace(/ /g, "_");
       var val = row[key];
       if (val === undefined || val === null) return "";
       if (h === "Attachments" && Array.isArray(val)) {
-        return val.map(function(a) { return a.filename || a.name || ""; }).join(", ");
+        return val.map(function(a) { return a.original_filename || a.filename || a.name || ""; }).join(", ");
+      }
+      if (h === "Current Requests" && Array.isArray(val)) {
+        return val.map(function(r) { return r.request_number || ""; }).join(", ");
       }
       if (h === "Capacities" && Array.isArray(val)) {
-        return val.map(function(c) { return (c.packaging_type_name || "") + ": " + (c.capacity || 0); }).join("; ");
+        return val.map(function(c) { return (c.packaging_type_name || "") + ": " + (c.max_quantity || 0); }).join("; ");
       }
       return String(val);
     });
   });
 
-  // Write headers if missing or blank
   if (sh.getLastRow() === 0 || sh.getRange(1, 1).getValue() === "") {
     if (hdrs.length) {
       sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
@@ -225,12 +263,10 @@ function syncSection(section) {
     }
   }
 
-  // Clear existing data (keep header row)
   if (sh.getLastRow() > 1) {
     sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
   }
 
-  // Write new data
   if (rows.length > 0 && hdrs.length) {
     sh.getRange(2, 1, rows.length, hdrs.length).setValues(rows);
   }
@@ -243,14 +279,12 @@ function syncSection(section) {
 // ============================================================
 
 function installTrigger() {
-  // Remove existing triggers first
   var triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(function(t) {
     if (t.getHandlerFunction() === "syncAll") {
       ScriptApp.deleteTrigger(t);
     }
   });
-  // Create hourly trigger
   ScriptApp.newTrigger("syncAll")
     .timeBased()
     .everyHours(1)
