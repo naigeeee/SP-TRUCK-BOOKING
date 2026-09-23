@@ -924,7 +924,7 @@ def list_trucks(request: Request, status: Optional[str] = None):
         for t in trucks:
             t["truck_type_name"] = next((tt["name"] for tt in _store["truck_types"] if tt["id"] == t["truck_type_id"]), "")
             t["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == t.get("vendor_id")), "")
-            active_reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5)]
+            active_reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5, 7)]
             t["current_requests"] = [{"id": r["id"], "request_number": r["request_number"], "status_id": r["status_id"],
                 "status_name": next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), ""),
                 "origin_port_name": next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), ""),
@@ -945,7 +945,7 @@ def list_trucks(request: Request, status: Optional[str] = None):
             po.name as origin_port_name, pd.name as destination_port_name
             FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
             LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
-            WHERE tr.assigned_truck_id=%s AND tr.status_id NOT IN (4,5)""", (t["id"],))
+            WHERE tr.assigned_truck_id=%s AND tr.status_id NOT IN (4,5,7)""", (t["id"],))
     return trucks
 
 @app.post("/api/trucks")
@@ -1348,7 +1348,7 @@ async def update_request(rid: int, request: Request):
                         for x in _store["truck_requests"]:
                             if x.get("assigned_truck_id") == old_tid and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
                                 x["drop_sequence"] -= 1
-                    remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == old_tid and x.get("status_id") not in (4, 5)]
+                    remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == old_tid and x.get("status_id") not in (4, 5, 7)]
                     if not remaining:
                         for t in _store["trucks"]:
                             if t["id"] == old_tid: t["status"] = "available"; break
@@ -1359,7 +1359,7 @@ async def update_request(rid: int, request: Request):
                 if new_status == 4 and r.get("assigned_truck_id"):
                     if r.get("actual_cost", 0) == 0: r["actual_cost"] = r.get("estimated_cost", 0)
                     tid = r["assigned_truck_id"]
-                    remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5)]
+                    remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5, 7)]
                     if not remaining:
                         email = request.headers.get("X-Forwarded-Email", "")
                         archive_truck_requests(tid, email)
@@ -1370,7 +1370,28 @@ async def update_request(rid: int, request: Request):
                     else:
                         recalculate_trip_rates(tid)
                 if new_status == 7:
+                    if r.get("estimated_cost", 0) == 0 and r.get("assigned_truck_id"):
+                        truck = next((t for t in _store["trucks"] if t["id"] == r["assigned_truck_id"]), None)
+                        if truck:
+                            tt_id = r.get("truck_type_id") or truck.get("truck_type_id")
+                            rate_match = find_best_rate(truck.get("vendor_id"), tt_id, r.get("origin_port_id"), r.get("destination_port_id"))
+                            if rate_match: r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"))
                     if r.get("actual_cost", 0) == 0: r["actual_cost"] = r.get("estimated_cost", 0)
+                    _store["pending_allocations"] = [p for p in _store["pending_allocations"] if p.get("truck_request_id") != rid or p.get("is_accepted") is not None]
+                    tid = r.get("assigned_truck_id")
+                    if tid:
+                        reverted_seq = r.get("drop_sequence")
+                        r["drop_sequence"] = None
+                        if reverted_seq:
+                            for x in _store["truck_requests"]:
+                                if x.get("assigned_truck_id") == tid and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
+                                    x["drop_sequence"] -= 1
+                        remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5, 7)]
+                        if not remaining:
+                            for t in _store["trucks"]:
+                                if t["id"] == tid: t["status"] = "available"; break
+                        else:
+                            recalculate_trip_rates(tid)
                 return row2d(r)
         raise HTTPException(404, "Not found")
     sets, params = [], []
@@ -1390,7 +1411,7 @@ async def update_request(rid: int, request: Request):
             db_x("UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL, estimated_cost=0, actual_cost=0 WHERE id=%s", (rid,))
             if reverted_seq:
                 db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (old_tid, reverted_seq))
-            remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (old_tid,))
+            remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (old_tid,))
             if remaining and remaining.get("c", 0) == 0:
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (old_tid,))
             else:
@@ -1403,7 +1424,7 @@ async def update_request(rid: int, request: Request):
         db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
         req = db_1("SELECT assigned_truck_id FROM truck_requests WHERE id=%s", (rid,))
         if req and req.get("assigned_truck_id"):
-            remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (req["assigned_truck_id"],))
+            remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (req["assigned_truck_id"],))
             if remaining and remaining.get("c", 0) == 0:
                 email = request.headers.get("X-Forwarded-Email", "")
                 archive_truck_requests(req["assigned_truck_id"], email)
@@ -1412,7 +1433,33 @@ async def update_request(rid: int, request: Request):
             else:
                 recalculate_trip_rates(req["assigned_truck_id"])
     if new_status == 7:
-        db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
+        db_x("DELETE FROM pending_allocations WHERE truck_request_id=%s AND is_accepted IS NULL", (rid,))
+        req = db_1("SELECT id, assigned_truck_id, drop_sequence, estimated_cost, actual_cost, origin_port_id, destination_port_id, truck_type_id FROM truck_requests WHERE id=%s", (rid,))
+        if req and req.get("assigned_truck_id"):
+            if not req.get("estimated_cost"):
+                truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (req["assigned_truck_id"],))
+                if truck:
+                    tt_id = req.get("truck_type_id") or truck.get("truck_type_id")
+                    rate = db_1("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND destination_port_id=%s AND is_active=1",
+                        (truck["vendor_id"], tt_id, req["origin_port_id"], req.get("destination_port_id")))
+                    if not rate:
+                        rate = db_1("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1",
+                            (truck["vendor_id"], tt_id, req["origin_port_id"]))
+                    if rate:
+                        est = compute_rate(rate, req.get("destination_port_id"))
+                        if est: db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, rid))
+            db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
+            reverted_seq = req.get("drop_sequence")
+            db_x("UPDATE truck_requests SET drop_sequence=NULL WHERE id=%s", (rid,))
+            if reverted_seq:
+                db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (req["assigned_truck_id"], reverted_seq))
+            remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (req["assigned_truck_id"],))
+            if remaining and remaining.get("c", 0) == 0:
+                db_x("UPDATE trucks SET status='available' WHERE id=%s", (req["assigned_truck_id"],))
+            else:
+                recalculate_trip_rates(req["assigned_truck_id"])
+        else:
+            db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
     return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
 
 @app.delete("/api/requests/clear-all")
@@ -1463,7 +1510,7 @@ def delete_request(rid: int, request: Request):
                 for x in _store["truck_requests"]:
                     if x.get("assigned_truck_id") == truck_id and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
                         x["drop_sequence"] -= 1
-            remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == truck_id and x.get("status_id") not in (4, 5)]
+            remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == truck_id and x.get("status_id") not in (4, 5, 7)]
             if not remaining:
                 for t in _store["trucks"]:
                     if t["id"] == truck_id: t["status"] = "available"; break
@@ -1481,7 +1528,7 @@ def delete_request(rid: int, request: Request):
         _delete_att_file(a.get("storage_path", ""))
     db_x("DELETE FROM truck_requests WHERE id=%s", (rid,))
     if truck_id:
-        remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (truck_id,))
+        remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (truck_id,))
         if remaining and remaining.get("c", 0) == 0:
             db_x("UPDATE trucks SET status='available' WHERE id=%s", (truck_id,))
         else:
@@ -1579,7 +1626,7 @@ def list_pending(request: Request):
             avail = [t for t in avail if t["id"] not in in_transit_truck_ids]
             truck_list = []
             for t in avail:
-                cur_reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5)]
+                cur_reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5, 7)]
                 truck_origins = list(set(r.get("origin_port_id") for r in cur_reqs if r.get("origin_port_id")))
                 ttcaps = [c for c in _store["truck_type_capacities"] if c["truck_type_id"] == t.get("truck_type_id")]
                 pkg_counts = {}
@@ -1641,7 +1688,7 @@ def list_pending(request: Request):
             AND t.id NOT IN (SELECT assigned_truck_id FROM truck_requests WHERE status_id=3 AND assigned_truck_id IS NOT NULL)""")
         for at in avail_trucks:
             at_ttcaps = db_q("SELECT packaging_type_id, max_quantity FROM truck_type_capacities WHERE truck_type_id=%s", (at["truck_type_id"],))
-            pkg_rows = db_q("SELECT packaging_type_id, SUM(quantity) as total FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5) GROUP BY packaging_type_id", (at["id"],))
+            pkg_rows = db_q("SELECT packaging_type_id, SUM(quantity) as total FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7) GROUP BY packaging_type_id", (at["id"],))
             pkg_counts = {r["packaging_type_id"]: r["total"] for r in pkg_rows}
             majority_pkg = max(pkg_counts, key=pkg_counts.get) if pkg_counts else item.get("packaging_type_id")
             cur_qty = pkg_counts.get(majority_pkg, 0)
@@ -1651,7 +1698,7 @@ def list_pending(request: Request):
             at["remaining_qty"] = (cap - cur_qty) if cap > 0 else 999
             at["majority_pkg_name"] = next((p["name"] for p in db_q("SELECT name FROM packaging_types WHERE id=%s", (majority_pkg,))), "")
             at["pkg_capacities"] = {str(c["packaging_type_id"]): {"max": c["max_quantity"], "current": pkg_counts.get(c["packaging_type_id"], 0)} for c in at_ttcaps}
-            origins = db_q("SELECT DISTINCT origin_port_id FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (at["id"],))
+            origins = db_q("SELECT DISTINCT origin_port_id FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (at["id"],))
             at["assigned_origins"] = [o["origin_port_id"] for o in origins if o.get("origin_port_id")]
             rate_row = db_1("""SELECT rate_per_trip, default_rate FROM vendor_rates
                 WHERE vendor_id=(SELECT vendor_id FROM trucks WHERE id=%s) AND truck_type_id=%s AND origin_port_id=%s AND is_active=1 LIMIT 1""",
@@ -1660,7 +1707,7 @@ def list_pending(request: Request):
             at["default_rate"] = rate_row.get("default_rate", 0) if rate_row else 0
             at["current_drops"] = db_q("""SELECT tr.id as request_id, tr.request_number, tr.drop_sequence, pd.name as destination_port_name
                 FROM truck_requests tr LEFT JOIN ports pd ON tr.destination_port_id=pd.id
-                WHERE tr.assigned_truck_id=%s AND tr.status_id NOT IN (4,5) AND tr.drop_sequence IS NOT NULL ORDER BY tr.drop_sequence""", (at["id"],))
+                WHERE tr.assigned_truck_id=%s AND tr.status_id NOT IN (4,5,7) AND tr.drop_sequence IS NOT NULL ORDER BY tr.drop_sequence""", (at["id"],))
         avail_trucks.sort(key=lambda x: x["rate_per_trip"] if x.get("rate_per_trip", 0) > 0 else 999999)
         item["available_trucks"] = avail_trucks
     return rows
@@ -2189,6 +2236,15 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             dept_name = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
             est = r.get("estimated_cost", 0) or 0
             act = r.get("actual_cost", 0) or 0
+            if r.get("status_id") == 7 and not est and truck:
+                tt_id_rate = r.get("truck_type_id") or truck.get("truck_type_id")
+                rate_match = find_best_rate(truck.get("vendor_id"), tt_id_rate, r.get("origin_port_id"), r.get("destination_port_id"))
+                if rate_match:
+                    est = compute_rate(rate_match, r.get("destination_port_id"))
+                    if est:
+                        r["estimated_cost"] = est
+                        r["actual_cost"] = est
+                        act = est
             est_total += est
             act_total += act
             rd = {k: r.get(k) for k in ("id", "request_number", "quantity", "weight_kg", "volume_cbm",
@@ -2234,11 +2290,28 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
         WHERE {ws} ORDER BY tr.created_at DESC""", tuple(pa))
     for i in reqs:
+        if i.get("status_id") == 7 and not i.get("estimated_cost") and i.get("assigned_truck_id"):
+            truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (i["assigned_truck_id"],))
+            if truck:
+                tt_id = i.get("truck_type_id") or truck.get("truck_type_id")
+                rate = db_1("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND destination_port_id=%s AND is_active=1",
+                    (truck["vendor_id"], tt_id, i.get("origin_port_id"), i.get("destination_port_id")))
+                if not rate:
+                    rate = db_1("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1",
+                        (truck["vendor_id"], tt_id, i.get("origin_port_id")))
+                if rate:
+                    est = compute_rate(rate, i.get("destination_port_id"))
+                    if est:
+                        db_x("UPDATE truck_requests SET estimated_cost=%s, actual_cost=%s WHERE id=%s AND estimated_cost=0", (est, est, i["id"]))
+                        i["estimated_cost"] = est
+                        i["actual_cost"] = est
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
             truck_reqs = db_q("SELECT id, request_number, status_id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s", (i["assigned_truck_id"],))
             i["trip_id"] = compute_trip_id(truck_reqs, i["id"])
         else:
             i["trip_id"] = None
+    if any(i.get("status_id") == 7 and i.get("estimated_cost") for i in reqs):
+        s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return {**(s or {}), "requests": reqs}
@@ -2316,7 +2389,7 @@ def sync_fleet():
         for t in _store["trucks"]:
             tt = next((x for x in _store["truck_types"] if x["id"] == t.get("truck_type_id")), None)
             v = next((x for x in _store["vendors"] if x["id"] == t.get("vendor_id")), None)
-            reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5)]
+            reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") not in (4, 5, 7)]
             hist = [h for h in _store["truck_request_history"] if h.get("truck_id") == t["id"]]
             caps = next((c for c in _store["truck_type_capacities"] if c.get("truck_type_id") == t.get("truck_type_id")), None)
             result.append({**t, "truck_type_name": tt["name"] if tt else "", "vendor_name": v["name"] if v else "",
@@ -2328,7 +2401,7 @@ def sync_fleet():
                 "history_count": len(hist), "capacity": caps.get("max_quantity") if caps else None})
         return result
     return db_q("""SELECT t.*, tt.name as truck_type_name, v.name as vendor_name,
-        (SELECT COUNT(*) FROM truck_requests WHERE assigned_truck_id=t.id AND status_id NOT IN (4,5)) as active_requests,
+        (SELECT COUNT(*) FROM truck_requests WHERE assigned_truck_id=t.id AND status_id NOT IN (4,5,7)) as active_requests,
         (SELECT COUNT(*) FROM truck_request_history WHERE truck_id=t.id) as history_count,
         (SELECT max_quantity FROM truck_type_capacities WHERE truck_type_id=t.truck_type_id LIMIT 1) as capacity
         FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
