@@ -31,11 +31,11 @@ var HEADERS = {
     "Request #","Requestor Name","Requestor Email","Account","Department",
     "Origin Port","Destination Port","Truck Type","Packaging","Quantity",
     "Vendor","Plate #","Trip ID","Drop #","Distance (KM)",
-    "Booking Date","Pickup","Status",
-    "Est. Cost","Actual Cost","Foul Trip Reason",
-    "Helper Name","Arrived Dest Datetime","End Unloading Datetime",
-    "Attachments","Notes","Delivery Remarks",
-    "Updated By","Updated By Email","Updated At","Created At"
+    "Booking Date","Pickup","Call Date","Customs Cleared","Instructions",
+    "Arrived Pickup","Start Loading","End Loading",
+    "Arrived Destination","Start Unloading","End Unloading",
+    "Foul Trip Reason","Status","Est. Cost","Actual Cost",
+    "Attachments","Updated By","Updated By Email","Updated At","Created At"
   ],
   "Fleet": [
     "Plate #","Truck Type","Vendor","Driver Name","Driver Phone","Helper Name",
@@ -88,16 +88,20 @@ var NESTED_FIELDS = {
     "Distance (KM)": "distance_km",
     "Booking Date": "booking_date",
     "Pickup": "pickup_datetime",
+    "Call Date": "call_datetime",
+    "Customs Cleared": "customs_cleared_datetime",
+    "Instructions": "special_instructions",
+    "Arrived Pickup": "arrived_pickup_datetime",
+    "Start Loading": "start_loading_datetime",
+    "End Loading": "end_loading_datetime",
+    "Arrived Destination": "arrived_dest_datetime",
+    "Start Unloading": "start_unloading_datetime",
+    "End Unloading": "end_unloading_datetime",
+    "Foul Trip Reason": "foul_trip_reason",
     "Status": "status_name",
     "Est. Cost": "estimated_cost",
     "Actual Cost": "actual_cost",
-    "Foul Trip Reason": "foul_trip_reason",
-    "Helper Name": "helper_name",
-    "Arrived Dest Datetime": "arrived_dest_datetime",
-    "End Unloading Datetime": "end_unloading_datetime",
     "Attachments": "attachments",
-    "Notes": "notes",
-    "Delivery Remarks": "delivery_remarks",
     "Updated By": "updated_by_name",
     "Updated By Email": "updated_by_email",
     "Updated At": "updated_at",
@@ -250,7 +254,13 @@ function syncSection(section) {
       var val = row[key];
       if (val === undefined || val === null) return "";
       if (h === "Attachments" && Array.isArray(val)) {
-        return val.map(function(a) { return a.original_filename || a.filename || a.name || ""; }).join(", ");
+        return val.map(function(a) {
+          var name = a.original_filename || a.filename || a.name || "";
+          if (a.download_url) {
+            return name + " (" + BACKEND_URL + a.download_url + ")";
+          }
+          return name;
+        }).join(", ");
       }
       if (h === "Current Requests" && Array.isArray(val)) {
         return val.map(function(r) { return r.request_number || ""; }).join(", ");
@@ -266,6 +276,21 @@ function syncSection(section) {
     if (hdrs.length) {
       sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
       sh.setFrozenRows(1);
+    }
+  } else if (hdrs.length) {
+    var curHdr = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), hdrs.length)).getValues()[0];
+    var needsUpdate = hdrs.length !== curHdr.length;
+    if (!needsUpdate) {
+      for (var hi = 0; hi < hdrs.length; hi++) {
+        if (String(curHdr[hi] || "") !== hdrs[hi]) { needsUpdate = true; break; }
+      }
+    }
+    if (needsUpdate) {
+      sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
+      if (sh.getLastColumn() > hdrs.length) {
+        sh.getRange(1, hdrs.length + 1, 1, sh.getLastColumn() - hdrs.length).clearContent();
+      }
+      Logger.log(section.sheet + ": headers refreshed");
     }
   }
 

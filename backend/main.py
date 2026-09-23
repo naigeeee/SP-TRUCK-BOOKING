@@ -1111,6 +1111,8 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     vendor_id: Optional[int] = None, search: Optional[str] = None,
     booking_from: Optional[str] = None, booking_to: Optional[str] = None,
     pickup_from: Optional[str] = None, pickup_to: Optional[str] = None,
+    call_from: Optional[str] = None, call_to: Optional[str] = None,
+    customs_from: Optional[str] = None, customs_to: Optional[str] = None,
     sort_by: str = "created_at", sort_dir: str = "desc", page: int = 1, per_page: int = 50):
 
     if LOCAL_MODE:
@@ -1153,6 +1155,10 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if booking_to: reqs = [r for r in reqs if (r.get("booking_date") or "") <= booking_to]
         if pickup_from: reqs = [r for r in reqs if (r.get("pickup_datetime") or "")[:10] >= pickup_from]
         if pickup_to: reqs = [r for r in reqs if (r.get("pickup_datetime") or "")[:10] <= pickup_to]
+        if call_from: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] >= call_from]
+        if call_to: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] <= call_to]
+        if customs_from: reqs = [r for r in reqs if (r.get("customs_cleared_datetime") or "")[:10] >= customs_from]
+        if customs_to: reqs = [r for r in reqs if (r.get("customs_cleared_datetime") or "")[:10] <= customs_to]
         if search:
             s = search.lower()
             reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "")).lower()]
@@ -1178,11 +1184,15 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if booking_to: wh.append("tr.booking_date<=%s"); pa.append(booking_to)
     if pickup_from: wh.append("DATE(tr.pickup_datetime)>=%s"); pa.append(pickup_from)
     if pickup_to: wh.append("DATE(tr.pickup_datetime)<=%s"); pa.append(pickup_to)
+    if call_from: wh.append("DATE(tr.call_datetime)>=%s"); pa.append(call_from)
+    if call_to: wh.append("DATE(tr.call_datetime)<=%s"); pa.append(call_to)
+    if customs_from: wh.append("DATE(tr.customs_cleared_datetime)>=%s"); pa.append(customs_from)
+    if customs_to: wh.append("DATE(tr.customs_cleared_datetime)<=%s"); pa.append(customs_to)
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason"):
         sort_by = "created_at"
-    sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "v.name", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date"}
+    sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "v.name", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name"}
     if sort_by == "trip_id":
         order_col = "tr.created_at"
     else:
@@ -2173,11 +2183,12 @@ def sync_masterlist():
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
             r["plate_number"] = truck["plate_number"] if truck else ""
-            upd = next((u for u in _store["users"] if u["id"] == r.get("updated_by")), None)
-            r["updated_by_name"] = upd["name"] if upd else ""
-            r["updated_by_email"] = upd["email"] if upd else ""
+            upd = next((u for u in _store["users"] if u.get("email") == r.get("updated_by")), None)
+            r["updated_by_name"] = upd.get("name", "") if upd else (r.get("updated_by") or "")
+            r["updated_by_email"] = r.get("updated_by", "")
             atts = [a for a in _store["attachments"] if a.get("truck_request_id") == r["id"]]
-            r["attachments"] = [{"original_filename": a.get("original_filename",""), "file_size": a.get("file_size",0)} for a in atts]
+            r["attachments"] = [{"id": a.get("id"), "original_filename": a.get("original_filename",""), "file_size": a.get("file_size",0),
+                "download_url": f"/api/attachments/{a.get('id')}/download"} for a in atts]
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
@@ -2201,14 +2212,20 @@ def sync_masterlist():
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
         LEFT JOIN vendors v ON tk.vendor_id=v.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
-        LEFT JOIN users bu ON tr.updated_by=bu.id
+        LEFT JOIN users bu ON tr.updated_by=bu.email
         ORDER BY tr.created_at DESC""")
     for r in reqs:
         try:
-            r["attachments"] = [{"original_filename": a["original_filename"], "file_size": a["file_size"]}
-                for a in db_q("SELECT original_filename, file_size FROM attachments WHERE truck_request_id=%s", (r["id"],))]
+            r["attachments"] = [{"id": a["id"], "original_filename": a["original_filename"], "file_size": a["file_size"],
+                "download_url": f"/api/attachments/{a['id']}/download"}
+                for a in db_q("SELECT id, original_filename, file_size FROM truck_request_attachments WHERE truck_request_id=%s", (r["id"],))]
         except Exception:
             r["attachments"] = []
+        if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
+            truck_reqs = db_q("SELECT id, request_number, status_id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s", (r["assigned_truck_id"],))
+            r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
+        else:
+            r["trip_id"] = None
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return reqs
