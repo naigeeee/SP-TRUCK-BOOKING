@@ -429,11 +429,13 @@ def add_distances_to_requests(reqs, coords_map):
         ds = r.get("drop_sequence")
         if tid and ds is not None:
             trips.setdefault(tid, []).append(r)
+        elif tid and r.get("status_id") in (4, 5, 7):
+            r["distance_km"] = compute_distance_for_request(r, coords_map)
     for tid in trips:
         trips[tid].sort(key=lambda x: x.get("drop_sequence", 0))
         prev_dest = None
         for r in trips[tid]:
-            if r.get("drop_sequence") == 1:
+            if r.get("drop_sequence") == 1 or prev_dest is None:
                 r["distance_km"] = compute_distance_for_request(r, coords_map)
             else:
                 r["distance_km"] = compute_distance_for_request(r, coords_map, prev_port_id=prev_dest)
@@ -1442,7 +1444,7 @@ async def update_request(rid: int, request: Request):
                         for t in _store["trucks"]:
                             if t["id"] == tid: t["status"] = "available"; break
                         for x in _store["truck_requests"]:
-                            if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5): x["assigned_truck_id"] = None
+                            if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5, 7): x["assigned_truck_id"] = None
                     else:
                         recalculate_trip_rates(tid)
                 if new_status == 5 and r.get("assigned_truck_id"):
@@ -1466,12 +1468,6 @@ async def update_request(rid: int, request: Request):
                     tid = r.get("assigned_truck_id")
                     if tid:
                         archive_truck_requests(tid, request.headers.get("X-Forwarded-Email", ""))
-                        reverted_seq = r.get("drop_sequence")
-                        r["drop_sequence"] = None
-                        if reverted_seq:
-                            for x in _store["truck_requests"]:
-                                if x.get("assigned_truck_id") == tid and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
-                                    x["drop_sequence"] -= 1
                         remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5, 7)]
                         if not remaining:
                             for t in _store["trucks"]:
@@ -1515,7 +1511,7 @@ async def update_request(rid: int, request: Request):
             remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (req["assigned_truck_id"],))
             if remaining and remaining.get("c", 0) == 0:
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (req["assigned_truck_id"],))
-                db_x("UPDATE truck_requests SET assigned_truck_id=NULL WHERE assigned_truck_id=%s AND status_id!=4", (req["assigned_truck_id"],))
+                db_x("UPDATE truck_requests SET assigned_truck_id=NULL WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (req["assigned_truck_id"],))
             else:
                 recalculate_trip_rates(req["assigned_truck_id"])
     if new_status == 5:
@@ -1547,10 +1543,6 @@ async def update_request(rid: int, request: Request):
             db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
             email = request.headers.get("X-Forwarded-Email", "")
             archive_truck_requests(req["assigned_truck_id"], email)
-            reverted_seq = req.get("drop_sequence")
-            db_x("UPDATE truck_requests SET drop_sequence=NULL WHERE id=%s", (rid,))
-            if reverted_seq:
-                db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (req["assigned_truck_id"], reverted_seq))
             remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (req["assigned_truck_id"],))
             if remaining and remaining.get("c", 0) == 0:
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (req["assigned_truck_id"],))
