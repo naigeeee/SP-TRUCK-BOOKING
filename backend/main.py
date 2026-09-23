@@ -183,14 +183,15 @@ def validate_delivered_chronology(body):
 
 def compute_rate(rate_match, dest_port_id):
     if not rate_match: return 0
-    if rate_match.get("destination_port_id") == dest_port_id: return rate_match.get("rate_per_trip", 0)
-    drops = rate_match.get("destination_drops", [])
+    if rate_match.get("destination_port_id") == dest_port_id: return rate_match.get("rate_per_trip", 0) or 0
+    drops = rate_match.get("destination_drops") or []
     if isinstance(drops, str):
         try: import json; drops = json.loads(drops)
-        except: drops = []
+        except Exception: drops = []
+    if not isinstance(drops, list): drops = []
     for d in drops:
-        if d.get("port_id") == dest_port_id: return d.get("rate_per_trip", 0)
-    return rate_match.get("default_rate", 0)
+        if isinstance(d, dict) and d.get("port_id") == dest_port_id: return d.get("rate_per_trip", 0) or 0
+    return rate_match.get("default_rate", 0) or 0
 
 # Status transition rules:
 # Pending(1)/Allocated(2) -> can go to: Allocated(2), In Transit(3), Delivered(4), Cancelled(5), On Hold(6), Foul Trip(7)
@@ -1207,8 +1208,13 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 r["trip_id"] = compute_trip_id(truck_reqs, r["id"])
+                active = [x for x in truck_reqs if x.get("status_id") in (2, 3)]
+                r["active_trip_count"] = len(active)
+                r["is_consolidated"] = r.get("status_id") in (2, 3) and len(active) > 1
             else:
                 r["trip_id"] = None
+                r["active_trip_count"] = 0
+                r["is_consolidated"] = False
         if status_id: reqs = [r for r in reqs if r.get("status_id") == status_id]
         if account_id: reqs = [r for r in reqs if r.get("account_id") == account_id]
         if department_id: reqs = [r for r in reqs if r.get("department_id") == department_id]
@@ -1287,8 +1293,13 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
             truck_reqs = db_q("SELECT id, request_number, status_id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s", (i["assigned_truck_id"],))
             i["trip_id"] = compute_trip_id(truck_reqs, i["id"])
+            active = [x for x in truck_reqs if x.get("status_id") in (2, 3)]
+            i["active_trip_count"] = len(active)
+            i["is_consolidated"] = i.get("status_id") in (2, 3) and len(active) > 1
         else:
             i["trip_id"] = None
+            i["active_trip_count"] = 0
+            i["is_consolidated"] = False
     if sort_by == "trip_id":
         items.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
     coords = get_port_coords_map()
