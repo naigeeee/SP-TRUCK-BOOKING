@@ -1039,19 +1039,35 @@ def truck_history(tid: int, request: Request):
             h["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == h.get("destination_port_id")), "")
             h["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == h.get("status_id")), "")
             h["status_color"] = next((s.get("color") for s in _store["truck_statuses"] if s["id"] == h.get("status_id")), "")
+            h["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == h.get("account_id")), "")
+            h["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == h.get("department_id")), "")
+            updater = next((u for u in _store["users"] if u.get("email") == h.get("updated_by")), None)
+            h["updated_by_name"] = updater.get("name", "") if updater else (h.get("updated_by") or "")
             hist.append(h)
         return hist
     return db_q("""SELECT h.*, po.name as origin_port_name, pd.name as destination_port_name,
-        ts.name as status_name, ts.color as status_color
+        ts.name as status_name, ts.color as status_color,
+        a.name as account_name, d.name as department_name,
+        uu.name as updated_by_name, h.updated_by as updated_by_email
         FROM truck_request_history h
         LEFT JOIN ports po ON h.origin_port_id=po.id LEFT JOIN ports pd ON h.destination_port_id=pd.id
         LEFT JOIN truck_statuses ts ON h.status_id=ts.id
+        LEFT JOIN accounts a ON h.account_id=a.id
+        LEFT JOIN departments d ON h.department_id=d.id
+        LEFT JOIN users uu ON h.updated_by=uu.email
         WHERE h.truck_id=%s AND h.status_id IN (4,5,7)
         AND h.archived_at = (SELECT MAX(h2.archived_at) FROM truck_request_history h2
             WHERE h2.truck_id=h.truck_id AND h2.truck_request_id=h.truck_request_id)
         ORDER BY h.archived_at DESC""", (tid,))
 
 def archive_truck_requests(truck_id, email="system"):
+    truck_reqs = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == truck_id] if LOCAL_MODE else \
+        db_q("SELECT id, request_number, status_id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s", (truck_id,))
+    trip_by_id = {}
+    for r in truck_reqs:
+        tid = compute_trip_id(truck_reqs, r["id"])
+        if tid:
+            trip_by_id[r["id"]] = tid
     if LOCAL_MODE:
         existing = {(h["truck_id"], h["truck_request_id"]) for h in _store["truck_request_history"]}
         for r in _store["truck_requests"]:
@@ -1066,18 +1082,27 @@ def archive_truck_requests(truck_id, email="system"):
                     "truck_type_id": r.get("truck_type_id"), "quantity": r.get("quantity", 0),
                     "weight_kg": r.get("weight_kg", 0), "volume_cbm": r.get("volume_cbm", 0),
                     "status_id": r.get("status_id"), "pickup_datetime": r.get("pickup_datetime"),
+                    "trip_id": trip_by_id.get(r["id"]), "drop_sequence": r.get("drop_sequence"),
+                    "account_id": r.get("account_id"), "department_id": r.get("department_id"),
+                    "updated_by": r.get("updated_by") or email,
                     "archived_at": nows(), "archived_by": email})
         return
-    reqs = db_q("SELECT id,request_number,requestor_name,requestor_email,origin_port_id,destination_port_id,truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (4,5,7)", (truck_id,))
+    reqs = db_q("""SELECT id,request_number,requestor_name,requestor_email,origin_port_id,destination_port_id,
+        truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,
+        drop_sequence,account_id,department_id,updated_by
+        FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (4,5,7)""", (truck_id,))
     for r in reqs:
         if db_1("SELECT id FROM truck_request_history WHERE truck_id=%s AND truck_request_id=%s", (truck_id, r["id"])):
             continue
         db_i("""INSERT INTO truck_request_history (truck_id,truck_request_id,request_number,requestor_name,requestor_email,
-            origin_port_id,destination_port_id,truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,archived_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            origin_port_id,destination_port_id,truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,
+            trip_id,drop_sequence,account_id,department_id,updated_by,archived_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (truck_id, r["id"], r["request_number"], r["requestor_name"], r["requestor_email"],
              r["origin_port_id"], r["destination_port_id"], r["truck_type_id"], r["quantity"], r["weight_kg"],
-             r["volume_cbm"], r["status_id"], r["pickup_datetime"], email))
+             r["volume_cbm"], r["status_id"], r["pickup_datetime"],
+             trip_by_id.get(r["id"]), r.get("drop_sequence"), r.get("account_id"), r.get("department_id"),
+             r.get("updated_by") or email, email))
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -1415,13 +1440,13 @@ async def update_request(rid: int, request: Request):
                     _store["pending_allocations"] = [p for p in _store["pending_allocations"] if p.get("truck_request_id") != rid or p.get("is_accepted") is not None]
                     tid = r.get("assigned_truck_id")
                     if tid:
+                        archive_truck_requests(tid, request.headers.get("X-Forwarded-Email", ""))
                         reverted_seq = r.get("drop_sequence")
                         r["drop_sequence"] = None
                         if reverted_seq:
                             for x in _store["truck_requests"]:
                                 if x.get("assigned_truck_id") == tid and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
                                     x["drop_sequence"] -= 1
-                        archive_truck_requests(tid, request.headers.get("X-Forwarded-Email", ""))
                         remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid and x.get("status_id") not in (4, 5, 7)]
                         if not remaining:
                             for t in _store["trucks"]:
@@ -1495,12 +1520,12 @@ async def update_request(rid: int, request: Request):
                         est = compute_rate(rate, req.get("destination_port_id"))
                         if est: db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, rid))
             db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
+            email = request.headers.get("X-Forwarded-Email", "")
+            archive_truck_requests(req["assigned_truck_id"], email)
             reverted_seq = req.get("drop_sequence")
             db_x("UPDATE truck_requests SET drop_sequence=NULL WHERE id=%s", (rid,))
             if reverted_seq:
                 db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (req["assigned_truck_id"], reverted_seq))
-            email = request.headers.get("X-Forwarded-Email", "")
-            archive_truck_requests(req["assigned_truck_id"], email)
             remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (req["assigned_truck_id"],))
             if remaining and remaining.get("c", 0) == 0:
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (req["assigned_truck_id"],))

@@ -110,7 +110,7 @@ tr:hover td{background:#F8FAFC}
 <a class="nav-item" onclick="showPage('masterlist')" data-page="masterlist"><i class="fas fa-list-alt"></i> Masterlist</a>
 <a class="nav-item vwr" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation</a>
 <div class="nav-div"></div><div class="nav-lbl">Operations</div>
-<a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet</a>
+<a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet Management</a>
 <a class="nav-item adm" onclick="showPage('rates')" data-page="rates" style="display:none"><i class="fas fa-dollar-sign"></i> Rate Management</a>
 <a class="nav-item adm" onclick="showPage('evaluation')" data-page="evaluation" style="display:none"><i class="fas fa-star"></i> Vendor Speed Performance</a>
 <a class="nav-item adm" onclick="showPage('cost')" data-page="cost" style="display:none"><i class="fas fa-chart-pie"></i> Cost Analysis</a>
@@ -936,10 +936,12 @@ async function viewTruckHistory(tid,plate){
     document.getElementById('mTitle').textContent='History - '+plate;
     let html='<div style="max-height:400px;overflow-y:auto">';
     if(hist.length){
-      html+='<table><thead><tr><th>Request #</th><th>Status</th><th>Requestor</th><th>Origin Port</th><th>Destination Port</th><th>Qty</th><th>Weight</th><th>Volume</th><th>Pickup</th><th>Archived</th></tr></thead><tbody>';
+      html+='<table><thead><tr><th>Request #</th><th>Trip ID</th><th>Drop #</th><th>Status</th><th>Account</th><th>Dept</th><th>Requestor</th><th>Origin Port</th><th>Destination Port</th><th>Qty</th><th>Weight</th><th>Volume</th><th>Pickup</th><th>Updated By</th><th>Archived</th></tr></thead><tbody>';
       hist.forEach(h=>{
         const sb=h.status_name?stBadge(h.status_name,h.status_color):'-';
-        html+='<tr><td><strong style="color:var(--pri)">'+(h.request_number||'')+'</strong></td><td>'+sb+'</td><td>'+(h.requestor_name||'')+'</td><td>'+(h.origin_port_name||'')+'</td><td>'+(h.destination_port_name||'')+'</td><td>'+(h.quantity||0)+'</td><td>'+(h.weight_kg||0)+' KG</td><td>'+(h.volume_cbm||0)+' CBM</td><td>'+fmtD(h.pickup_datetime)+'</td><td>'+fmtD(h.archived_at)+'</td></tr>';
+        const trip=h.trip_id?'<span class="badge b-bl">'+h.trip_id+'</span>':'-';
+        const upd=h.updated_by_name||h.updated_by||h.updated_by_email||'-';
+        html+='<tr><td><strong style="color:var(--pri)">'+(h.request_number||'')+'</strong></td><td>'+trip+'</td><td>'+(h.drop_sequence||'-')+'</td><td>'+sb+'</td><td>'+(h.account_name||'-')+'</td><td>'+(h.department_name||'-')+'</td><td>'+(h.requestor_name||'')+'</td><td>'+(h.origin_port_name||'')+'</td><td>'+(h.destination_port_name||'')+'</td><td>'+(h.quantity||0)+'</td><td>'+(h.weight_kg||0)+' KG</td><td>'+(h.volume_cbm||0)+' CBM</td><td>'+fmtD(h.pickup_datetime)+'</td><td>'+upd+'</td><td>'+fmtD(h.archived_at)+'</td></tr>';
       });
       html+='</tbody></table>';
     }else{html+='<div class="empty"><i class="fas fa-history"></i><p>No history records</p></div>'}
@@ -1450,7 +1452,7 @@ const ALL_PAGES=[
   {key:'new-request',label:'New Request'},
   {key:'masterlist',label:'Masterlist'},
   {key:'pending',label:'Pending Allocation'},
-  {key:'fleet',label:'Fleet'},
+  {key:'fleet',label:'Fleet Management'},
   {key:'rates',label:'Rate Management'},
   {key:'evaluation',label:'Vendor Speed Performance'},
   {key:'cost',label:'Cost Analysis'},
