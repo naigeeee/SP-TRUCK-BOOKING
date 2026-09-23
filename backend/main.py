@@ -32,6 +32,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import traceback as _traceback
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    _traceback.print_exc()
+    return JSONResponse(status_code=500, content={"detail": f"Internal server error: {type(exc).__name__}: {exc}"})
+
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
@@ -1794,6 +1801,7 @@ async def allocate(pid: int, request: Request):
     if not truck_id: raise HTTPException(400, "truck_id required")
     if LOCAL_MODE:
         truck = next((t for t in _store["trucks"] if t["id"] == truck_id), None)
+        if not truck: raise HTTPException(400, "Truck not found")
         for pa in _store["pending_allocations"]:
             if pa["id"] == pid:
                 pa["suggested_truck_id"] = truck_id; pa["is_accepted"] = True; pa["allocated_by"] = user["email"]; pa["allocated_at"] = nows()
@@ -1840,12 +1848,14 @@ async def allocate(pid: int, request: Request):
                 recalculate_trip_rates(truck_id)
                 return {"ok": True}
         raise HTTPException(404, "Not found")
+    pa = db_1("SELECT truck_request_id FROM pending_allocations WHERE id=%s", (pid,))
+    if not pa: raise HTTPException(404, "Pending allocation not found")
+    truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (truck_id,))
+    if not truck: raise HTTPException(400, "Truck not found")
     db_x("UPDATE pending_allocations SET suggested_truck_id=%s,is_accepted=1,allocated_by=%s,allocated_at=NOW() WHERE id=%s", (truck_id, user["email"], pid))
     db_x("UPDATE trucks SET status='assigned' WHERE id=%s", (truck_id,))
-    pa = db_1("SELECT truck_request_id FROM pending_allocations WHERE id=%s", (pid,))
     if pa:
         tr = db_1("SELECT origin_port_id, destination_port_id, truck_type_id FROM truck_requests WHERE id=%s", (pa["truck_request_id"],))
-        truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (truck_id,))
         rate = None
         if tr and truck:
             rate = db_1("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND destination_port_id=%s AND is_active=1", (truck["vendor_id"], truck["truck_type_id"], tr["origin_port_id"], tr.get("destination_port_id")))
@@ -1918,6 +1928,7 @@ async def reject_alloc(pid: int, request: Request):
         raise HTTPException(404, "Not found")
     db_x("UPDATE pending_allocations SET is_accepted=0,allocated_by=%s,allocated_at=NOW(),suggestion_reason=%s WHERE id=%s", (user["email"], reason, pid))
     pa = db_1("SELECT truck_request_id FROM pending_allocations WHERE id=%s", (pid,))
+    if not pa: raise HTTPException(404, "Pending allocation not found")
     if pa:
         db_x("UPDATE truck_requests SET status_id=5 WHERE id=%s", (pa["truck_request_id"],))
         req = db_1("SELECT assigned_truck_id FROM truck_requests WHERE id=%s", (pa["truck_request_id"],))
