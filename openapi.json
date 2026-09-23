@@ -146,6 +146,108 @@
         }
       }
     },
+    "/api/users/{uid}": {
+      "put": {
+        "summary": "Update User",
+        "operationId": "update_user_api_users__uid__put",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Uid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove User",
+        "operationId": "remove_user_api_users__uid__delete",
+        "parameters": [
+          {
+            "name": "uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Uid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/role-visibility": {
+      "get": {
+        "summary": "Get Role Visibility",
+        "operationId": "get_role_visibility_api_role_visibility_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Role Visibility",
+        "operationId": "set_role_visibility_api_role_visibility_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ports": {
       "get": {
         "summary": " Fn",
@@ -176,53 +278,18 @@
         }
       }
     },
-    "/api/ports/{port_id}": {
+    "/api/ports/{tid}": {
       "delete": {
         "summary": " Fn",
-        "operationId": "_fn_api_ports__port_id__delete",
+        "operationId": "_fn_api_ports__tid__delete",
         "parameters": [
           {
             "name": "tid",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Tid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "Update Port",
-        "operationId": "update_port_api_ports__port_id__put",
-        "parameters": [
-          {
-            "name": "port_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
-              "title": "Port Id"
+              "title": "Tid"
             }
           }
         ],
@@ -278,53 +345,18 @@
         }
       }
     },
-    "/api/accounts/{account_id}": {
+    "/api/accounts/{tid}": {
       "delete": {
         "summary": " Fn",
-        "operationId": "_fn_api_accounts__account_id__delete",
+        "operationId": "_fn_api_accounts__tid__delete",
         "parameters": [
           {
             "name": "tid",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Tid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "Update Account",
-        "operationId": "update_account_api_accounts__account_id__put",
-        "parameters": [
-          {
-            "name": "account_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
-              "title": "Account Id"
+              "title": "Tid"
             }
           }
         ],
@@ -380,14 +412,14 @@
         }
       }
     },
-    "/api/departments/{department_id}": {
+    "/api/departments/{tid}": {
       "delete": {
         "summary": " Fn",
-        "operationId": "_fn_api_departments__department_id__delete",
+        "operationId": "_fn_api_departments__tid__delete",
         "parameters": [
           {
             "name": "tid",
-            "in": "query",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
@@ -447,14 +479,14 @@
         }
       }
     },
-    "/api/packaging-types/{packaging_type_id}": {
+    "/api/packaging-types/{tid}": {
       "delete": {
         "summary": " Fn",
-        "operationId": "_fn_api_packaging_types__packaging_type_id__delete",
+        "operationId": "_fn_api_packaging_types__tid__delete",
         "parameters": [
           {
             "name": "tid",
-            "in": "query",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
@@ -514,18 +546,92 @@
         }
       }
     },
-    "/api/truck-statuses/{truck_statuse_id}": {
+    "/api/truck-statuses/{tid}": {
       "delete": {
         "summary": " Fn",
-        "operationId": "_fn_api_truck_statuses__truck_statuse_id__delete",
+        "operationId": "_fn_api_truck_statuses__tid__delete",
         "parameters": [
           {
             "name": "tid",
-            "in": "query",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "integer",
               "title": "Tid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ports/{port_id}": {
+      "put": {
+        "summary": "Update Port",
+        "operationId": "update_port_api_ports__port_id__put",
+        "parameters": [
+          {
+            "name": "port_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Port Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}": {
+      "put": {
+        "summary": "Update Account",
+        "operationId": "update_account_api_accounts__account_id__put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Account Id"
             }
           }
         ],
@@ -662,6 +768,108 @@
         }
       }
     },
+    "/api/vendors": {
+      "get": {
+        "summary": "List Vendors",
+        "operationId": "list_vendors_api_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Vendor",
+        "operationId": "create_vendor_api_vendors_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vendors/{vid}": {
+      "put": {
+        "summary": "Update Vendor",
+        "operationId": "update_vendor_api_vendors__vid__put",
+        "parameters": [
+          {
+            "name": "vid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Vid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Vendor",
+        "operationId": "delete_vendor_api_vendors__vid__delete",
+        "parameters": [
+          {
+            "name": "vid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Vid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/truck-types": {
       "get": {
         "summary": "List Tt",
@@ -696,6 +904,41 @@
       "put": {
         "summary": "Update Tt",
         "operationId": "update_tt_api_truck_types__tt_id__put",
+        "parameters": [
+          {
+            "name": "tt_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tt Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Tt",
+        "operationId": "delete_tt_api_truck_types__tt_id__delete",
         "parameters": [
           {
             "name": "tt_id",
@@ -826,6 +1069,43 @@
       "delete": {
         "summary": "Delete Truck",
         "operationId": "delete_truck_api_trucks__tid__delete",
+        "parameters": [
+          {
+            "name": "tid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trucks/{tid}/history": {
+      "get": {
+        "summary": "Truck History",
+        "operationId": "truck_history_api_trucks__tid__history_get",
         "parameters": [
           {
             "name": "tid",
@@ -1320,6 +1600,59 @@
         }
       }
     },
+    "/api/requests/clear-all": {
+      "delete": {
+        "summary": "Clear All Requests",
+        "operationId": "clear_all_requests_api_requests_clear_all_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/{rid}/drop-sequence": {
+      "put": {
+        "summary": "Update Drop Sequence",
+        "operationId": "update_drop_sequence_api_requests__rid__drop_sequence_put",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pending-allocations": {
       "get": {
         "summary": "List Pending",
@@ -1699,23 +2032,23 @@
         "operationId": "list_evals_api_vendor_evaluations_get",
         "parameters": [
           {
-            "name": "vendor_name",
+            "name": "vendor_id",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "integer"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Vendor Name"
+              "title": "Vendor Id"
             }
           },
           {
-            "name": "period_type",
+            "name": "date_from",
             "in": "query",
             "required": false,
             "schema": {
@@ -1727,7 +2060,119 @@
                   "type": "null"
                 }
               ],
-              "title": "Period Type"
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "truck_type_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Truck Type Id"
+            }
+          },
+          {
+            "name": "origin_port_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin Port Id"
+            }
+          },
+          {
+            "name": "destination_port_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Destination Port Id"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "department_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Department Id"
             }
           }
         ],
@@ -1940,6 +2385,198 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/masterlist": {
+      "get": {
+        "summary": "Sync Masterlist",
+        "operationId": "sync_masterlist_api_sync_masterlist_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/fleet": {
+      "get": {
+        "summary": "Sync Fleet",
+        "operationId": "sync_fleet_api_sync_fleet_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/rates": {
+      "get": {
+        "summary": "Sync Rates",
+        "operationId": "sync_rates_api_sync_rates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/evaluation": {
+      "get": {
+        "summary": "Sync Evaluation",
+        "operationId": "sync_evaluation_api_sync_evaluation_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/cost": {
+      "get": {
+        "summary": "Sync Cost",
+        "operationId": "sync_cost_api_sync_cost_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/ports": {
+      "get": {
+        "summary": "Sync Ports",
+        "operationId": "sync_ports_api_sync_ports_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/accounts": {
+      "get": {
+        "summary": "Sync Accounts",
+        "operationId": "sync_accounts_api_sync_accounts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/departments": {
+      "get": {
+        "summary": "Sync Departments",
+        "operationId": "sync_departments_api_sync_departments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/packaging": {
+      "get": {
+        "summary": "Sync Packaging",
+        "operationId": "sync_packaging_api_sync_packaging_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/statuses": {
+      "get": {
+        "summary": "Sync Statuses",
+        "operationId": "sync_statuses_api_sync_statuses_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/truck-types": {
+      "get": {
+        "summary": "Sync Truck Types",
+        "operationId": "sync_truck_types_api_sync_truck_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/vendors": {
+      "get": {
+        "summary": "Sync Vendors",
+        "operationId": "sync_vendors_api_sync_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
