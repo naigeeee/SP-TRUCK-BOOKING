@@ -12,10 +12,13 @@ from typing import Optional
 from decimal import Decimal
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
 import pymysql
+
+import storage as obj_storage
 
 APP_NAME = "SP PH Truck Booking Centralised Operations"
 
@@ -1417,6 +1420,8 @@ def clear_all_requests(request: Request):
     require_master(request)
     try:
         if LOCAL_MODE:
+            for a in _store["attachments"]:
+                _delete_att_file(a.get("storage_path", ""))
             _store["truck_requests"] = []
             _store["attachments"] = []
             _store["pending_allocations"] = []
@@ -1428,6 +1433,8 @@ def clear_all_requests(request: Request):
             _store["_cnt"]["pending_allocations"] = 0
             _store["_cnt"]["truck_request_history"] = 0
             return {"ok": True, "message": "All requests cleared"}
+        for a in db_q("SELECT storage_path FROM truck_request_attachments"):
+            _delete_att_file(a.get("storage_path", ""))
         for tbl in ["truck_request_history", "pending_allocations", "attachments"]:
             try: db_x(f"DELETE FROM {tbl}")
             except Exception: pass
@@ -1447,6 +1454,8 @@ def delete_request(rid: int, request: Request):
         truck_id = req.get("assigned_truck_id")
         reverted_seq = req.get("drop_sequence")
         _store["truck_requests"] = [r for r in _store["truck_requests"] if r["id"] != rid]
+        for a in [a for a in _store["attachments"] if a.get("truck_request_id") == rid]:
+            _delete_att_file(a.get("storage_path", ""))
         _store["attachments"] = [a for a in _store["attachments"] if a.get("truck_request_id") != rid]
         _store["pending_allocations"] = [p for p in _store["pending_allocations"] if p.get("truck_request_id") != rid]
         if truck_id:
@@ -1468,6 +1477,8 @@ def delete_request(rid: int, request: Request):
     reverted_seq = req.get("drop_sequence")
     if reverted_seq:
         db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (truck_id, reverted_seq))
+    for a in db_q("SELECT storage_path FROM truck_request_attachments WHERE truck_request_id=%s", (rid,)):
+        _delete_att_file(a.get("storage_path", ""))
     db_x("DELETE FROM truck_requests WHERE id=%s", (rid,))
     if truck_id:
         remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (truck_id,))
@@ -1785,6 +1796,46 @@ async def reject_alloc(pid: int, request: Request):
 # Attachments
 # ---------------------------------------------------------------------------
 
+def _obj_storage_on() -> bool:
+    return bool(os.environ.get("OBJECT_STORAGE_BUCKET", ""))
+
+def _att_content_type(raw: str) -> str:
+    ctype = (raw or "").split(";")[0].strip().lower()
+    if ctype in ("text/html", "image/svg+xml", "application/xhtml+xml", "text/xml"):
+        return "application/octet-stream"
+    return ctype or "application/octet-stream"
+
+def _is_object_key(path: str) -> bool:
+    return bool(path) and not os.path.isabs(path) and _obj_storage_on()
+
+def _delete_att_file(path: str) -> None:
+    if not path:
+        return
+    if _is_object_key(path):
+        try:
+            obj_storage.delete(path)
+        except Exception:
+            pass
+        return
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass
+
+async def _save_att_bytes(rid: int, fn: str, content: bytes, ctype: str) -> str:
+    if _obj_storage_on():
+        try:
+            key = obj_storage.safe_key("attachments", str(rid), fn)
+        except ValueError:
+            raise HTTPException(400, "Invalid filename")
+        await run_in_threadpool(obj_storage.put_bytes, key, content, content_type=ctype)
+        return key
+    fp = os.path.join(_store["_upload"], fn)
+    with open(fp, "wb") as f:
+        f.write(content)
+    return fp
+
 @app.post("/api/requests/{rid}/attachments")
 async def upload_att(rid: int, request: Request, file: UploadFile = File(...)):
     user = get_user(request)
@@ -1795,12 +1846,13 @@ async def upload_att(rid: int, request: Request, file: UploadFile = File(...)):
         if sum(a.get("file_size", 0) for a in existing) + len(content) > 25 * 1024 * 1024:
             raise HTTPException(400, "Max 25MB total")
         fid = uuid.uuid4().hex
-        ext = os.path.splitext(file.filename or "")[1]
+        raw_ext = os.path.splitext(file.filename or "")[1].lower()
+        ext = raw_ext if (len(raw_ext) <= 9 and raw_ext.startswith(".") and raw_ext[1:].isalnum()) else ""
         fn = f"{fid}{ext}"
-        fp = os.path.join(_store["_upload"], fn)
-        with open(fp, "wb") as f: f.write(content)
+        ctype = _att_content_type(file.content_type)
+        fp = await _save_att_bytes(rid, fn, content, ctype)
         aid = nid("attachments")
-        att = {"id": aid, "truck_request_id": rid, "filename": fn, "original_filename": file.filename or "unknown", "file_size": len(content), "file_type": file.content_type or "", "storage_path": fp, "uploaded_by": user["email"], "created_at": nows()}
+        att = {"id": aid, "truck_request_id": rid, "filename": fn, "original_filename": file.filename or "unknown", "file_size": len(content), "file_type": ctype, "storage_path": fp, "uploaded_by": user["email"], "created_at": nows()}
         _store["attachments"].append(att)
         return row2d(att)
     existing = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (rid,))
@@ -1809,38 +1861,57 @@ async def upload_att(rid: int, request: Request, file: UploadFile = File(...)):
     if sum(a.get("file_size", 0) for a in existing) + len(content) > 25 * 1024 * 1024:
         raise HTTPException(400, "Max 25MB total")
     fid = uuid.uuid4().hex
-    ext = os.path.splitext(file.filename or "")[1]
+    raw_ext = os.path.splitext(file.filename or "")[1].lower()
+    ext = raw_ext if (len(raw_ext) <= 9 and raw_ext.startswith(".") and raw_ext[1:].isalnum()) else ""
     fn = f"{fid}{ext}"
-    fp = os.path.join(_store["_upload"], fn)
-    with open(fp, "wb") as f: f.write(content)
+    ctype = _att_content_type(file.content_type)
+    fp = await _save_att_bytes(rid, fn, content, ctype)
     aid = db_i("""INSERT INTO truck_request_attachments (truck_request_id,filename,original_filename,file_size,file_type,storage_path,uploaded_by)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)""", (rid, fn, file.filename or "unknown", len(content), file.content_type or "", fp, user["email"]))
+        VALUES (%s,%s,%s,%s,%s,%s,%s)""", (rid, fn, file.filename or "unknown", len(content), ctype, fp, user["email"]))
     return db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,))
 
 @app.get("/api/attachments/{aid}/download")
 def download_att(aid: int, request: Request):
     if LOCAL_MODE:
         att = next((a for a in _store["attachments"] if a["id"] == aid), None)
-        if not att: raise HTTPException(404, "Not found")
-        fp = att.get("storage_path", "")
-        if not os.path.exists(fp): raise HTTPException(404, "File missing")
-        return FileResponse(fp, filename=att["original_filename"], media_type=att.get("file_type"))
-    att = db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,))
-    if not att: raise HTTPException(404, "Not found")
-    fp = att.get("storage_path", "")
-    if not os.path.exists(fp): raise HTTPException(404, "File missing")
-    return FileResponse(fp, filename=att["original_filename"], media_type=att.get("file_type"))
+    else:
+        att = db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,))
+    if not att:
+        raise HTTPException(404, "Not found")
+    path = att.get("storage_path", "")
+    filename = att.get("original_filename") or att.get("filename") or "download"
+    media = att.get("file_type") or "application/octet-stream"
+    if _is_object_key(path):
+        try:
+            if not obj_storage.exists(path):
+                raise HTTPException(404, "File missing")
+            data = obj_storage.get_bytes(path)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(404, "File missing")
+        safe_name = filename.replace('"', "")
+        return Response(
+            data,
+            media_type=media,
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        )
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "File missing")
+    return FileResponse(path, filename=filename, media_type=media)
 
 @app.delete("/api/attachments/{aid}")
 def delete_att(aid: int, request: Request):
     get_user(request)
     if LOCAL_MODE:
         att = next((a for a in _store["attachments"] if a["id"] == aid), None)
-        if att and os.path.exists(att.get("storage_path", "")): os.remove(att["storage_path"])
+        if att:
+            _delete_att_file(att.get("storage_path", ""))
         _store["attachments"] = [a for a in _store["attachments"] if a["id"] != aid]
         return {"ok": True}
     att = db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,))
-    if att and os.path.exists(att.get("storage_path", "")): os.remove(att["storage_path"])
+    if att:
+        _delete_att_file(att.get("storage_path", ""))
     db_x("DELETE FROM truck_request_attachments WHERE id=%s", (aid,))
     return {"ok": True}
 
