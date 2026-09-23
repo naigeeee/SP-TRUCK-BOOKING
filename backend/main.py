@@ -1344,6 +1344,8 @@ async def update_request(rid: int, request: Request):
                             if t["id"] == old_tid: t["status"] = "available"; break
                     else:
                         recalculate_trip_rates(old_tid)
+                if new_status == 1:
+                    r["truck_type_id"] = None
                 if new_status == 4 and r.get("assigned_truck_id"):
                     if r.get("actual_cost", 0) == 0: r["actual_cost"] = r.get("estimated_cost", 0)
                     tid = r["assigned_truck_id"]
@@ -1375,7 +1377,7 @@ async def update_request(rid: int, request: Request):
         if req and req.get("assigned_truck_id"):
             old_tid = req["assigned_truck_id"]
             reverted_seq = req.get("drop_sequence")
-            db_x("UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL, estimated_cost=0, actual_cost=0, truck_type_id=NULL WHERE id=%s", (rid,))
+            db_x("UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL, estimated_cost=0, actual_cost=0 WHERE id=%s", (rid,))
             if reverted_seq:
                 db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (old_tid, reverted_seq))
             remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (old_tid,))
@@ -1383,6 +1385,7 @@ async def update_request(rid: int, request: Request):
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (old_tid,))
             else:
                 recalculate_trip_rates(old_tid)
+        db_x("UPDATE truck_requests SET truck_type_id=NULL WHERE id=%s", (rid,))
         existing = db_1("SELECT id FROM pending_allocations WHERE truck_request_id=%s AND is_accepted IS NULL", (rid,))
         if not existing:
             db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'Reverted to pending')", (rid,))

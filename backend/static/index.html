@@ -864,8 +864,19 @@ async function allocateSelected(){
   });
   const majorityPkgId=Object.keys(pkgCounts).reduce((a,b)=>pkgCounts[a]>pkgCounts[b]?a:b,'0');
   const pkgName=pendData.find(p=>p.id===+checked[0].dataset.id)?.packaging_type_name||'units';
-  if(maxQty>0&&totalQty>remainQty){
-    if(!confirm('WARNING: Total quantity ('+totalQty+' '+pkgName+') exceeds remaining truck capacity ('+remainQty+' '+pkgName+'). This will overbook the truck.\n\nDo you want to proceed anyway?')){return}
+  const optData=pendAllTrucks.find(t=>t.id===+sel.value);
+  const pkgCaps=optData?.pkg_capacities||{};
+  const pkgNameMap={};
+  checked.forEach(c=>{const pd=pendData.find(p=>p.id===+c.dataset.id);if(pd)pkgNameMap[c.dataset.pkg]=pd.packaging_type_name||'units'});
+  const capMsgs=[];
+  for(const [pkgId,pkgQty] of Object.entries(pkgCounts)){
+    const capInfo=pkgCaps[pkgId];
+    if(capInfo&&pkgQty>capInfo.max){
+      capMsgs.push((pkgNameMap[pkgId]||pkgId)+': '+pkgQty+' ordered vs '+capInfo.max+' capacity');
+    }
+  }
+  if(capMsgs.length){
+    if(!confirm('WARNING: '+capMsgs.join('; ')+'. This will overbook the truck.\n\nDo you want to proceed anyway?')){return}
   }
   const truckId=+sel.value;
   try{
