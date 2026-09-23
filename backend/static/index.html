@@ -936,9 +936,10 @@ async function viewTruckHistory(tid,plate){
     document.getElementById('mTitle').textContent='History - '+plate;
     let html='<div style="max-height:400px;overflow-y:auto">';
     if(hist.length){
-      html+='<table><thead><tr><th>Request #</th><th>Requestor</th><th>Origin Port</th><th>Destination Port</th><th>Qty</th><th>Weight</th><th>Volume</th><th>Pickup</th><th>Archived</th></tr></thead><tbody>';
+      html+='<table><thead><tr><th>Request #</th><th>Status</th><th>Requestor</th><th>Origin Port</th><th>Destination Port</th><th>Qty</th><th>Weight</th><th>Volume</th><th>Pickup</th><th>Archived</th></tr></thead><tbody>';
       hist.forEach(h=>{
-        html+='<tr><td><strong style="color:var(--pri)">'+(h.request_number||'')+'</strong></td><td>'+(h.requestor_name||'')+'</td><td>'+(h.origin_port_name||'')+'</td><td>'+(h.destination_port_name||'')+'</td><td>'+(h.quantity||0)+'</td><td>'+(h.weight_kg||0)+' KG</td><td>'+(h.volume_cbm||0)+' CBM</td><td>'+fmtD(h.pickup_datetime)+'</td><td>'+fmtD(h.archived_at)+'</td></tr>';
+        const sb=h.status_name?stBadge(h.status_name,h.status_color):'-';
+        html+='<tr><td><strong style="color:var(--pri)">'+(h.request_number||'')+'</strong></td><td>'+sb+'</td><td>'+(h.requestor_name||'')+'</td><td>'+(h.origin_port_name||'')+'</td><td>'+(h.destination_port_name||'')+'</td><td>'+(h.quantity||0)+'</td><td>'+(h.weight_kg||0)+' KG</td><td>'+(h.volume_cbm||0)+' CBM</td><td>'+fmtD(h.pickup_datetime)+'</td><td>'+fmtD(h.archived_at)+'</td></tr>';
       });
       html+='</tbody></table>';
     }else{html+='<div class="empty"><i class="fas fa-history"></i><p>No history records</p></div>'}
