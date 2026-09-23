@@ -2084,7 +2084,7 @@ def delete_eval(eid: int, request: Request):
 
 @app.get("/api/cost-summary")
 def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Query(...),
-    account_id: int = Query(...), department_id: int = Query(...),
+    account_id: Optional[int] = None, department_id: Optional[int] = None,
     origin_port_id: Optional[int] = None, destination_port_id: Optional[int] = None,
     vendor_id: Optional[int] = None, status_id: Optional[int] = None):
     get_user(request)
@@ -2092,7 +2092,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         reqs = _store["truck_requests"]
         flt = []
         for r in reqs:
-            if r.get("account_id") != account_id or r.get("department_id") != department_id: continue
+            if account_id and r.get("account_id") != account_id: continue
+            if department_id and r.get("department_id") != department_id: continue
             bk = str(r.get("booking_date") or "")[:10]
             if bk and (bk < date_from or bk > date_to): continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
@@ -2113,6 +2114,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             origin_name = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
             dest_name = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
             vname = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")), "") if truck else ""
+            acct_name = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+            dept_name = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
             est = r.get("estimated_cost", 0) or 0
             act = r.get("actual_cost", 0) or 0
             est_total += est
@@ -2126,6 +2129,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             rd["origin_port_name"] = origin_name
             rd["destination_port_name"] = dest_name
             rd["vendor_name"] = vname
+            rd["account_name"] = acct_name
+            rd["department_name"] = dept_name
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 rd["trip_id"] = compute_trip_id(truck_reqs, r["id"])
@@ -2137,8 +2142,10 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         return {"total_requests": len(flt), "total_estimated_cost": est_total,
             "total_actual_cost": act_total,
             "requests": req_list}
-    wh = ["tr.account_id=%s", "tr.department_id=%s", "tr.booking_date>=%s", "tr.booking_date<=%s"]
-    pa = [account_id, department_id, date_from, date_to]
+    wh = ["tr.booking_date>=%s", "tr.booking_date<=%s"]
+    pa = [date_from, date_to]
+    if account_id: wh.append("tr.account_id=%s"); pa.append(account_id)
+    if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if vendor_id: wh.append("tk.vendor_id=%s"); pa.append(vendor_id)
@@ -2147,12 +2154,13 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     reqs = db_q(f"""SELECT tr.*, ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
-        v.name as vendor_name
+        v.name as vendor_name, a.name as account_name, d.name as department_name
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
+        LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
         WHERE {ws} ORDER BY tr.created_at DESC""", tuple(pa))
     for i in reqs:
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
@@ -2363,6 +2371,8 @@ def sync_cost():
             r["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
             r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
             r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+            r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+            r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             tt_id = r.get("truck_type_id") or (truck.get("truck_type_id") if truck else None)
             r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == tt_id), "")
@@ -2379,11 +2389,13 @@ def sync_cost():
     reqs = db_q("""SELECT tr.*, ts.name as status_name, ts.color as status_color,
         po.name as origin_port_name, pd.name as destination_port_name,
         COALESCE(tt.name, ttt.name) as truck_type_name,
-        v.name as vendor_name, tk.plate_number
+        v.name as vendor_name, tk.plate_number,
+        a.name as account_name, d.name as department_name
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
+        LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
         ORDER BY tr.created_at DESC""")
     for i in reqs:
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):

@@ -55,7 +55,7 @@ var HEADERS = {
     "Start to End Unload","Full Leg"
   ],
   "Cost Analysis": [
-    "Request #","Trip ID","Distance (KM)","Origin Port","Destination Port",
+    "Request #","Trip ID","Account","Department","Distance (KM)","Origin Port","Destination Port",
     "Truck Type","Vendor","Plate #",
     "Booking Date","Pickup",
     "Est. Cost","Actual Cost","Status","Foul Trip Reason"
@@ -158,6 +158,8 @@ var NESTED_FIELDS = {
   "Cost Analysis": {
     "Request #": "request_number",
     "Trip ID": "trip_id",
+    "Account": "account_name",
+    "Department": "department_name",
     "Distance (KM)": "distance_km",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
