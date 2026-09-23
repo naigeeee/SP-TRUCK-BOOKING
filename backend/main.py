@@ -1003,6 +1003,8 @@ async def update_truck(tid: int, request: Request):
                                 r["assigned_truck_id"] = None
                                 r["updated_by"] = request.headers.get("X-Forwarded-Email", "")
                                 r["updated_at"] = nows()
+                                if not any(pa.get("truck_request_id") == r["id"] and pa.get("is_accepted") is None for pa in _store["pending_allocations"]):
+                                    _store["pending_allocations"].append({"id": nid("pending_allocations"), "truck_request_id": r["id"], "suggested_truck_id": None, "suggestion_reason": "Reverted to pending", "is_accepted": None, "allocated_by": None, "allocated_at": None, "created_at": nows()})
                 return row2d(t)
         raise HTTPException(404, "Not found")
     if "status" in body:
@@ -1020,6 +1022,11 @@ async def update_truck(tid: int, request: Request):
             email = request.headers.get("X-Forwarded-Email", "")
             db_x("UPDATE truck_requests SET status_id=%s, assigned_truck_id=NULL, updated_by=%s, updated_at=NOW() WHERE assigned_truck_id=%s",
                  (pending_st["id"], email, tid))
+            db_i("""INSERT INTO pending_allocations (truck_request_id, suggestion_reason)
+                SELECT tr.id, 'Reverted to pending' FROM truck_requests tr
+                WHERE tr.status_id=%s AND NOT EXISTS (
+                    SELECT 1 FROM pending_allocations pa WHERE pa.truck_request_id=tr.id AND pa.is_accepted IS NULL)""",
+                 (pending_st["id"],))
     return db_1("SELECT * FROM trucks WHERE id=%s", (tid,))
 
 @app.delete("/api/trucks/{tid}")
@@ -1664,11 +1671,15 @@ async def update_drop_sequence(rid: int, request: Request):
 @app.get("/api/pending-allocations")
 def list_pending(request: Request):
     if LOCAL_MODE:
+        for r in _store["truck_requests"]:
+            if r.get("status_id") == 1 and not any(pa.get("truck_request_id") == r["id"] and pa.get("is_accepted") is None for pa in _store["pending_allocations"]):
+                _store["pending_allocations"].append({"id": nid("pending_allocations"), "truck_request_id": r["id"], "suggested_truck_id": None, "suggestion_reason": "Reverted to pending", "is_accepted": None, "allocated_by": None, "allocated_at": None, "created_at": nows()})
         result = []
         for pa in _store["pending_allocations"]:
             if pa.get("is_accepted") is not None: continue
             req = next((r for r in _store["truck_requests"] if r["id"] == pa["truck_request_id"]), None)
             if not req: continue
+            if req.get("status_id") != 1: continue
             item = {**row2d(pa)}
             item.update({"request_number": req.get("request_number", ""), "requestor_name": req.get("requestor_name", ""),
                 "pickup_datetime": req.get("pickup_datetime", ""), "call_datetime": req.get("call_datetime", ""),
@@ -1741,6 +1752,10 @@ def list_pending(request: Request):
             item["available_trucks"] = truck_list
             result.append(item)
         return result
+    db_x("""INSERT INTO pending_allocations (truck_request_id, suggestion_reason)
+        SELECT tr.id, 'Reverted to pending' FROM truck_requests tr
+        WHERE tr.status_id=1 AND NOT EXISTS (
+            SELECT 1 FROM pending_allocations pa WHERE pa.truck_request_id=tr.id AND pa.is_accepted IS NULL)""")
     rows = db_q("""SELECT pa.*, tr.request_number, tr.requestor_name, tr.pickup_datetime, tr.call_datetime,
         tr.origin_port_id, tr.destination_port_id, tr.truck_type_id, tr.account_id, tr.department_id,
         tr.packaging_type_id, tr.quantity, tr.weight_kg, tr.volume_cbm,
@@ -1754,7 +1769,7 @@ def list_pending(request: Request):
         LEFT JOIN departments d ON tr.department_id=d.id
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
-        WHERE pa.is_accepted IS NULL ORDER BY pa.created_at DESC""")
+        WHERE pa.is_accepted IS NULL AND tr.status_id=1 ORDER BY pa.created_at DESC""")
     for item in rows:
         same = db_q("""SELECT id, request_number, requestor_name, pickup_datetime, quantity, weight_kg, volume_cbm, packaging_type_id
             FROM truck_requests WHERE id!=%s AND origin_port_id=%s AND status_id=1
