@@ -1384,7 +1384,7 @@ async function loadUsers(){
           roleSelect='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" style="width:auto">'+opts+'</select>';
         }else if(isAdmin&&ROLE_HIERARCHY[u.role]<ROLE_HIERARCHY['admin']){
           canRemove=true;
-          const opts=['viewer','normal_user','admin'].filter(r=>ROLE_HIERARCHY[r]>ROLE_HIERARCHY[u.role]||r===u.role).map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');
+          const opts=['viewer','normal_user','admin'].map(r=>'<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())+'</option>').join('');
           roleSelect='<select class="f-input" onchange="setUserRoleAdmin('+u.id+',this.value)" style="width:auto">'+opts+'</select>';
         }else{
           roleSelect='<span style="font-size:12px;color:var(--muted)">-</span>';

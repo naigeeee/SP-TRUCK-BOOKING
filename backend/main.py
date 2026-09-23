@@ -534,9 +534,6 @@ async def set_role_admin(uid: int, request: Request):
     if not target: raise HTTPException(404, "User not found")
     if target["role"] == "master_admin": raise HTTPException(403, "Cannot change master admin role")
     if target["role"] == "admin" and role != "admin": raise HTTPException(403, "Cannot downgrade another admin")
-    ROLE_HIERARCHY = {"viewer": 0, "normal_user": 1, "admin": 2}
-    if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get(target["role"], 0):
-        raise HTTPException(403, "Cannot downgrade role")
     if LOCAL_MODE:
         for u in _store["users"]:
             if u["id"] == uid: u["role"] = role; u["updated_at"] = nows(); return row2d(u)
