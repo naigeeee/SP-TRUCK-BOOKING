@@ -239,9 +239,9 @@ def _advance_seq_state(state, width0=7, value0=1):
 def next_seq_string(key, width0=7, value0=1):
     """Allocate the next zero-padded running sequence for key.
 
-    Starts at width0 digits (e.g. 0000001). When a key reaches all 9s for
-    its current width (9999999), the next allocation uses the next wider
-    field starting at 00000001 — strings stay unique as the field grows.
+    Starts at width0 digits (e.g. 00001 or 001). When a key reaches all 9s
+    for its current width (99999 / 999), the next allocation uses the next
+    wider zero-padded field — strings stay unique as the field grows.
     """
     if LOCAL_MODE:
         st = _store["_seq"].setdefault(key, {"width": width0, "value": value0})
@@ -280,7 +280,7 @@ def next_seq_string(key, width0=7, value0=1):
         db.close()
 
 def next_trip_base():
-    return f"SPT-{next_seq_string('trip')}"
+    return f"SPT-{next_seq_string('trip', width0=5)}"
 
 def compute_trip_id(reqs_on_truck, request_id):
     target = next((r for r in reqs_on_truck if r.get("id") == request_id), None)
@@ -530,7 +530,7 @@ def db_i(sql, p=None):
 
 def gen_req_no():
     day = datetime.now().strftime("%Y%m%d")
-    return f"REQ-{day}-{next_seq_string(f'req:{day}')}"
+    return f"REQ-{day}-{next_seq_string(f'req:{day}', width0=3)}"
 
 def geodesic_distance_km(lat1, lon1, lat2, lon2):
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
