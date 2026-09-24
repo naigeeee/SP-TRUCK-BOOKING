@@ -356,6 +356,7 @@ async function apiErr(res){
 
 function fmtN(n){return parseFloat(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fmtD(d){if(!d)return'-';try{const s=String(d).trim();const m=s.match(/^(\d{4}-\d{2}-\d{2})(?:[ T]00:00:00)?$/);if(m){const[y,mo,day]=m[1].split('-').map(Number);return new Date(y,mo-1,day,0,0,0).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}return new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}}
+function fmtDDate(d){if(!d)return'-';try{const s=String(d).trim();const m=s.match(/^(\d{4}-\d{2}-\d{2})(?:[ T]00:00:00)?$/);if(m){const[y,mo,day]=m[1].split('-').map(Number);return new Date(y,mo-1,day,0,0,0).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'})}return new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'})}catch(e){return d}}
 function fmtS(b){if(!b)return'0 B';const u=['B','KB','MB','GB'];let i=0;let s=parseFloat(b);while(s>=1024&&i<3){s/=1024;i++}return s.toFixed(1)+' '+u[i]}
 function stBadge(name,color){return'<span class="badge" style="background:'+(color||'#6B7280')+'20;color:'+(color||'#6B7280')+'">'+(name||'')+'</span>'}
 
@@ -1028,7 +1029,7 @@ async function loadRates(){
     data.forEach(r=>{if(typeof r.destination_drops==='string'){try{r.destination_drops=JSON.parse(r.destination_drops)}catch(e){r.destination_drops=[]}}});
     const tb=document.getElementById('rTbl');
     if(data.length){
-      tb.innerHTML=data.map(r=>'<tr><td><strong>'+r.vendor_name+'</strong></td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtD(r.effective_date)+'</td><td>'+fmtD(r.expiry_date)+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>').join('');
+      tb.innerHTML=data.map(r=>'<tr><td><strong>'+r.vendor_name+'</strong></td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtDDate(r.effective_date)+'</td><td>'+fmtDDate(r.expiry_date)+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>').join('');
     }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-dollar-sign"></i><p>No rates found</p></td></tr>'}
   }catch(e){console.error(e)}
 }
