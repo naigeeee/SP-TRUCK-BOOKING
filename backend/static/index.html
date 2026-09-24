@@ -130,9 +130,14 @@ tr:hover td{background:#F8FAFC}
 <!-- Dashboard -->
 <section class="pg on" id="pg-dashboard">
 <div class="pg-hdr"><h1><i class="fas fa-chart-line" style="color:var(--pri)"></i> Dashboard</h1><div class="acts"><button class="btn btn-o" onclick="loadDash()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-filter"></i> Filters</h3></div><div class="card-b">
+<div class="fr3"><div class="fg"><label class="fl">Booking Date From</label><input type="date" class="fi" id="dBookFrom"></div><div class="fg"><label class="fl">Booking Date To</label><input type="date" class="fi" id="dBookTo"></div><div class="fg"><label class="fl">Account</label><select class="fs" id="dAcct"></select></div></div>
+<div class="fr3"><div class="fg"><label class="fl">Department</label><select class="fs" id="dDept"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="dStatus"></select></div><div class="fg"><label class="fl">Origin Port</label><select class="fs" id="dOrg"></select></div></div>
+<div class="fr3"><div class="fg"><label class="fl">Destination Port</label><select class="fs" id="dDst"></select></div><div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="loadDash()"><i class="fas fa-search"></i> Apply Filters</button></div><div class="fg"></div></div>
+</div></div>
 <div class="stats" id="dStats"></div>
 <div class="card"><div class="card-h"><h3><i class="fas fa-history"></i> Recent Requests</h3></div>
-<div class="card-b"><div class="tw"><table><thead><tr><th>Request #</th><th>Requestor</th><th>Account</th><th>Department</th><th>Origin Port</th><th>Destination Port</th><th>Pickup</th><th>Status</th></tr></thead><tbody id="dRecent"></tbody></table></div></div></div>
+<div class="card-b"><div class="tw"><table><thead><tr><th>Request #</th><th>Requestor</th><th>Account</th><th>Department</th><th>Origin Port</th><th>Destination Port</th><th>Packaging</th><th>Qty</th><th>Pickup</th><th>Status</th></tr></thead><tbody id="dRecent"></tbody></table></div></div></div>
 </section>
 
 <!-- New Request -->
@@ -299,6 +304,11 @@ async function loadMaster(){
   popSel('mlDst',ports,'id','name','All',true);
   popSel('mlTT',tts,'id','name','All',true);
   popSel('mlVendor',vendors,'id','name','All',true);
+  popSel('dAcct',accts,'id','name','All',true);
+  popSel('dDept',depts,'id','name','All',true);
+  popSel('dStatus',sts,'id','name','All',true);
+  popSel('dOrg',ports,'id','name','All',true);
+  popSel('dDst',ports,'id','name','All',true);
   popSel('evVendor',vendors,'id','name','All Vendors',true);
   popSel('evTT',tts,'id','name','All Truck Types',true);
   popSel('evOrg',ports,'id','name','All Origins',true);
@@ -345,27 +355,40 @@ async function apiErr(res){
 }
 
 function fmtN(n){return parseFloat(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}
-function fmtD(d){if(!d)return'-';try{return new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}}
+function fmtD(d){if(!d)return'-';try{const s=String(d).trim();const m=s.match(/^(\d{4}-\d{2}-\d{2})(?:[ T]00:00:00)?$/);if(m){const[y,mo,day]=m[1].split('-').map(Number);return new Date(y,mo-1,day,0,0,0).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:true})}return new Date(d).toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}}
 function fmtS(b){if(!b)return'0 B';const u=['B','KB','MB','GB'];let i=0;let s=parseFloat(b);while(s>=1024&&i<3){s/=1024;i++}return s.toFixed(1)+' '+u[i]}
 function stBadge(name,color){return'<span class="badge" style="background:'+(color||'#6B7280')+'20;color:'+(color||'#6B7280')+'">'+(name||'')+'</span>'}
 
 // Dashboard
 async function loadDash(){
   try{
-    const d=await(await fetch('/api/dashboard')).json();
+    const bf=document.getElementById('dBookFrom')?.value||'';
+    const bt=document.getElementById('dBookTo')?.value||'';
+    const a=document.getElementById('dAcct')?.value||'';
+    const d=document.getElementById('dDept')?.value||'';
+    const st=document.getElementById('dStatus')?.value||'';
+    const o=document.getElementById('dOrg')?.value||'';
+    const dst=document.getElementById('dDst')?.value||'';
+    const p=new URLSearchParams();
+    if(bf)p.set('booking_from',bf);if(bt)p.set('booking_to',bt);
+    if(a)p.set('account_id',a);if(d)p.set('department_id',d);
+    if(st)p.set('status_id',st);if(o)p.set('origin_port_id',o);
+    if(dst)p.set('destination_port_id',dst);
+    const qs=p.toString();
+    const dta=await(await fetch('/api/dashboard'+(qs?'?'+qs:''))).json();
     document.getElementById('dStats').innerHTML=[
-      {ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:d.total_requests||0},
-      {ico:'fa-hourglass-half',c:'yl',l:'Pending',v:d.pending_allocation||0},
-      {ico:'fa-truck',c:'pp',l:'In Transit',v:d.in_transit||0},
-      {ico:'fa-check-circle',c:'gn',l:'Delivered',v:d.delivered||0},
-      {ico:'fa-times-circle',c:'rd',l:'Cancelled',v:d.cancelled||0},
-      {ico:'fa-truck',c:'gn',l:'Available Trucks',v:d.available_trucks||0},
-      {ico:'fa-money-bill-wave',c:'bl',l:'Total Cost',v:'₱'+fmtN(d.total_cost||0)},
+      {ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:dta.total_requests||0},
+      {ico:'fa-hourglass-half',c:'yl',l:'Pending',v:dta.pending_allocation||0},
+      {ico:'fa-truck',c:'pp',l:'In Transit',v:dta.in_transit||0},
+      {ico:'fa-check-circle',c:'gn',l:'Delivered',v:dta.delivered||0},
+      {ico:'fa-times-circle',c:'rd',l:'Cancelled',v:dta.cancelled||0},
+      {ico:'fa-truck',c:'gn',l:'Available Trucks',v:dta.available_trucks||0},
+      {ico:'fa-money-bill-wave',c:'bl',l:'Total Cost',v:'₱'+fmtN(dta.total_cost||0)},
     ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
     const tb=document.getElementById('dRecent');
-    if(d.recent_requests&&d.recent_requests.length){
-      tb.innerHTML=d.recent_requests.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
-    }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-inbox"></i><p>No requests yet</p></td></tr>'}
+    if(dta.recent_requests&&dta.recent_requests.length){
+      tb.innerHTML=dta.recent_requests.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
+    }else{tb.innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-inbox"></i><p>No requests yet</p></td></tr>'}
   }catch(e){console.error(e);toast('Dashboard load failed','error')}
 }
 
