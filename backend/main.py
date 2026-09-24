@@ -6,7 +6,6 @@ import os
 import json
 import uuid
 import math
-import hashlib
 from datetime import datetime, timezone, date
 from urllib.parse import urlparse, unquote
 from typing import Optional
@@ -147,6 +146,7 @@ _store = {
              "truck_statuses": 7, "truck_types": 3, "truck_type_capacities": 6, "trucks": 4,
              "truck_requests": 0, "attachments": 0, "vendor_rates": 0,
               "vendor_evaluations": 0, "pending_allocations": 0, "vendors": 2, "truck_request_history": 0},
+    "_seq": {},
     "_upload": os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
 }
 os.makedirs(_store["_upload"], exist_ok=True)
@@ -224,9 +224,63 @@ def _trip_letter(seq):
         return chr(64 + seq)
     return "A"
 
-def _trip_base_hash(request_number, truck_id):
-    raw = f"{request_number}|{truck_id}"
-    return int(hashlib.md5(raw.encode("utf-8")).hexdigest(), 16) % 100000
+def _advance_seq_state(state, width0=7, value0=1):
+    if not state:
+        state["width"] = width0
+        state["value"] = value0
+    s = str(state["value"]).zfill(state["width"])
+    if state["value"] >= 10 ** state["width"] - 1:
+        state["width"] += 1
+        state["value"] = 1
+    else:
+        state["value"] += 1
+    return s
+
+def next_seq_string(key, width0=7, value0=1):
+    """Allocate the next zero-padded running sequence for key.
+
+    Starts at width0 digits (e.g. 0000001). When a key reaches all 9s for
+    its current width (9999999), the next allocation uses the next wider
+    field starting at 00000001 — strings stay unique as the field grows.
+    """
+    if LOCAL_MODE:
+        st = _store["_seq"].setdefault(key, {"width": width0, "value": value0})
+        return _advance_seq_state(st, width0, value0)
+    db = get_db()
+    if not db:
+        raise HTTPException(500, "Database unavailable for sequence")
+    try:
+        with db.cursor() as c:
+            for _ in range(8):
+                c.execute("SELECT width, next_value FROM id_sequences WHERE seq_key=%s FOR UPDATE", (key,))
+                row = c.fetchone()
+                if row is None:
+                    try:
+                        c.execute(
+                            "INSERT INTO id_sequences (seq_key, width, next_value) VALUES (%s, %s, %s)",
+                            (key, width0, value0 + 1))
+                        db.commit()
+                        return str(value0).zfill(width0)
+                    except Exception:
+                        db.rollback()
+                        continue
+                width = int(row["width"])
+                val = int(row["next_value"])
+                s = str(val).zfill(width)
+                if val >= 10 ** width - 1:
+                    c.execute("UPDATE id_sequences SET width=%s, next_value=1 WHERE seq_key=%s",
+                              (width + 1, key))
+                else:
+                    c.execute("UPDATE id_sequences SET next_value=%s WHERE seq_key=%s",
+                              (val + 1, key))
+                db.commit()
+                return s
+            raise HTTPException(500, "Could not allocate sequence number")
+    finally:
+        db.close()
+
+def next_trip_base():
+    return f"SPT-{next_seq_string('trip')}"
 
 def compute_trip_id(reqs_on_truck, request_id):
     target = next((r for r in reqs_on_truck if r.get("id") == request_id), None)
@@ -242,6 +296,10 @@ def compute_trip_id(reqs_on_truck, request_id):
                      if r.get("status_id") in (2, 3) and r.get("drop_sequence") is not None]
         if not any(r.get("id") == request_id for r in allocated):
             allocated = [target]
+        sibling = next((r for r in allocated if r.get("trip_id")), None)
+        if sibling:
+            base = sibling["trip_id"].rsplit("-", 1)[0]
+            return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
     else:
         sibling = next((r for r in reqs_on_truck
                         if r.get("status_id") in (2, 3) and r.get("trip_id")
@@ -250,10 +308,8 @@ def compute_trip_id(reqs_on_truck, request_id):
             base = sibling["trip_id"].rsplit("-", 1)[0]
             return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
         allocated = [target]
-    allocated.sort(key=lambda x: x.get("drop_sequence") or 999)
-    first_rn = allocated[0].get("request_number", "")
-    h = _trip_base_hash(first_rn, target.get("assigned_truck_id"))
-    return f"SPT-{h:05d}-{_trip_letter(target.get('drop_sequence'))}"
+    base = next_trip_base()
+    return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
 
 def resolve_trip_id(row, truck_reqs=None):
     if row is None:
@@ -286,11 +342,13 @@ def freeze_trip_ids_on_truck(truck_id):
         WHERE assigned_truck_id=%s AND status_id IN (2,3) AND drop_sequence IS NOT NULL""",
         (truck_id,))
     for x in active:
-        tid = x.get("trip_id") or compute_trip_id(active, x["id"])
+        orig = x.get("trip_id")
+        tid = orig or compute_trip_id(active, x["id"])
         if tid and x.get("drop_sequence"):
             base = tid.rsplit("-", 1)[0]
             tid = f"{base}-{_trip_letter(x.get('drop_sequence'))}"
-        if tid and tid != x.get("trip_id"):
+        x["trip_id"] = tid
+        if tid and tid != orig:
             db_x("UPDATE truck_requests SET trip_id=%s WHERE id=%s", (tid, x["id"]))
 
 def _ensure_trip_id_before_terminal(row, truck_peers):
@@ -471,7 +529,8 @@ def db_i(sql, p=None):
     finally: db.close()
 
 def gen_req_no():
-    return f"REQ-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}"
+    day = datetime.now().strftime("%Y%m%d")
+    return f"REQ-{day}-{next_seq_string(f'req:{day}')}"
 
 def geodesic_distance_km(lat1, lon1, lat2, lon2):
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
