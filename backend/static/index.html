@@ -578,52 +578,45 @@ function exportCSV(){
 let pendData=[];
 function parseDt(s){if(!s)return null;try{return new Date(s.replace(' ','T'))}catch(e){return null}}
 function fmtDtShort(s){const d=parseDt(s);if(!d)return'-';return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+', '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
+function cmpPendItems(a,b){
+  const ac=parseDt(a.call_datetime),bc=parseDt(b.call_datetime);
+  const ap=parseDt(a.pickup_datetime),bp=parseDt(b.pickup_datetime);
+  if(ac&&bc){if(+ac!==+bc)return ac-bc}
+  else if(ac&&!bc)return-1;
+  else if(!ac&&bc)return 1;
+  if(ap&&bp){if(+ap!==+bp)return ap-bp}
+  else if(ap&&!bp)return-1;
+  else if(!ap&&bp)return 1;
+  return 0;
+}
 function groupPendItems(items){
   const byOrigin={};
   items.forEach(item=>{
     const oid=item.origin_port_id||0;
-    if(!byOrigin[oid])byOrigin[oid]={origin_id:oid,origin_name:item.origin_port_name||'Unknown',groups:[]};
-    const ref=parseDt(item.call_datetime)||parseDt(item.pickup_datetime);
-    let placed=false;
-    if(ref){
-      for(const g of byOrigin[oid].groups){
-        if(!g._hasRef)continue;
-        const gRef=parseDt(g.call_datetime)||parseDt(g.pickup_datetime);
-        if(gRef&&Math.abs(ref-gRef)<=14400000){
-          g.items.push(item);placed=true;break;
-        }
-      }
-    }
-    if(!placed){
-      const grp={call_datetime:item.call_datetime,pickup_datetime:item.pickup_datetime,items:[item],_hasRef:!!ref};
-      if(!ref){
-        let noDateGrp=byOrigin[oid].groups.find(g=>!g._hasRef);
-        if(noDateGrp){noDateGrp.items.push(item);return}
-      }
-      byOrigin[oid].groups.push(grp);
-    }
+    if(!byOrigin[oid])byOrigin[oid]={origin_id:oid,origin_name:item.origin_port_name||'Unknown',items:[]};
+    byOrigin[oid].items.push(item);
   });
-  byOrigin.forEach&&Object.values(byOrigin).forEach(og=>{
-    og.groups.sort((a,b)=>{
-      if(!a._hasRef&&!b._hasRef)return 0;
-      if(!a._hasRef)return 1;
-      if(!b._hasRef)return-1;
-      const aRef=parseDt(a.call_datetime)||parseDt(a.pickup_datetime);
-      const bRef=parseDt(b.call_datetime)||parseDt(b.pickup_datetime);
-      return(aRef&&bRef)?aRef-bRef:0;
+  return Object.values(byOrigin).map(og=>{
+    const dated=[],undated=[];
+    og.items.forEach(i=>{(parseDt(i.call_datetime)||parseDt(i.pickup_datetime))?dated.push(i):undated.push(i)});
+    dated.sort(cmpPendItems);
+    const groups=[];
+    let cur=null;
+    dated.forEach(item=>{
+      const ref=+(parseDt(item.call_datetime)||parseDt(item.pickup_datetime));
+      if(!cur||ref-cur._start>14400000){
+        cur={call_datetime:item.call_datetime,pickup_datetime:item.pickup_datetime,items:[item],_hasRef:true,_start:ref};
+        groups.push(cur);
+      }else{
+        cur.items.push(item);
+      }
     });
-    og.groups.forEach(g=>{
-      g.items.sort((a,b)=>{
-        const aRef=parseDt(a.call_datetime)||parseDt(a.pickup_datetime);
-        const bRef=parseDt(b.call_datetime)||parseDt(b.pickup_datetime);
-        if(aRef&&bRef)return aRef-bRef;
-        if(aRef)return-1;
-        if(bRef)return 1;
-        return 0;
-      });
-    });
+    if(undated.length){
+      undated.sort(cmpPendItems);
+      groups.push({call_datetime:null,pickup_datetime:null,items:undated,_hasRef:false,_start:null});
+    }
+    return {origin_id:og.origin_id,origin_name:og.origin_name,groups};
   });
-  return Object.values(byOrigin);
 }
 async function loadPend(){
   try{
@@ -805,8 +798,12 @@ function onPendTruckChange(){
   const msgs=[];
   for(const [pkgId,pkgQty] of Object.entries(pkgCounts)){
     const capInfo=pkgCaps[pkgId];
-    if(capInfo&&pkgQty>capInfo.max){
-      msgs.push('<strong>'+(pkgNameMap[pkgId]||pkgId)+'</strong>: '+pkgQty+' ordered vs '+capInfo.max+' capacity');
+    if(capInfo){
+      const curOnTruck=parseInt(capInfo.current)||0;
+      const projected=curOnTruck+pkgQty;
+      if(projected>capInfo.max){
+        msgs.push('<strong>'+(pkgNameMap[pkgId]||pkgId)+'</strong>: '+projected+' projected ('+curOnTruck+' on truck + '+pkgQty+' selected) vs '+capInfo.max+' capacity');
+      }
     }
   }
   if(msgs.length){
@@ -846,7 +843,20 @@ function onDropOrderSwap(changedSelect){
       break;
     }
   }
+  reorderDropRows();
   updateDropDistances();
+}
+
+function reorderDropRows(){
+  const cont=document.getElementById('dropOrderRows');
+  if(!cont)return;
+  const rows=[...cont.children];
+  rows.sort((a,b)=>{
+    const sa=a.querySelector('.drop-order-select');
+    const sb=b.querySelector('.drop-order-select');
+    return(sa?+sa.value:0)-(sb?+sb.value:0);
+  });
+  rows.forEach(r=>cont.appendChild(r));
 }
 
 function geoDist(lat1,lon1,lat2,lon2){
@@ -911,8 +921,12 @@ async function allocateSelected(){
   const capMsgs=[];
   for(const [pkgId,pkgQty] of Object.entries(pkgCounts)){
     const capInfo=pkgCaps[pkgId];
-    if(capInfo&&pkgQty>capInfo.max){
-      capMsgs.push((pkgNameMap[pkgId]||pkgId)+': '+pkgQty+' ordered vs '+capInfo.max+' capacity');
+    if(capInfo){
+      const curOnTruck=parseInt(capInfo.current)||0;
+      const projected=curOnTruck+pkgQty;
+      if(projected>capInfo.max){
+        capMsgs.push((pkgNameMap[pkgId]||pkgId)+': '+projected+' projected ('+curOnTruck+' on truck + '+pkgQty+' selected) vs '+capInfo.max+' capacity');
+      }
     }
   }
   if(capMsgs.length){
