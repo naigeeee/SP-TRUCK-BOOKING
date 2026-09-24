@@ -137,7 +137,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 <div class="stats" id="dStats"></div>
 <div class="card"><div class="card-h"><h3><i class="fas fa-history"></i> Recent Requests</h3></div>
-<div class="card-b"><div class="tw"><table><thead><tr><th>Request #</th><th>Requestor</th><th>Account</th><th>Department</th><th>Origin Port</th><th>Destination Port</th><th>Packaging</th><th>Qty</th><th>Pickup</th><th>Status</th></tr></thead><tbody id="dRecent"></tbody></table></div></div></div>
+<div class="card-b"><div class="tw"><table><thead><tr><th>Request #</th><th>Requestor</th><th>Account</th><th>Department</th><th>Origin Port</th><th>Destination Port</th><th>Packaging</th><th>Qty</th><th>Booking Date</th><th>Pickup</th><th>Status</th></tr></thead><tbody id="dRecent"></tbody></table></div></div></div>
 </section>
 
 <!-- New Request -->
@@ -383,13 +383,14 @@ async function loadDash(){
       {ico:'fa-truck',c:'pp',l:'In Transit',v:dta.in_transit||0},
       {ico:'fa-check-circle',c:'gn',l:'Delivered',v:dta.delivered||0},
       {ico:'fa-times-circle',c:'rd',l:'Cancelled',v:dta.cancelled||0},
+      {ico:'fa-exclamation-triangle',c:'rd',l:'Foul Trip',v:dta.foul_trip||0},
       {ico:'fa-truck',c:'gn',l:'Available Trucks',v:dta.available_trucks||0},
       {ico:'fa-money-bill-wave',c:'bl',l:'Total Cost',v:'₱'+fmtN(dta.total_cost||0)},
     ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
     const tb=document.getElementById('dRecent');
     if(dta.recent_requests&&dta.recent_requests.length){
-      tb.innerHTML=dta.recent_requests.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
-    }else{tb.innerHTML='<tr><td colspan="10" class="empty"><i class="fas fa-inbox"></i><p>No requests yet</p></td></tr>'}
+      tb.innerHTML=dta.recent_requests.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.pickup_datetime)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
+    }else{tb.innerHTML='<tr><td colspan="11" class="empty"><i class="fas fa-inbox"></i><p>No requests yet</p></td></tr>'}
   }catch(e){console.error(e);toast('Dashboard load failed','error')}
 }
 

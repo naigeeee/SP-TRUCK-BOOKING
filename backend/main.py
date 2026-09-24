@@ -1325,6 +1325,7 @@ def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: 
             "in_transit": sum(1 for r in flt if r.get("status_id") == 3),
             "delivered": sum(1 for r in flt if r.get("status_id") == 4),
             "cancelled": sum(1 for r in flt if r.get("status_id") == 5),
+            "foul_trip": sum(1 for r in flt if r.get("status_id") == 7),
             "total_cost": tc,
             "total_trucks": len(trucks),
             "available_trucks": sum(1 for t in trucks if t.get("status") == "available"),
@@ -1346,6 +1347,7 @@ def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: 
         SUM(CASE WHEN status_id=3 THEN 1 ELSE 0 END) as in_transit,
         SUM(CASE WHEN status_id=4 THEN 1 ELSE 0 END) as delivered,
         SUM(CASE WHEN status_id=5 THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN status_id=7 THEN 1 ELSE 0 END) as foul_trip,
         COALESCE(SUM(actual_cost),0) as total_cost FROM truck_requests tr{ws}""", tuple(pa))
     ts = db_1("""SELECT COUNT(*) as total_trucks,
         SUM(CASE WHEN status='available' THEN 1 ELSE 0 END) as available_trucks,
