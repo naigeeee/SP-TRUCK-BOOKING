@@ -301,9 +301,13 @@ def compute_trip_id(reqs_on_truck, request_id):
             base = sibling["trip_id"].rsplit("-", 1)[0]
             return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
     else:
+        # Terminal: inherit only from another terminal on the same truck
+        # (same past generation). Never from current actives — truck may
+        # have been reused for a later, unrelated trip.
         sibling = next((r for r in reqs_on_truck
-                        if r.get("status_id") in (2, 3) and r.get("trip_id")
-                        and r.get("drop_sequence") is not None), None)
+                        if r.get("status_id") in (4, 5, 7) and r.get("trip_id")
+                        and r.get("drop_sequence") is not None
+                        and r.get("id") != request_id), None)
         if sibling:
             base = sibling["trip_id"].rsplit("-", 1)[0]
             return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
@@ -320,7 +324,17 @@ def resolve_trip_id(row, truck_reqs=None):
         return None
     if truck_reqs is None:
         return None
-    return compute_trip_id(truck_reqs, row.get("id"))
+    tid = compute_trip_id(truck_reqs, row.get("id"))
+    if tid and row.get("id"):
+        row["trip_id"] = tid
+        if LOCAL_MODE:
+            for x in _store["truck_requests"]:
+                if x.get("id") == row["id"] and not x.get("trip_id"):
+                    x["trip_id"] = tid
+                    break
+        else:
+            db_x("UPDATE truck_requests SET trip_id=%s WHERE id=%s AND trip_id IS NULL", (tid, row["id"]))
+    return tid
 
 def freeze_trip_ids_on_truck(truck_id):
     if not truck_id:
@@ -1586,6 +1600,7 @@ async def update_request(rid: int, request: Request):
                         for x in _store["truck_requests"]:
                             if x.get("assigned_truck_id") == old_tid and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
                                 x["drop_sequence"] -= 1
+                    freeze_trip_ids_on_truck(old_tid)
                     remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == old_tid and x.get("status_id") not in (4, 5, 7)]
                     if not remaining:
                         for t in _store["trucks"]:
@@ -1661,6 +1676,7 @@ async def update_request(rid: int, request: Request):
             db_x("UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL, trip_id=NULL, estimated_cost=0, actual_cost=0 WHERE id=%s", (rid,))
             if reverted_seq:
                 db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (old_tid, reverted_seq))
+            freeze_trip_ids_on_truck(old_tid)
             remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (old_tid,))
             if remaining and remaining.get("c", 0) == 0:
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (old_tid,))
@@ -1773,6 +1789,7 @@ def delete_request(rid: int, request: Request):
                 for t in _store["trucks"]:
                     if t["id"] == truck_id: t["status"] = "available"; break
             else:
+                freeze_trip_ids_on_truck(truck_id)
                 recalculate_trip_rates(truck_id)
         return {"ok": True}
     req = db_1("SELECT assigned_truck_id, drop_sequence, status_id FROM truck_requests WHERE id=%s", (rid,))
@@ -1790,6 +1807,7 @@ def delete_request(rid: int, request: Request):
         if remaining and remaining.get("c", 0) == 0:
             db_x("UPDATE trucks SET status='available' WHERE id=%s", (truck_id,))
         else:
+            freeze_trip_ids_on_truck(truck_id)
             recalculate_trip_rates(truck_id)
     return {"ok": True}
 
