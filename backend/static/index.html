@@ -147,6 +147,8 @@ tr:hover td{background:#F8FAFC}
 <form id="reqForm" onsubmit="submitReq(event)">
 <label class="fl" style="margin-bottom:4px;font-weight:700">Common fields (apply to every request below)</label>
 <div class="fr"><div class="fg"><label class="fl">Booking Date</label><input type="date" class="fi" id="rBooking" readonly></div><div class="fg"><label class="fl">Department *</label><select class="fs" id="rDept" required></select></div><div class="fg"><label class="fl">Origin Port *</label><select class="fs" id="rOrigin" required></select></div></div>
+<div class="fr"><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi" id="cImawb" maxlength="100" placeholder="e.g. 988-12345678" oninput="syncCommonMawb()"></div><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi" id="cDmawb" maxlength="100" placeholder="e.g. DOM-00123" oninput="syncCommonMawb()"></div></div>
+<div style="font-size:12px;color:var(--muted);margin:-6px 0 12px"><i class="fas fa-info-circle"></i> Fill a MAWB above to auto-apply it to every request below (per-request fields lock). Leave it blank to enter MAWBs per request.</div>
 <div id="reqRows"></div>
 <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap">
 <button type="button" class="btn btn-o" id="addReqBtn" onclick="addReqRow()"><i class="fas fa-plus"></i> Add Request <span style="opacity:.65">(max 10)</span></button>
@@ -412,7 +414,32 @@ function initReqRows(){
   const box=document.getElementById('reqRows');if(!box)return;
   if(!box.children.length){box.insertAdjacentHTML('beforeend',reqRowHtml(0));reqIdx=1}
   fillRowSelects();
+  syncCommonMawb();
   refreshReqRowUi();
+}
+function syncCommonMawb(){
+  const ci=(document.getElementById('cImawb')?.value||'').trim();
+  const cd=(document.getElementById('cDmawb')?.value||'').trim();
+  document.querySelectorAll('.req-row').forEach(row=>{
+    const ri=row.querySelector('.rImawb');
+    const rd=row.querySelector('.rDmawb');
+    if(ri){
+      if(ci){
+        if(!ri.disabled)ri.dataset.user=ri.value||'';
+        ri.value=ci;ri.disabled=true;ri.title='Set by common fields — not editable per request';
+      }else if(ri.disabled){
+        ri.value=ri.dataset.user||'';ri.disabled=false;ri.title='';
+      }
+    }
+    if(rd){
+      if(cd){
+        if(!rd.disabled)rd.dataset.user=rd.value||'';
+        rd.value=cd;rd.disabled=true;rd.title='Set by common fields — not editable per request';
+      }else if(rd.disabled){
+        rd.value=rd.dataset.user||'';rd.disabled=false;rd.title='';
+      }
+    }
+  });
 }
 function fillRowSelects(){
   document.querySelectorAll('.req-row').forEach(row=>{
@@ -426,7 +453,7 @@ function addReqRow(){
   const cnt=document.querySelectorAll('.req-row').length;
   if(cnt>=10){toast('You can add up to 10 requests at once','error');return}
   document.getElementById('reqRows').insertAdjacentHTML('beforeend',reqRowHtml(reqIdx));
-  reqIdx++;refreshReqRowUi();
+  reqIdx++;syncCommonMawb();refreshReqRowUi();
 }
 function removeReqRow(btn){
   if(document.querySelectorAll('.req-row').length<=1){toast('At least one request is required','error');return}
@@ -452,6 +479,8 @@ async function submitReq(e){
   if(!origin){toast('Origin Port is required','error');return}
   const rows=[...document.querySelectorAll('.req-row')];
   if(!rows.length){toast('Add at least one request','error');return}
+  const ci=(document.getElementById('cImawb')?.value||'').trim();
+  const cd=(document.getElementById('cDmawb')?.value||'').trim();
   const bodies=[];
   for(let i=0;i<rows.length;i++){
     const row=rows[i],n=i+1;
@@ -467,8 +496,8 @@ async function submitReq(e){
     bodies.push({
       account_id:+acct,department_id:+dept,origin_port_id:+origin,destination_port_id:+dest,
       packaging_type_id:+pkg,quantity:qty,
-      international_mawb:row.querySelector('.rImawb')?.value||'',
-      domestic_mawb:row.querySelector('.rDmawb')?.value||'',
+      international_mawb:ci||(row.querySelector('.rImawb')?.value||''),
+      domestic_mawb:cd||(row.querySelector('.rDmawb')?.value||''),
       pickup_datetime:row.querySelector('.rPickup')?.value||null,
       call_datetime:row.querySelector('.rCall')?.value||null,
       customs_cleared_datetime:row.querySelector('.rCustoms')?.value||null,
