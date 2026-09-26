@@ -182,14 +182,19 @@ def validate_delivered_chronology(body):
             raise HTTPException(400, f"{label} ({dt.strftime('%Y-%m-%d %H:%M')}) cannot be earlier than {prev[0]} ({prev[1].strftime('%Y-%m-%d %H:%M')})")
         prev = (label, dt)
 
-def compute_rate(rate_match, dest_port_id):
+def compute_rate(rate_match, dest_port_id, drop_sequence=None):
     if not rate_match: return 0
-    if rate_match.get("destination_port_id") == dest_port_id: return rate_match.get("rate_per_trip", 0) or 0
     drops = rate_match.get("destination_drops") or []
     if isinstance(drops, str):
         try: import json; drops = json.loads(drops)
         except Exception: drops = []
     if not isinstance(drops, list): drops = []
+    # The main rate (rate_per_trip) applies only to the trip's 1st drop going to the
+    # main destination. Any later drop — even to the same main destination port — is an
+    # additional drop: it gets the Additional Destination Drops rate if listed, else default_rate.
+    is_main_drop = drop_sequence is None or drop_sequence == 1
+    if is_main_drop and rate_match.get("destination_port_id") == dest_port_id:
+        return rate_match.get("rate_per_trip", 0) or 0
     for d in drops:
         if isinstance(d, dict) and d.get("port_id") == dest_port_id: return d.get("rate_per_trip", 0) or 0
     return rate_match.get("default_rate", 0) or 0
@@ -427,7 +432,7 @@ def backfill_rate_estimated_costs(vendor_id, truck_type_id, origin_port_id):
                         r["estimated_cost"] = 0
                         r["actual_cost"] = 0
                         continue
-                    r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"))
+                    r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
                     if r.get("status_id") in (4, 7):
                         r["actual_cost"] = r["estimated_cost"]
                     else:
@@ -457,7 +462,7 @@ def backfill_rate_estimated_costs(vendor_id, truck_type_id, origin_port_id):
             if not rate_match:
                 db_x("UPDATE truck_requests SET estimated_cost=0, actual_cost=0 WHERE id=%s", (mr["id"],))
                 continue
-            est = compute_rate(rate_match, mr.get("destination_port_id"))
+            est = compute_rate(rate_match, mr.get("destination_port_id"), mr.get("drop_sequence"))
             db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, mr["id"]))
             if mr.get("status_id") in (4, 7):
                 db_x("UPDATE truck_requests SET actual_cost=%s WHERE id=%s", (est, mr["id"]))
@@ -480,7 +485,7 @@ def recalculate_trip_rates(truck_id):
         rate_match = find_best_rate(truck.get("vendor_id"), truck.get("truck_type_id"), primary.get("origin_port_id"), primary_dest, booking_date=primary.get("booking_date"))
         if not rate_match: return
         for r in active:
-            r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"))
+            r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
             if r.get("status_id") == 7:
                 r["actual_cost"] = r["estimated_cost"]
             elif r.get("status_id") not in (4, 5):
@@ -501,7 +506,7 @@ def recalculate_trip_rates(truck_id):
         rate = exact or (rates[0] if rates else None)
         if not rate: return
         for r in active:
-            est = compute_rate(rate, r.get("destination_port_id"))
+            est = compute_rate(rate, r.get("destination_port_id"), r.get("drop_sequence"))
             db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, r["id"]))
             db_x("UPDATE truck_requests SET actual_cost=%s WHERE id=%s AND status_id=7", (est, r["id"]))
             db_x("UPDATE truck_requests SET actual_cost=0 WHERE id=%s AND status_id NOT IN (4,5,7)", (r["id"],))
@@ -1686,7 +1691,7 @@ async def update_request(rid: int, request: Request):
                         if truck:
                             tt_id = r.get("truck_type_id") or truck.get("truck_type_id")
                             rate_match = find_best_rate(truck.get("vendor_id"), tt_id, r.get("origin_port_id"), r.get("destination_port_id"), booking_date=r.get("booking_date"))
-                            if rate_match: r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"))
+                        if rate_match: r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
                     if r.get("actual_cost", 0) == 0: r["actual_cost"] = r.get("estimated_cost", 0)
                     _store["pending_allocations"] = [p for p in _store["pending_allocations"] if p.get("truck_request_id") != rid or p.get("is_accepted") is not None]
                     tid = r.get("assigned_truck_id")
@@ -1772,7 +1777,7 @@ async def update_request(rid: int, request: Request):
                     exact = next((r for r in rates if r.get("destination_port_id") == req.get("destination_port_id")), None)
                     rate = exact or (rates[0] if rates else None)
                     if rate:
-                        est = compute_rate(rate, req.get("destination_port_id"))
+                        est = compute_rate(rate, req.get("destination_port_id"), req.get("drop_sequence"))
                         if est: db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, rid))
             db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
             email = request.headers.get("X-Forwarded-Email", "")
@@ -2081,7 +2086,7 @@ async def allocate(pid: int, request: Request):
                                         x["drop_sequence"] += 1
                             r["drop_sequence"] = req_drop_seq
                         rate_match = find_best_rate(truck.get("vendor_id"), truck.get("truck_type_id"), r.get("origin_port_id"), r.get("destination_port_id"), booking_date=r.get("booking_date"))
-                        if rate_match: r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"))
+                        if rate_match: r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
                         primary_dest_id = r.get("destination_port_id")
                         break
                 for cpid in consolidate_pa_ids:
@@ -2101,7 +2106,7 @@ async def allocate(pid: int, request: Request):
                                             x["drop_sequence"] += 1
                                 r2["drop_sequence"] = consol_drop_seq
                             rate_match2 = find_best_rate(truck.get("vendor_id"), truck.get("truck_type_id"), r2.get("origin_port_id"), primary_dest_id, booking_date=r2.get("booking_date"))
-                            if rate_match2: r2["estimated_cost"] = compute_rate(rate_match2, r2.get("destination_port_id"))
+                            if rate_match2: r2["estimated_cost"] = compute_rate(rate_match2, r2.get("destination_port_id"), r2.get("drop_sequence"))
                             break
                     cpa["suggested_truck_id"] = truck_id; cpa["is_accepted"] = True; cpa["allocated_by"] = user["email"]; cpa["allocated_at"] = nows()
                 freeze_trip_ids_on_truck(truck_id)
@@ -2123,12 +2128,12 @@ async def allocate(pid: int, request: Request):
             rates = [r for r in rates if rate_in_range(r, tr.get("booking_date"))]
             exact = next((r for r in rates if r.get("destination_port_id") == tr.get("destination_port_id")), None)
             rate = exact or (rates[0] if rates else None)
-        est = compute_rate(rate, tr.get("destination_port_id")) if rate and tr else 0
         primary_dest_id = tr.get("destination_port_id") if tr else None
         req_drop_seq = body.get("drop_sequence")
         if not req_drop_seq:
             max_seq = db_1("SELECT MAX(drop_sequence) as max_seq FROM truck_requests WHERE assigned_truck_id=%s AND drop_sequence IS NOT NULL AND status_id IN (2,3)", (truck_id,))
             req_drop_seq = (max_seq["max_seq"] + 1) if max_seq and max_seq.get("max_seq") else 1
+        est = compute_rate(rate, tr.get("destination_port_id"), req_drop_seq) if rate and tr else 0
         drop_seq_sql = ""
         drop_seq_params = []
         if req_drop_seq:
@@ -2151,9 +2156,9 @@ async def allocate(pid: int, request: Request):
             rates2 = [r for r in rates2 if rate_in_range(r, ctr.get("booking_date"))]
             exact2 = next((r for r in rates2 if r.get("destination_port_id") == primary_dest_id), None)
             rate2 = exact2 or (rates2[0] if rates2 else None)
-        est2 = compute_rate(rate2, ctr.get("destination_port_id")) if rate2 and ctr else 0
         consol_seqs = body.get("consolidate_drop_sequences", {})
         consol_drop_seq = consol_seqs.get(str(cpid)) or consol_seqs.get(cpid)
+        est2 = compute_rate(rate2, ctr.get("destination_port_id"), consol_drop_seq) if rate2 and ctr else 0
         c_drop_seq_sql = ""
         c_drop_seq_params = []
         if consol_drop_seq:
@@ -2629,7 +2634,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
                 tt_id_rate = r.get("truck_type_id") or truck.get("truck_type_id")
                 rate_match = find_best_rate(truck.get("vendor_id"), tt_id_rate, r.get("origin_port_id"), r.get("destination_port_id"), booking_date=r.get("booking_date"))
                 if rate_match:
-                    est = compute_rate(rate_match, r.get("destination_port_id"))
+                    est = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
                     if est:
                         r["estimated_cost"] = est
                         if r.get("status_id") in (4, 7):
@@ -2692,10 +2697,10 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
                 exact = next((r for r in rates if r.get("destination_port_id") == i.get("destination_port_id")), None)
                 rate = exact or (rates[0] if rates else None)
                 if rate:
-                    est = compute_rate(rate, i.get("destination_port_id"))
+                    est = compute_rate(rate, i.get("destination_port_id"), i.get("drop_sequence"))
                     if est:
-                        if not i.get("estimated_cost"):
-                            db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s AND estimated_cost=0", (est, i["id"]))
+                        if i.get("estimated_cost") != est:
+                            db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, i["id"]))
                             i["estimated_cost"] = est
                         if i.get("status_id") in (4, 7) and not i.get("actual_cost"):
                             db_x("UPDATE truck_requests SET actual_cost=%s WHERE id=%s AND actual_cost=0", (est, i["id"]))
