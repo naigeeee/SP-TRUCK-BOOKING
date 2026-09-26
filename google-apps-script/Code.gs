@@ -29,7 +29,7 @@ var SECTIONS = [
 var HEADERS = {
   "Masterlist": [
     "Request #","Requestor Name","Requestor Email","Account","Department",
-    "Origin Port","Destination Port","Truck Type","Packaging","Quantity",
+    "Origin Port","Destination Port","International MAWB","Domestic MAWB","Truck Type","Packaging","Quantity",
     "Vendor","Plate #","Trip ID","Drop #","Distance (KM)",
     "Booking Date","Pickup","Call Date","Customs Cleared","Instructions",
     "Arrived Pickup","Start Loading","End Loading",
@@ -47,7 +47,7 @@ var HEADERS = {
   ],
   "Vendor Speed Performance": [
     "Request #","Trip ID","Drop #","Distance (KM)","Account","Department",
-    "Origin Port","Destination Port","Truck Type","Vendor",
+    "Origin Port","Destination Port","International MAWB","Domestic MAWB","Truck Type","Vendor",
     "Booking Date","Status",
     "Customs to Arrival","Pickup to Arrival",
     "Arrival to Start Load","Start to End Load",
@@ -55,7 +55,7 @@ var HEADERS = {
     "Start to End Unload","Full Leg"
   ],
   "Cost Analysis": [
-    "Request #","Trip ID","Account","Department","Distance (KM)","Origin Port","Destination Port",
+    "Request #","Trip ID","Account","Department","Distance (KM)","Origin Port","Destination Port","International MAWB","Domestic MAWB",
     "Truck Type","Vendor","Plate #",
     "Booking Date","Pickup",
     "Est. Cost","Actual Cost","Status","Foul Trip Reason"
@@ -78,6 +78,8 @@ var NESTED_FIELDS = {
     "Department": "department_name",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
+    "International MAWB": "international_mawb",
+    "Domestic MAWB": "domestic_mawb",
     "Truck Type": "truck_type_name",
     "Packaging": "packaging_type_name",
     "Quantity": "quantity",
@@ -142,6 +144,8 @@ var NESTED_FIELDS = {
     "Department": "department_name",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
+    "International MAWB": "international_mawb",
+    "Domestic MAWB": "domestic_mawb",
     "Truck Type": "truck_type_name",
     "Vendor": "vendor_name",
     "Booking Date": "booking_date",
@@ -163,6 +167,8 @@ var NESTED_FIELDS = {
     "Distance (KM)": "distance_km",
     "Origin Port": "origin_port_name",
     "Destination Port": "destination_port_name",
+    "International MAWB": "international_mawb",
+    "Domestic MAWB": "domestic_mawb",
     "Truck Type": "truck_type_name",
     "Vendor": "vendor_name",
     "Plate #": "plate_number",

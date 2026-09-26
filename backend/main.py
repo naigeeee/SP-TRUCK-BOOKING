@@ -1290,7 +1290,7 @@ def archive_truck_requests(truck_id, email="system"):
 def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: Optional[str] = None,
     account_id: Optional[int] = None, department_id: Optional[int] = None,
     status_id: Optional[int] = None, origin_port_id: Optional[int] = None,
-    destination_port_id: Optional[int] = None):
+    destination_port_id: Optional[int] = None, mawb: Optional[str] = None):
     get_user(request)
     if LOCAL_MODE:
         reqs = _store["truck_requests"]
@@ -1301,6 +1301,9 @@ def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: 
             if status_id and r.get("status_id") != status_id: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
+            if mawb:
+                m = mawb.lower()
+                if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
             bk = str(r.get("booking_date") or "")[:10]
             if booking_from and (not bk or bk < booking_from): continue
             if booking_to and (not bk or bk > booking_to): continue
@@ -1338,6 +1341,7 @@ def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: 
     if status_id: wh.append("tr.status_id=%s"); pa.append(status_id)
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
+    if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if booking_from: wh.append("tr.booking_date>=%s"); pa.append(booking_from)
     if booking_to: wh.append("tr.booking_date<=%s"); pa.append(booking_to)
     ws = (" WHERE " + " AND ".join(wh)) if wh else ""
@@ -1380,6 +1384,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     pickup_from: Optional[str] = None, pickup_to: Optional[str] = None,
     call_from: Optional[str] = None, call_to: Optional[str] = None,
     customs_from: Optional[str] = None, customs_to: Optional[str] = None,
+    mawb: Optional[str] = None,
     sort_by: str = "created_at", sort_dir: str = "desc", page: int = 1, per_page: int = 50):
 
     if LOCAL_MODE:
@@ -1431,6 +1436,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if call_to: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] <= call_to]
         if customs_from: reqs = [r for r in reqs if (r.get("customs_cleared_datetime") or "")[:10] >= customs_from]
         if customs_to: reqs = [r for r in reqs if (r.get("customs_cleared_datetime") or "")[:10] <= customs_to]
+        if mawb:
+            m = mawb.lower()
+            reqs = [r for r in reqs if m in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower()]
         if search:
             s = search.lower()
             reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "")).lower()]
@@ -1460,9 +1468,10 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if call_to: wh.append("DATE(tr.call_datetime)<=%s"); pa.append(call_to)
     if customs_from: wh.append("DATE(tr.customs_cleared_datetime)>=%s"); pa.append(customs_from)
     if customs_to: wh.append("DATE(tr.customs_cleared_datetime)<=%s"); pa.append(customs_to)
+    if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb"):
         sort_by = "created_at"
     sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "v.name", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name"}
     if sort_by == "trip_id":
@@ -1566,6 +1575,8 @@ async def create_request(request: Request):
                 "truck_type_id": body.get("truck_type_id"), "packaging_type_id": body.get("packaging_type_id"),
                 "quantity": body.get("quantity", 0), "weight_kg": body.get("weight_kg", 0), "volume_cbm": body.get("volume_cbm", 0),
                 "special_instructions": body.get("special_instructions", ""), "status_id": body.get("status_id", 1),
+                "international_mawb": body.get("international_mawb") or "",
+                "domestic_mawb": body.get("domestic_mawb") or "",
                 "assigned_truck_id": None, "estimated_cost": body.get("estimated_cost", 0), "actual_cost": 0,
                 "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
                 "end_loading_datetime": None, "arrived_dest_datetime": None, "start_unloading_datetime": None,
@@ -1577,13 +1588,15 @@ async def create_request(request: Request):
             return row2d(req)
         rid = db_i("""INSERT INTO truck_requests (request_number,requestor_email,requestor_name,account_id,department_id,
             origin_port_id,destination_port_id,pickup_datetime,delivery_datetime,call_datetime,customs_cleared_datetime,booking_date,
-            truck_type_id,packaging_type_id,quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            truck_type_id,packaging_type_id,quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost,
+            international_mawb,domestic_mawb)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (rn, user["email"], user["name"], body["account_id"], body["department_id"],
              body["origin_port_id"], body["destination_port_id"], body.get("pickup_datetime"), body.get("delivery_datetime"),
              body.get("call_datetime"), body.get("customs_cleared_datetime"), booking_date,
              body.get("truck_type_id"), body.get("packaging_type_id"), body.get("quantity", 0), body.get("weight_kg", 0),
-             body.get("volume_cbm", 0), body.get("special_instructions", ""), body.get("status_id", 1), body.get("estimated_cost", 0)))
+             body.get("volume_cbm", 0), body.get("special_instructions", ""), body.get("status_id", 1), body.get("estimated_cost", 0),
+             body.get("international_mawb") or None, body.get("domestic_mawb") or None))
         db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'New request')", (rid,))
         return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
     except HTTPException:
@@ -1602,7 +1615,8 @@ async def update_request(rid: int, request: Request):
     fields = ("account_id", "department_id", "origin_port_id", "destination_port_id", "pickup_datetime",
               "delivery_datetime", "call_datetime", "customs_cleared_datetime", "booking_date",
               "truck_type_id", "packaging_type_id", "quantity", "weight_kg", "volume_cbm",
-              "special_instructions", "status_id", "assigned_truck_id", "estimated_cost", "actual_cost",
+              "special_instructions", "international_mawb", "domestic_mawb", "status_id",
+              "assigned_truck_id", "estimated_cost", "actual_cost",
               "trip_date", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime",
               "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason",
               "drop_sequence", "updated_by", "updated_at")
@@ -1910,6 +1924,8 @@ def list_pending(request: Request):
             item = {**row2d(pa)}
             item.update({"request_number": req.get("request_number", ""), "requestor_name": req.get("requestor_name", ""),
                 "pickup_datetime": req.get("pickup_datetime", ""), "call_datetime": req.get("call_datetime", ""),
+                "international_mawb": req.get("international_mawb", "") or "",
+                "domestic_mawb": req.get("domestic_mawb", "") or "",
                 "origin_port_id": req.get("origin_port_id"),
                 "destination_port_id": req.get("destination_port_id"), "truck_type_id": req.get("truck_type_id"),
                 "account_id": req.get("account_id"), "department_id": req.get("department_id"),
@@ -1984,6 +2000,7 @@ def list_pending(request: Request):
         WHERE tr.status_id=1 AND NOT EXISTS (
             SELECT 1 FROM pending_allocations pa WHERE pa.truck_request_id=tr.id AND pa.is_accepted IS NULL)""")
     rows = db_q("""SELECT pa.*, tr.request_number, tr.requestor_name, tr.pickup_datetime, tr.call_datetime,
+        tr.international_mawb, tr.domestic_mawb,
         tr.origin_port_id, tr.destination_port_id, tr.truck_type_id, tr.account_id, tr.department_id,
         tr.packaging_type_id, tr.quantity, tr.weight_kg, tr.volume_cbm,
         po.name as origin_port_name, po.latitude as origin_lat, po.longitude as origin_lon,
@@ -2448,7 +2465,8 @@ def _fmt_duration(start_str, end_str):
 def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Optional[str] = None,
     date_to: Optional[str] = None, search: Optional[str] = None, truck_type_id: Optional[int] = None,
     origin_port_id: Optional[int] = None, destination_port_id: Optional[int] = None,
-    account_id: Optional[int] = None, department_id: Optional[int] = None):
+    account_id: Optional[int] = None, department_id: Optional[int] = None,
+    mawb: Optional[str] = None):
     get_user(request)
     if LOCAL_MODE:
         reqs = _store["truck_requests"]
@@ -2458,6 +2476,9 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
             if not r.get("assigned_truck_id"): continue
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             if not truck: continue
+            if mawb:
+                m = mawb.lower()
+                if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
             if vendor_id and truck.get("vendor_id") != vendor_id: continue
             if truck_type_id and truck.get("truck_type_id") != truck_type_id and r.get("truck_type_id") != truck_type_id: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
@@ -2485,6 +2506,8 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
             sc = next((s["color"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
             results.append({"id": r["id"], "request_number": r.get("request_number", ""),
                 "trip_id": trip_id, "drop_sequence": r.get("drop_sequence"),
+                "international_mawb": r.get("international_mawb") or "",
+                "domestic_mawb": r.get("domestic_mawb") or "",
                 "account_name": acct_name, "department_name": dept_name,
                 "origin_port_name": oname, "destination_port_name": dname,
                 "truck_type_name": ttn, "vendor_name": vname,
@@ -2510,11 +2533,13 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if account_id: wh.append("tr.account_id=%s"); pa.append(account_id)
     if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
+    if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if search: wh.append("tr.request_number LIKE %s"); pa.append(f"%{search}%")
     if date_from: wh.append("tr.booking_date>=%s"); pa.append(date_from)
     if date_to: wh.append("tr.booking_date<=%s"); pa.append(date_to)
     ws = " AND ".join(wh)
     rows = db_q(f"""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime,
+        tr.international_mawb, tr.domestic_mawb,
         tr.status_id, ts.name as status_name, ts.color as status_color,
         a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
@@ -2564,7 +2589,8 @@ def delete_eval(eid: int, request: Request):
 def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Query(...),
     account_id: Optional[int] = None, department_id: Optional[int] = None,
     origin_port_id: Optional[int] = None, destination_port_id: Optional[int] = None,
-    vendor_id: Optional[int] = None, status_id: Optional[int] = None):
+    vendor_id: Optional[int] = None, status_id: Optional[int] = None,
+    mawb: Optional[str] = None):
     get_user(request)
     if LOCAL_MODE:
         reqs = _store["truck_requests"]
@@ -2579,6 +2605,9 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             if status_id and r.get("status_id") != status_id: continue
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             if vendor_id and (not truck or truck.get("vendor_id") != vendor_id): continue
+            if mawb:
+                m = mawb.lower()
+                if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
             flt.append(r)
         est_total = 0
         act_total = 0
@@ -2611,7 +2640,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             act_total += act
             rd = {k: r.get(k) for k in ("id", "request_number", "quantity", "weight_kg", "volume_cbm",
                 "pickup_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
-                "foul_trip_reason", "booking_date")}
+                "foul_trip_reason", "booking_date", "international_mawb", "domestic_mawb")}
             rd["status_name"] = sn
             rd["status_color"] = sc
             rd["truck_type_name"] = ttn
@@ -2639,6 +2668,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if vendor_id: wh.append("tk.vendor_id=%s"); pa.append(vendor_id)
     if status_id: wh.append("tr.status_id=%s"); pa.append(status_id)
+    if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     ws = " AND ".join(wh)
     s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     reqs = db_q(f"""SELECT tr.*, ts.name as status_name, ts.color as status_color,
@@ -2818,6 +2848,8 @@ def sync_evaluation():
                 trip_id = resolve_trip_id(r, truck_reqs)
             reqs.append({"id": r["id"], "request_number": r.get("request_number", ""),
                 "trip_id": trip_id, "drop_sequence": r.get("drop_sequence"),
+                "international_mawb": r.get("international_mawb") or "",
+                "domestic_mawb": r.get("domestic_mawb") or "",
                 "account_name": acct_name, "department_name": dept_name,
                 "origin_port_name": oname, "destination_port_name": dname,
                 "truck_type_name": ttn, "vendor_name": vname,
@@ -2844,6 +2876,7 @@ def sync_evaluation():
             r["lt_full_leg"] = _fmt_duration(r.get("arrived_pickup_datetime"), r.get("end_unloading_datetime"))
         return reqs
     rows = db_q("""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime,
+        tr.international_mawb, tr.domestic_mawb,
         tr.customs_cleared_datetime, tr.arrived_pickup_datetime, tr.start_loading_datetime,
         tr.end_loading_datetime, tr.arrived_dest_datetime, tr.start_unloading_datetime, tr.end_unloading_datetime,
         tr.status_id, ts.name as status_name, ts.color as status_color,

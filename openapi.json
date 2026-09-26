@@ -1255,6 +1255,22 @@
               ],
               "title": "Destination Port Id"
             }
+          },
+          {
+            "name": "mawb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mawb"
+            }
           }
         ],
         "responses": {
@@ -1538,6 +1554,22 @@
                 }
               ],
               "title": "Customs To"
+            }
+          },
+          {
+            "name": "mawb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mawb"
             }
           },
           {
@@ -2298,6 +2330,22 @@
               ],
               "title": "Department Id"
             }
+          },
+          {
+            "name": "mawb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mawb"
+            }
           }
         ],
         "responses": {
@@ -2490,6 +2538,22 @@
                 }
               ],
               "title": "Status Id"
+            }
+          },
+          {
+            "name": "mawb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mawb"
             }
           }
         ],
