@@ -30,7 +30,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .u-name{font-weight:600;color:#fff;font-size:13px}
 .u-role{font-size:11px;color:var(--side-t)}
 .local-badge{display:inline-block;background:var(--warn);color:#000;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-top:6px}
-.main{flex:1;margin-left:260px;padding:24px;min-height:100vh}
+.main{flex:1;min-width:0;margin-left:260px;padding:24px;min-height:100vh}
 .pg-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
 .pg-hdr h1{font-size:24px;font-weight:800;display:flex;align-items:center;gap:10px}
 .pg-hdr .acts{display:flex;gap:10px}
@@ -606,9 +606,9 @@ function mlReorderBody(order){document.querySelectorAll('#mlTbl tr').forEach(row
 function applyMLFreeze(){
   const tr=mlHeadTr();if(!tr)return;
   const ths=[...tr.children];
-  ths.forEach(th=>{th.style.position='';th.style.left='';th.style.zIndex='';th.style.background=''});
+  ths.forEach(th=>{th.style.position='';th.style.left='';th.style.zIndex='';th.style.background='';th.style.boxShadow=''});
   const rows=[...document.querySelectorAll('#mlTbl tr')];
-  rows.forEach(row=>[...row.children].forEach(c=>{c.style.position='';c.style.left='';c.style.zIndex='';c.style.background=''}));
+  rows.forEach(row=>[...row.children].forEach(c=>{c.style.position='';c.style.left='';c.style.zIndex='';c.style.background='';c.style.boxShadow=''}));
   const pi=ths.findIndex(th=>th.dataset.k==='plate_number');
   if(pi<0)return;
   const thBg=ths.length>pi+1?getComputedStyle(ths[pi+1]).backgroundColor:getComputedStyle(ths[ths.length-1]).backgroundColor;
@@ -616,7 +616,8 @@ function applyMLFreeze(){
   for(let i=0;i<=pi;i++){
     const w=ths[i].getBoundingClientRect().width;
     ths[i].style.position='sticky';ths[i].style.left=acc+'px';ths[i].style.zIndex=3;ths[i].style.background=thBg;
-    rows.forEach(row=>{const c=row.children[i];if(c){c.style.position='sticky';c.style.left=acc+'px';c.style.zIndex=1;c.style.background='#fff'}});
+    if(i===pi){ths[i].style.boxShadow='inset -1px 0 0 var(--bdr)'}
+    rows.forEach(row=>{const c=row.children[i];if(c){c.style.position='sticky';c.style.left=acc+'px';c.style.zIndex=1;c.style.background='#fff';if(i===pi)c.style.boxShadow='inset -1px 0 0 var(--bdr)'}});
     acc+=w;
   }
 }
