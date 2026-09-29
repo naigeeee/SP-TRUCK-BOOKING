@@ -58,7 +58,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .tw{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:13px}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
 th{text-align:left;padding:12px 16px;background:var(--bg);font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bdr);white-space:nowrap}
 td{padding:12px 16px;border-bottom:1px solid var(--bdr);vertical-align:middle}
 tr:hover td{background:#F8FAFC}
@@ -275,6 +275,9 @@ async function init(){
     await loadMaster();
     loadDash();
     initBookingDate();
+    window.addEventListener('hashchange',()=>{const p=(location.hash||'').replace(/^#\/?/,'');const s=p&&document.getElementById('pg-'+p);if(s&&!s.classList.contains('on'))showPage(p)});
+    const hp=(location.hash||'').replace(/^#\/?/,'');
+    if(hp&&document.getElementById('pg-'+hp)&&!document.getElementById('pg-'+hp).classList.contains('on'))showPage(hp);
   }catch(e){console.error(e)}
 }
 
@@ -289,7 +292,7 @@ async function loadMaster(){
     fetch('/api/vendors').then(r=>r.json())
   ]);
   popSel('rDept',depts,'id','name','Select Department');
-  popSel('rOrigin',ports,'id','name','Select Origin');
+  popSel('rOrigin',ports,'id','name','Select Origin',true);
   popSel('mlSt',sts,'id','name','All Statuses',true);
   popSel('mlAcct',accts,'id','name','All Accounts',true);
   popSel('mlDept',depts,'id','name','All Depts',true);
@@ -332,6 +335,7 @@ function popSel(id,items,vk,lk,ph,empty=false){
 function showPage(pg){
   document.querySelectorAll('.pg').forEach(s=>s.classList.remove('on'));
   document.getElementById('pg-'+pg).classList.add('on');
+  try{if(location.hash!=='#/'+pg)history.replaceState(null,'','#/'+pg)}catch(e){}
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const nav=document.querySelector('.nav-item[data-page="'+pg+'"]');
   if(nav)nav.classList.add('active');
@@ -603,17 +607,20 @@ function applyMLFreeze(){
   const tr=mlHeadTr();if(!tr)return;
   const ths=[...tr.children];
   ths.forEach(th=>{th.style.position='';th.style.left='';th.style.zIndex='';th.style.background=''});
-  document.querySelectorAll('#mlTbl tr').forEach(row=>[...row.children].forEach(c=>{c.style.position='';c.style.left='';c.style.zIndex='';c.style.background=''}));
+  const rows=[...document.querySelectorAll('#mlTbl tr')];
+  rows.forEach(row=>[...row.children].forEach(c=>{c.style.position='';c.style.left='';c.style.zIndex='';c.style.background=''}));
   const pi=ths.findIndex(th=>th.dataset.k==='plate_number');
   if(pi<0)return;
+  const thBg=ths.length>pi+1?getComputedStyle(ths[pi+1]).backgroundColor:getComputedStyle(ths[ths.length-1]).backgroundColor;
   let acc=0;
   for(let i=0;i<=pi;i++){
     const w=ths[i].getBoundingClientRect().width;
-    ths[i].style.position='sticky';ths[i].style.left=acc+'px';ths[i].style.zIndex=3;ths[i].style.background='#fff';
-    document.querySelectorAll('#mlTbl tr').forEach(row=>{const c=row.children[i];if(c){c.style.position='sticky';c.style.left=acc+'px';c.style.zIndex=1;c.style.background='#fff'}});
+    ths[i].style.position='sticky';ths[i].style.left=acc+'px';ths[i].style.zIndex=3;ths[i].style.background=thBg;
+    rows.forEach(row=>{const c=row.children[i];if(c){c.style.position='sticky';c.style.left=acc+'px';c.style.zIndex=1;c.style.background='#fff'}});
     acc+=w;
   }
 }
+window.addEventListener('resize',()=>{if(mlHeaderOrdered)applyMLFreeze()});
 function applyMLOrder(){
   const tr=mlHeadTr();if(!tr)return;
   const ths=[...tr.children];
