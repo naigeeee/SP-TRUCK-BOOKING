@@ -284,8 +284,24 @@ def next_seq_string(key, width0=7, value0=1):
     finally:
         db.close()
 
-def next_trip_base():
-    return f"SPT-{next_seq_string('trip', width0=5)}"
+def trip_prefix_for(truck_id):
+    vendor = None
+    if truck_id:
+        if LOCAL_MODE:
+            truck = next((t for t in _store["trucks"] if t["id"] == truck_id), None)
+            if truck:
+                vendor = next((v for v in _store["vendors"] if v["id"] == truck.get("vendor_id")), None)
+        else:
+            vendor = db_1("SELECT v.name as name FROM trucks t LEFT JOIN vendors v ON t.vendor_id=v.id WHERE t.id=%s", (truck_id,))
+    name = ((vendor or {}).get("name") or "").strip()
+    first = ""
+    for ch in name:
+        if ch.isalnum(): first += ch
+        elif first: break
+    return first.upper() or "SPT"
+
+def next_trip_base(truck_id=None):
+    return f"{trip_prefix_for(truck_id)}-{next_seq_string('trip', width0=5)}"
 
 def compute_trip_id(reqs_on_truck, request_id):
     target = next((r for r in reqs_on_truck if r.get("id") == request_id), None)
@@ -317,7 +333,7 @@ def compute_trip_id(reqs_on_truck, request_id):
             base = sibling["trip_id"].rsplit("-", 1)[0]
             return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
         allocated = [target]
-    base = next_trip_base()
+    base = next_trip_base(target.get("assigned_truck_id"))
     return f"{base}-{_trip_letter(target.get('drop_sequence'))}"
 
 def resolve_trip_id(row, truck_reqs=None):
@@ -1265,13 +1281,14 @@ def archive_truck_requests(truck_id, email="system"):
                     "truck_type_id": r.get("truck_type_id"), "quantity": r.get("quantity", 0),
                     "weight_kg": r.get("weight_kg", 0), "volume_cbm": r.get("volume_cbm", 0),
                     "status_id": r.get("status_id"), "pickup_datetime": r.get("pickup_datetime"),
+                    "call_datetime": r.get("call_datetime"),
                     "trip_id": trip_by_id.get(r["id"]), "drop_sequence": r.get("drop_sequence"),
                     "account_id": r.get("account_id"), "department_id": r.get("department_id"),
                     "updated_by": r.get("updated_by") or email,
                     "archived_at": nows(), "archived_by": email})
         return
     reqs = db_q("""SELECT id,request_number,requestor_name,requestor_email,origin_port_id,destination_port_id,
-        truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,
+        truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,call_datetime,
         drop_sequence,trip_id,account_id,department_id,updated_by
         FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (4,5,7)""", (truck_id,))
     for r in reqs:
@@ -1279,11 +1296,11 @@ def archive_truck_requests(truck_id, email="system"):
             continue
         db_i("""INSERT INTO truck_request_history (truck_id,truck_request_id,request_number,requestor_name,requestor_email,
             origin_port_id,destination_port_id,truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,
-            trip_id,drop_sequence,account_id,department_id,updated_by,archived_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            call_datetime,trip_id,drop_sequence,account_id,department_id,updated_by,archived_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (truck_id, r["id"], r["request_number"], r["requestor_name"], r["requestor_email"],
              r["origin_port_id"], r["destination_port_id"], r["truck_type_id"], r["quantity"], r["weight_kg"],
-             r["volume_cbm"], r["status_id"], r["pickup_datetime"],
+             r["volume_cbm"], r["status_id"], r["pickup_datetime"], r.get("call_datetime"),
              trip_by_id.get(r["id"]) or r.get("trip_id"), r.get("drop_sequence"), r.get("account_id"), r.get("department_id"),
              r.get("updated_by") or email, email))
 
@@ -1617,6 +1634,9 @@ async def update_request(rid: int, request: Request):
     body = await request.json()
     body["updated_by"] = user.get("email", "")
     body["updated_at"] = nows()
+    for k in ("truck_type_id", "assigned_truck_id"):
+        if k in body and body[k] in (0, "0", ""):
+            body[k] = None
     fields = ("account_id", "department_id", "origin_port_id", "destination_port_id", "pickup_datetime",
               "delivery_datetime", "call_datetime", "customs_cleared_datetime", "booking_date",
               "truck_type_id", "packaging_type_id", "quantity", "weight_kg", "volume_cbm",
@@ -1951,13 +1971,14 @@ def list_pending(request: Request):
             sug = []
             for sr in same:
                 try:
-                    dt1 = datetime.fromisoformat(str(req.get("pickup_datetime", "")).replace("Z", "+00:00"))
-                    dt2 = datetime.fromisoformat(str(sr.get("pickup_datetime", "")).replace("Z", "+00:00"))
+                    if not req.get("call_datetime") or not sr.get("call_datetime"): continue
+                    dt1 = datetime.fromisoformat(str(req.get("call_datetime")).replace(" ", "T").replace("Z", "+00:00"))
+                    dt2 = datetime.fromisoformat(str(sr.get("call_datetime")).replace(" ", "T").replace("Z", "+00:00"))
                     if abs((dt1 - dt2).total_seconds()) <= 14400:
-                        sug.append({"request_id": sr["id"], "request_number": sr.get("request_number", ""), "requestor_name": sr.get("requestor_name", ""), "pickup_datetime": str(sr.get("pickup_datetime", "")),
+                        sug.append({"request_id": sr["id"], "request_number": sr.get("request_number", ""), "requestor_name": sr.get("requestor_name", ""), "call_datetime": str(sr.get("call_datetime", "")),
                             "packaging_type_name": next((p["name"] for p in _store["packaging_types"] if p["id"] == sr.get("packaging_type_id")), ""),
                             "quantity": sr.get("quantity", 0), "weight_kg": sr.get("weight_kg", 0), "volume_cbm": sr.get("volume_cbm", 0),
-                            "reason": f"Same origin, similar pickup time"})
+                            "reason": f"Same origin, similar initial call time"})
                 except: pass
             item["consolidation_suggestions"] = sug
             avail = [t for t in _store["trucks"] if t.get("status") in ("available", "assigned")]
@@ -2020,12 +2041,13 @@ def list_pending(request: Request):
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         WHERE pa.is_accepted IS NULL AND tr.status_id=1 ORDER BY pa.created_at DESC""")
     for item in rows:
-        same = db_q("""SELECT id, request_number, requestor_name, pickup_datetime, quantity, weight_kg, volume_cbm, packaging_type_id
+        same = db_q("""SELECT id, request_number, requestor_name, call_datetime, quantity, weight_kg, volume_cbm, packaging_type_id
             FROM truck_requests WHERE id!=%s AND origin_port_id=%s AND status_id=1
-            AND ABS(TIMESTAMPDIFF(HOUR, pickup_datetime, %s))<=4""", (item["truck_request_id"], item["origin_port_id"], item["pickup_datetime"]))
+            AND call_datetime IS NOT NULL AND %s IS NOT NULL
+            AND ABS(TIMESTAMPDIFF(HOUR, call_datetime, %s))<=4""", (item["truck_request_id"], item["origin_port_id"], item.get("call_datetime"), item.get("call_datetime")))
         for s in same:
             s["packaging_type_name"] = next((p["name"] for p in db_q("SELECT name FROM packaging_types WHERE id=%s", (s["packaging_type_id"],))), "")
-        item["consolidation_suggestions"] = [{"request_id": s["id"], "request_number": s["request_number"], "requestor_name": s["requestor_name"], "pickup_datetime": str(s["pickup_datetime"]), "packaging_type_name": s.get("packaging_type_name", ""), "quantity": s.get("quantity", 0), "weight_kg": s.get("weight_kg", 0), "volume_cbm": s.get("volume_cbm", 0), "reason": f"Same origin, similar pickup time"} for s in same]
+        item["consolidation_suggestions"] = [{"request_id": s["id"], "request_number": s["request_number"], "requestor_name": s["requestor_name"], "call_datetime": str(s["call_datetime"]), "packaging_type_name": s.get("packaging_type_name", ""), "quantity": s.get("quantity", 0), "weight_kg": s.get("weight_kg", 0), "volume_cbm": s.get("volume_cbm", 0), "reason": f"Same origin, similar initial call time"} for s in same]
         avail_trucks = db_q("""SELECT t.id,t.plate_number,t.truck_type_id,t.status,v.name as vendor_name,tt.name as truck_type_name,t.driver_name,t.driver_phone
             FROM trucks t LEFT JOIN vendors v ON t.vendor_id=v.id LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
             WHERE t.status IN ('available','assigned') AND t.is_active=1
@@ -2518,8 +2540,9 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
                 "truck_type_name": ttn, "vendor_name": vname,
                 "booking_date": r.get("booking_date"), "status_name": sn, "status_color": sc,
                 "pickup_datetime": r.get("pickup_datetime"),
+                "call_datetime": r.get("call_datetime"),
                 "lt_customs_to_arrival": _fmt_duration(r.get("customs_cleared_datetime"), r.get("arrived_pickup_datetime")),
-                "lt_pickup_to_arrival": _fmt_duration(r.get("pickup_datetime"), r.get("arrived_pickup_datetime")),
+                "lt_pickup_to_arrival": _fmt_duration(r.get("call_datetime"), r.get("arrived_pickup_datetime")),
                 "lt_arrival_to_start_load": _fmt_duration(r.get("arrived_pickup_datetime"), r.get("start_loading_datetime")),
                 "lt_start_load_to_end_load": _fmt_duration(r.get("start_loading_datetime"), r.get("end_loading_datetime")),
                 "lt_end_load_to_arrived_dest": _fmt_duration(r.get("end_loading_datetime"), r.get("arrived_dest_datetime")),
@@ -2543,7 +2566,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
     if date_from: wh.append("tr.booking_date>=%s"); pa.append(date_from)
     if date_to: wh.append("tr.booking_date<=%s"); pa.append(date_to)
     ws = " AND ".join(wh)
-    rows = db_q(f"""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime,
+    rows = db_q(f"""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime, tr.call_datetime,
         tr.international_mawb, tr.domestic_mawb,
         tr.status_id, ts.name as status_name, ts.color as status_color,
         a.name as account_name, d.name as department_name,
@@ -2567,7 +2590,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
         else:
             row["trip_id"] = None
         row["lt_customs_to_arrival"] = _fmt_duration(row.get("customs_cleared_datetime"), row.get("arrived_pickup_datetime"))
-        row["lt_pickup_to_arrival"] = _fmt_duration(row.get("pickup_datetime"), row.get("arrived_pickup_datetime"))
+        row["lt_pickup_to_arrival"] = _fmt_duration(row.get("call_datetime"), row.get("arrived_pickup_datetime"))
         row["lt_arrival_to_start_load"] = _fmt_duration(row.get("arrived_pickup_datetime"), row.get("start_loading_datetime"))
         row["lt_start_load_to_end_load"] = _fmt_duration(row.get("start_loading_datetime"), row.get("end_loading_datetime"))
         row["lt_end_load_to_arrived_dest"] = _fmt_duration(row.get("end_loading_datetime"), row.get("arrived_dest_datetime"))
@@ -2644,7 +2667,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             est_total += est
             act_total += act
             rd = {k: r.get(k) for k in ("id", "request_number", "quantity", "weight_kg", "volume_cbm",
-                "pickup_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
+                "pickup_datetime", "call_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
                 "foul_trip_reason", "booking_date", "international_mawb", "domestic_mawb")}
             rd["status_name"] = sn
             rd["status_color"] = sc
@@ -2872,7 +2895,7 @@ def sync_evaluation():
         add_distances_to_requests(reqs, coords)
         for r in reqs:
             r["lt_customs_to_arrival"] = _fmt_duration(r.get("customs_cleared_datetime"), r.get("arrived_pickup_datetime"))
-            r["lt_pickup_to_arrival"] = _fmt_duration(r.get("pickup_datetime"), r.get("arrived_pickup_datetime"))
+            r["lt_pickup_to_arrival"] = _fmt_duration(r.get("call_datetime"), r.get("arrived_pickup_datetime"))
             r["lt_arrival_to_start_load"] = _fmt_duration(r.get("arrived_pickup_datetime"), r.get("start_loading_datetime"))
             r["lt_start_load_to_end_load"] = _fmt_duration(r.get("start_loading_datetime"), r.get("end_loading_datetime"))
             r["lt_end_load_to_arrived_dest"] = _fmt_duration(r.get("end_loading_datetime"), r.get("arrived_dest_datetime"))
@@ -2880,7 +2903,7 @@ def sync_evaluation():
             r["lt_start_unload_to_end_unload"] = _fmt_duration(r.get("start_unloading_datetime"), r.get("end_unloading_datetime"))
             r["lt_full_leg"] = _fmt_duration(r.get("arrived_pickup_datetime"), r.get("end_unloading_datetime"))
         return reqs
-    rows = db_q("""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime,
+    rows = db_q("""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime, tr.call_datetime,
         tr.international_mawb, tr.domestic_mawb,
         tr.customs_cleared_datetime, tr.arrived_pickup_datetime, tr.start_loading_datetime,
         tr.end_loading_datetime, tr.arrived_dest_datetime, tr.start_unloading_datetime, tr.end_unloading_datetime,
@@ -2904,7 +2927,7 @@ def sync_evaluation():
         else:
             row["trip_id"] = None
         row["lt_customs_to_arrival"] = _fmt_duration(row.get("customs_cleared_datetime"), row.get("arrived_pickup_datetime"))
-        row["lt_pickup_to_arrival"] = _fmt_duration(row.get("pickup_datetime"), row.get("arrived_pickup_datetime"))
+        row["lt_pickup_to_arrival"] = _fmt_duration(row.get("call_datetime"), row.get("arrived_pickup_datetime"))
         row["lt_arrival_to_start_load"] = _fmt_duration(row.get("arrived_pickup_datetime"), row.get("start_loading_datetime"))
         row["lt_start_load_to_end_load"] = _fmt_duration(row.get("start_loading_datetime"), row.get("end_loading_datetime"))
         row["lt_end_load_to_arrived_dest"] = _fmt_duration(row.get("end_loading_datetime"), row.get("arrived_dest_datetime"))
