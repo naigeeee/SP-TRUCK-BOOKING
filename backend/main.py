@@ -745,6 +745,17 @@ def require_vendor(request):
     if vid is None: raise HTTPException(403, "This vendor role is not linked to a vendor")
     return u, vid
 
+def require_vendor_or_admin(request):
+    """Vendor (scoped) or admin (unscoped). Viewers/others 403."""
+    u = get_user(request)
+    if is_vendor_role(u.get("role", "")):
+        vid = vendor_id_for_role(u["role"])
+        if vid is None: raise HTTPException(403, "This vendor role is not linked to a vendor")
+        return u, vid
+    if u["role"] in ("master_admin", "admin"):
+        return u, None
+    raise HTTPException(403, "Vendor access required")
+
 def _owned_by_vendor(item, scope_vid):
     """True when a truck request belongs to the scoped vendor."""
     if scope_vid is None: return True
@@ -1318,7 +1329,7 @@ async def update_truck(tid: int, request: Request):
                 for k in ("plate_number", "truck_type_id", "vendor_id", "driver_name", "driver_phone", "status", "is_available"):
                     if k in body: t[k] = body[k]
                 t["updated_at"] = nows()
-                if old_status == "assigned" and body.get("status") != "assigned":
+                if "status" in body and old_status == "assigned" and body.get("status") != "assigned":
                     pending_id = next((s["id"] for s in _store["truck_statuses"] if s["name"] == "Pending"), None)
                     if pending_id:
                         for r in _store["truck_requests"]:
@@ -1340,7 +1351,7 @@ async def update_truck(tid: int, request: Request):
     if not sets: raise HTTPException(400, "Nothing to update")
     params.append(tid)
     db_x(f"UPDATE trucks SET {','.join(sets)} WHERE id=%s", tuple(params))
-    if old_status == "assigned" and body.get("status") != "assigned":
+    if "status" in body and old_status == "assigned" and body.get("status") != "assigned":
         pending_st = db_1("SELECT id FROM truck_statuses WHERE name='Pending'")
         if pending_st:
             email = request.headers.get("X-Forwarded-Email", "")
@@ -1576,7 +1587,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == r.get("truck_type_id")), "")
             r["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
-            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
+            tv = truck.get("vendor_id") if truck else None
+            if tv is None and r.get("vendor_id"): tv = r.get("vendor_id")
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == tv), "")
             r["plate_number"] = truck["plate_number"] if truck else ""
             r["updated_by"] = r.get("updated_by", "")
             updater = next((u for u in _store["users"] if u.get("email") == r.get("updated_by")), None)
@@ -1639,7 +1652,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if truck_type_id: wh.append("tr.truck_type_id=%s"); pa.append(truck_type_id)
-    if vendor_id: wh.append("tk.vendor_id=%s"); pa.append(vendor_id)
+    if vendor_id: wh.append("(COALESCE(tk.vendor_id, tr.vendor_id)=%s)"); pa.append(vendor_id)
     if booking_from: wh.append("tr.booking_date>=%s"); pa.append(booking_from)
     if booking_to: wh.append("tr.booking_date<=%s"); pa.append(booking_to)
     if pickup_from: wh.append("DATE(tr.pickup_datetime)>=%s"); pa.append(pickup_from)
@@ -1653,26 +1666,28 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     ws = " AND ".join(wh)
     if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb"):
         sort_by = "created_at"
-    sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "v.name", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name"}
+    sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "COALESCE(v.name, vv.name)", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name"}
     if sort_by == "trip_id":
         order_col = "tr.created_at"
     else:
         order_col = sort_map.get(sort_by, f"tr.{sort_by}")
     sd = "DESC" if sort_dir == "desc" else "ASC"
-    total = (db_1(f"SELECT COUNT(*) as c FROM truck_requests tr WHERE {ws}", tuple(pa)) or {}).get("c", 0)
+    joins = """FROM truck_requests tr
+        LEFT JOIN accounts a ON tr.account_id=a.id
+        LEFT JOIN departments d ON tr.department_id=d.id LEFT JOIN ports po ON tr.origin_port_id=po.id
+        LEFT JOIN ports pd ON tr.destination_port_id=pd.id LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
+        LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN vendors vv ON tr.vendor_id=vv.id LEFT JOIN users uu ON tr.updated_by=uu.email"""
+    total = (db_1(f"SELECT COUNT(*) as c {joins} WHERE {ws}", tuple(pa)) or {}).get("c", 0)
     pa.extend([per_page, (page - 1) * per_page])
     items = db_q(f"""SELECT tr.*, a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
         ts.name as status_name, ts.color as status_color,
         tt.name as truck_type_name, pt.name as packaging_type_name,
-        tk.plate_number, v.name as vendor_name, tr.updated_by, tr.updated_at,
+        tk.plate_number, COALESCE(v.name, vv.name) as vendor_name, tr.updated_by, tr.updated_at,
         uu.name as updated_by_name, tr.updated_by as updated_by_email
-        FROM truck_requests tr LEFT JOIN accounts a ON tr.account_id=a.id
-        LEFT JOIN departments d ON tr.department_id=d.id LEFT JOIN ports po ON tr.origin_port_id=po.id
-        LEFT JOIN ports pd ON tr.destination_port_id=pd.id LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
-        LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
-        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
-        LEFT JOIN users uu ON tr.updated_by=uu.email
+        {joins}
         WHERE {ws} ORDER BY {order_col} {sd} LIMIT %s OFFSET %s""", tuple(pa))
     for i in items: i["attachments"] = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (i["id"],))
     for i in items:
@@ -2486,7 +2501,7 @@ def _trip_payload(key, rs, truck, available_trucks):
 def trip_assignments(request: Request):
     vid, _user = vendor_scope(request)
     if LOCAL_MODE:
-        rows = [row2d(r) for r in _store["truck_requests"] if r.get("status_id") in (2, 3)]
+        rows = [row2d(r) for r in _store["truck_requests"] if r.get("status_id") == 2 and not r.get("assigned_truck_id")]
         if vid is not None:
             rows = [r for r in rows if _owned_by_vendor(r, vid)]
         truck_ids = {r.get("assigned_truck_id") for r in rows if r.get("assigned_truck_id")}
@@ -2546,7 +2561,7 @@ def trip_assignments(request: Request):
         LEFT JOIN ports po ON tr.origin_port_id=po.id
         LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
-        WHERE tr.status_id IN (2,3) ORDER BY tr.id""")
+        WHERE tr.status_id=2 AND tr.assigned_truck_id IS NULL ORDER BY tr.id""")
     trucks_by_id = {}
     if rows:
         tid_set = {r.get("assigned_truck_id") for r in rows if r.get("assigned_truck_id")}
@@ -2595,14 +2610,16 @@ def trip_assignments(request: Request):
 
 @app.post("/api/trips/{trip_id}/assign-truck")
 async def assign_trip_truck(trip_id: str, request: Request):
-    u, vid = require_vendor(request)
+    u, vid = require_vendor_or_admin(request)
     body = await request.json()
     truck_id = body.get("truck_id")
     if not truck_id: raise HTTPException(400, "truck_id required")
     email = u.get("email", "")
     if LOCAL_MODE:
         truck = next((t for t in _store["trucks"] if t["id"] == truck_id), None)
-        if not truck or truck.get("vendor_id") != vid:
+        if not truck:
+            raise HTTPException(404, "Truck not found")
+        if vid is not None and truck.get("vendor_id") != vid:
             raise HTTPException(403, "Not your vendor's truck")
         if not truck.get("is_available", True):
             raise HTTPException(400, "Truck is not available")
@@ -2616,8 +2633,13 @@ async def assign_trip_truck(trip_id: str, request: Request):
                 single = next((r for r in _store["truck_requests"] if r["id"] == single_id and r.get("status_id") in (2, 3)), None)
                 if single and _owned_by_vendor(single, vid): reqs = [single]
         if not reqs: raise HTTPException(404, "No active requests for this trip")
-        if any(r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id for r in reqs):
+        trip_vid = next((r.get("vendor_id") for r in reqs if r.get("vendor_id")), None)
+        if trip_vid is not None and truck.get("vendor_id") != trip_vid:
+            raise HTTPException(403, "Trip belongs to a different vendor")
+        if any(r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id and r.get("status_id") == 2 for r in reqs):
             raise HTTPException(400, "Trip already has a truck assigned")
+        old_tids = {r.get("assigned_truck_id") for r in reqs
+                    if r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id}
         our_ids = {r["id"] for r in reqs}
         existing = [x.get("drop_sequence") for x in _store["truck_requests"]
                     if x.get("assigned_truck_id") == truck_id and x.get("drop_sequence") is not None
@@ -2627,14 +2649,25 @@ async def assign_trip_truck(trip_id: str, request: Request):
         for i, r in enumerate(ordered):
             r["assigned_truck_id"] = truck_id
             r["drop_sequence"] = start + i
+            if r.get("status_id") == 2: r["status_id"] = 3
             r["updated_by"] = email
             r["updated_at"] = nows()
         truck["status"] = "assigned"
+        for ot in old_tids:
+            freeze_trip_ids_on_truck(ot)
+            remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == ot and x.get("status_id") in (2, 3)]
+            if remaining:
+                recalculate_trip_rates(ot)
+            else:
+                for t in _store["trucks"]:
+                    if t["id"] == ot: t["status"] = "available"; break
         freeze_trip_ids_on_truck(truck_id)
         recalculate_trip_rates(truck_id)
-        return {"ok": True, "truck_id": truck_id, "assigned": len(ordered)}
+        return {"ok": True, "truck_id": truck_id, "assigned": len(ordered), "status_id": 3}
     truck = db_1("SELECT id, vendor_id, is_available FROM trucks WHERE id=%s AND is_active=1", (truck_id,))
-    if not truck or truck.get("vendor_id") != vid:
+    if not truck:
+        raise HTTPException(404, "Truck not found")
+    if vid is not None and truck.get("vendor_id") != vid:
         raise HTTPException(403, "Not your vendor's truck")
     if not truck.get("is_available", True):
         raise HTTPException(400, "Truck is not available")
@@ -2647,23 +2680,39 @@ async def assign_trip_truck(trip_id: str, request: Request):
         want = trip_base(trip_id)
         active_rows = db_q("SELECT id, drop_sequence, assigned_truck_id, vendor_id, status_id, trip_id FROM truck_requests WHERE status_id IN (2,3) AND trip_id IS NOT NULL", ())
         rows = [r for r in active_rows if trip_base(r.get("trip_id")) == want]
-    reqs = [r for r in rows if r.get("vendor_id") == vid
-            or (r.get("assigned_truck_id") and (db_1("SELECT vendor_id FROM trucks WHERE id=%s", (r["assigned_truck_id"],)) or {}).get("vendor_id") == vid)]
+    if vid is not None:
+        reqs = [r for r in rows if r.get("vendor_id") == vid
+                or (r.get("assigned_truck_id") and (db_1("SELECT vendor_id FROM trucks WHERE id=%s", (r["assigned_truck_id"],)) or {}).get("vendor_id") == vid)]
+    else:
+        reqs = rows
     if not reqs: raise HTTPException(404, "No active requests for this trip")
-    if any(r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id for r in reqs):
+    trip_vid = next((r.get("vendor_id") for r in reqs if r.get("vendor_id")), None)
+    if trip_vid is not None and truck.get("vendor_id") != trip_vid:
+        raise HTTPException(403, "Trip belongs to a different vendor")
+    if any(r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id and r.get("status_id") == 2 for r in reqs):
         raise HTTPException(400, "Trip already has a truck assigned")
+    old_tids = {r.get("assigned_truck_id") for r in reqs
+                if r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id}
     our_ids = {r["id"] for r in reqs}
     actives = db_q("SELECT id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3) AND drop_sequence IS NOT NULL", (truck_id,))
     existing = [x.get("drop_sequence") for x in actives if x["id"] not in our_ids]
     start = (max(existing) + 1) if existing else 1
     ordered = sorted(reqs, key=lambda x: (x.get("drop_sequence") is None, x.get("drop_sequence") or 0, x["id"]))
     for i, r in enumerate(ordered):
-        db_x("UPDATE truck_requests SET assigned_truck_id=%s, drop_sequence=%s, updated_by=%s, updated_at=NOW() WHERE id=%s",
+        db_x("""UPDATE truck_requests SET assigned_truck_id=%s, drop_sequence=%s,
+            status_id=IF(status_id=2,3,status_id), updated_by=%s, updated_at=NOW() WHERE id=%s""",
              (truck_id, start + i, email, r["id"]))
     db_x("UPDATE trucks SET status='assigned' WHERE id=%s", (truck_id,))
+    for ot in old_tids:
+        freeze_trip_ids_on_truck(ot)
+        cnt = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3)", (ot,))
+        if cnt and cnt.get("c"):
+            recalculate_trip_rates(ot)
+        else:
+            db_x("UPDATE trucks SET status='available' WHERE id=%s", (ot,))
     freeze_trip_ids_on_truck(truck_id)
     recalculate_trip_rates(truck_id)
-    return {"ok": True, "truck_id": truck_id, "assigned": len(ordered)}
+    return {"ok": True, "truck_id": truck_id, "assigned": len(ordered), "status_id": 3}
 
 @app.post("/api/pending-allocations/{pid}/reject")
 async def reject_alloc(pid: int, request: Request):
@@ -3246,7 +3295,9 @@ def sync_masterlist():
             r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == r.get("truck_type_id")), "")
             r["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
-            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
+            tv = truck.get("vendor_id") if truck else None
+            if tv is None and r.get("vendor_id"): tv = r.get("vendor_id")
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == tv), "")
             r["plate_number"] = truck["plate_number"] if truck else ""
             upd = next((u for u in _store["users"] if u.get("email") == r.get("updated_by")), None)
             r["updated_by_name"] = upd.get("name", "") if upd else (r.get("updated_by") or "")
@@ -3266,7 +3317,7 @@ def sync_masterlist():
         po.name as origin_port_name, pd.name as destination_port_name,
         ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, pt.name as packaging_type_name,
-        v.name as vendor_name, tk.plate_number,
+        COALESCE(v.name, vv.name) as vendor_name, tk.plate_number,
         bu.name as updated_by_name, bu.email as updated_by_email
         FROM truck_requests tr LEFT JOIN accounts a ON tr.account_id=a.id
         LEFT JOIN departments d ON tr.department_id=d.id
@@ -3276,6 +3327,7 @@ def sync_masterlist():
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
         LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN vendors vv ON tr.vendor_id=vv.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
         LEFT JOIN users bu ON tr.updated_by=bu.email
         ORDER BY tr.created_at DESC""")
@@ -3443,7 +3495,9 @@ def sync_cost():
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             tt_id = r.get("truck_type_id") or (truck.get("truck_type_id") if truck else None)
             r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == tt_id), "")
-            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")),"") if truck else ""
+            tv = truck.get("vendor_id") if truck else None
+            if tv is None and r.get("vendor_id"): tv = r.get("vendor_id")
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == tv), "")
             r["plate_number"] = truck["plate_number"] if truck else ""
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]

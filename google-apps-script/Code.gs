@@ -30,7 +30,7 @@ var HEADERS = {
   "Masterlist": [
     "Request #","Requestor Name","Requestor Email","Account","Department",
     "Origin Port","Destination Port","International MAWB","Domestic MAWB","Truck Type","Packaging","Quantity",
-    "Vendor","Final Call datetime (TBC)","Trip ID","Drop #","Distance (KM)",
+    "Vendor","Truck Plate #","Final Call datetime (TBC)","Trip ID","Drop #","Distance (KM)",
     "Booking Date","Initial Call datetime (TBC)","Customs Cleared","Instructions",
     "Arrived Pickup","Start Loading","End Loading",
     "Arrived Destination","Start Unloading","End Unloading",
@@ -84,6 +84,7 @@ var NESTED_FIELDS = {
     "Packaging": "packaging_type_name",
     "Quantity": "quantity",
     "Vendor": "vendor_name",
+    "Truck Plate #": "plate_number",
     "Final Call datetime (TBC)": "final_call_datetime",
     "Trip ID": "trip_id",
     "Drop #": "drop_sequence",
