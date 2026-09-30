@@ -56,6 +56,22 @@
         }
       }
     },
+    "/api/roles": {
+      "get": {
+        "summary": "List Roles",
+        "operationId": "list_roles_api_roles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/users": {
       "get": {
         "summary": "List Users",
@@ -992,6 +1008,22 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "name": "available",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Available"
+            }
           }
         ],
         "responses": {
@@ -1837,6 +1869,59 @@
             "schema": {
               "type": "integer",
               "title": "Pid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trip-assignments": {
+      "get": {
+        "summary": "Trip Assignments",
+        "operationId": "trip_assignments_api_trip_assignments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/trips/{trip_id}/assign-truck": {
+      "post": {
+        "summary": "Assign Trip Truck",
+        "operationId": "assign_trip_truck_api_trips__trip_id__assign_truck_post",
+        "parameters": [
+          {
+            "name": "trip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Trip Id"
             }
           }
         ],
