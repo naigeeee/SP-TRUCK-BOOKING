@@ -151,6 +151,15 @@ _store = {
 }
 os.makedirs(_store["_upload"], exist_ok=True)
 
+# One-time cleanup: legacy Allocated rows that already carry a truck plate and
+# vendor were really already on the road -- promote them to In Transit.
+if LOCAL_MODE:
+    for _r in _store["truck_requests"]:
+        if _r.get("status_id") == 2 and _r.get("assigned_truck_id"):
+            _tk = next((t for t in _store["trucks"] if t["id"] == _r.get("assigned_truck_id")), None)
+            if _tk and _tk.get("plate_number") and (_tk.get("vendor_id") or _r.get("vendor_id")):
+                _r["status_id"] = 3
+
 def nid(t):
     _store["_cnt"][t] = _store["_cnt"].get(t, 0) + 1
     return _store["_cnt"][t]
@@ -1572,7 +1581,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     pickup_from: Optional[str] = None, pickup_to: Optional[str] = None,
     call_from: Optional[str] = None, call_to: Optional[str] = None,
     customs_from: Optional[str] = None, customs_to: Optional[str] = None,
-    mawb: Optional[str] = None,
+    mawb: Optional[str] = None, plate: Optional[str] = None,
     sort_by: str = "created_at", sort_dir: str = "desc", page: int = 1, per_page: int = 50):
     scope_vid, _ = vendor_scope(request)
     if LOCAL_MODE:
@@ -1617,8 +1626,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if truck_type_id: reqs = [r for r in reqs if r.get("truck_type_id") == truck_type_id]
         if vendor_id:
             def has_vid(r):
+                if r.get("vendor_id") == vendor_id: return True
                 truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
-                return truck and truck.get("vendor_id") == vendor_id
+                return bool(truck and truck.get("vendor_id") == vendor_id)
             reqs = [r for r in reqs if has_vid(r)]
         if booking_from: reqs = [r for r in reqs if (r.get("booking_date") or "") >= booking_from]
         if booking_to: reqs = [r for r in reqs if (r.get("booking_date") or "") <= booking_to]
@@ -1631,6 +1641,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if mawb:
             m = mawb.lower()
             reqs = [r for r in reqs if m in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower()]
+        if plate:
+            pl = plate.lower()
+            reqs = [r for r in reqs if pl in (r.get("plate_number") or "").lower()]
         if search:
             s = search.lower()
             reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "")).lower()]
@@ -1662,6 +1675,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if customs_from: wh.append("DATE(tr.customs_cleared_datetime)>=%s"); pa.append(customs_from)
     if customs_to: wh.append("DATE(tr.customs_cleared_datetime)<=%s"); pa.append(customs_to)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
+    if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
     ws = " AND ".join(wh)
     if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb"):
@@ -2636,8 +2650,6 @@ async def assign_trip_truck(trip_id: str, request: Request):
         trip_vid = next((r.get("vendor_id") for r in reqs if r.get("vendor_id")), None)
         if trip_vid is not None and truck.get("vendor_id") != trip_vid:
             raise HTTPException(403, "Trip belongs to a different vendor")
-        if any(r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id and r.get("status_id") == 2 for r in reqs):
-            raise HTTPException(400, "Trip already has a truck assigned")
         old_tids = {r.get("assigned_truck_id") for r in reqs
                     if r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id}
         our_ids = {r["id"] for r in reqs}
@@ -2689,8 +2701,6 @@ async def assign_trip_truck(trip_id: str, request: Request):
     trip_vid = next((r.get("vendor_id") for r in reqs if r.get("vendor_id")), None)
     if trip_vid is not None and truck.get("vendor_id") != trip_vid:
         raise HTTPException(403, "Trip belongs to a different vendor")
-    if any(r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id and r.get("status_id") == 2 for r in reqs):
-        raise HTTPException(400, "Trip already has a truck assigned")
     old_tids = {r.get("assigned_truck_id") for r in reqs
                 if r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id}
     our_ids = {r["id"] for r in reqs}

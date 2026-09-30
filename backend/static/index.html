@@ -166,7 +166,7 @@ tr:hover td{background:#F8FAFC}
 <section class="pg" id="pg-masterlist">
 <div class="pg-hdr"><h1><i class="fas fa-list-alt" style="color:var(--info)"></i> Masterlist</h1><div class="acts"><button class="btn btn-o" onclick="resetMLCols()" title="Restore default column order"><i class="fas fa-columns"></i> Reset Columns</button> <button class="btn btn-o" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button> <button class="btn btn-d" id="mlClearAll" style="display:none" onclick="clearAllRequests()"><i class="fas fa-trash-alt"></i> Clear All</button></div></div>
 <div class="card"><div class="card-b">
-<div class="fb" style="flex-wrap:wrap;gap:8px"><input type="text" class="s-input" id="mlSrch" placeholder="Search request #, name..." oninput="loadML()" style="width:180px"><div class="fg2"><label>Status</label><select class="f-input" id="mlSt" onchange="loadML()"></select></div><div class="fg2"><label>Account</label><select class="f-input" id="mlAcct" onchange="loadML()"></select></div><div class="fg2"><label>Dept</label><select class="f-input" id="mlDept" onchange="loadML()"></select></div><div class="fg2"><label>Origin</label><select class="f-input" id="mlOrg" onchange="loadML()"></select></div><div class="fg2"><label>Destination</label><select class="f-input" id="mlDst" onchange="loadML()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="mlTT" onchange="loadML()"></select></div><div class="fg2"><label>Vendor</label><select class="f-input" id="mlVendor" onchange="loadML()"></select></div><div class="fg2"><label>MAWB</label><input type="text" class="f-input" id="mlMawb" placeholder="Int / Dom MAWB..." oninput="loadML()"></div><div class="fg2"><label>Booking From</label><input type="date" class="f-input" id="mlBookFrom" onchange="loadML()"></div><div class="fg2"><label>Booking To</label><input type="date" class="f-input" id="mlBookTo" onchange="loadML()"></div><div class="fg2"><label>Call From</label><input type="date" class="f-input" id="mlCallFrom" onchange="loadML()"></div><div class="fg2"><label>Call To</label><input type="date" class="f-input" id="mlCallTo" onchange="loadML()"></div><div class="fg2"><label>Customs From</label><input type="date" class="f-input" id="mlCustomsFrom" onchange="loadML()"></div><div class="fg2"><label>Customs To</label><input type="date" class="f-input" id="mlCustomsTo" onchange="loadML()"></div></div>
+<div class="fb" style="flex-wrap:wrap;gap:8px"><input type="text" class="s-input" id="mlSrch" placeholder="Search request #, name..." oninput="loadML()" style="width:180px"><div class="fg2"><label>Status</label><select class="f-input" id="mlSt" onchange="loadML()"></select></div><div class="fg2"><label>Account</label><select class="f-input" id="mlAcct" onchange="loadML()"></select></div><div class="fg2"><label>Dept</label><select class="f-input" id="mlDept" onchange="loadML()"></select></div><div class="fg2"><label>Origin</label><select class="f-input" id="mlOrg" onchange="loadML()"></select></div><div class="fg2"><label>Destination</label><select class="f-input" id="mlDst" onchange="loadML()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="mlTT" onchange="loadML()"></select></div><div class="fg2"><label>Vendor</label><select class="f-input" id="mlVendor" onchange="loadML()"></select></div><div class="fg2"><label>Truck Plate</label><input type="text" class="f-input" id="mlPlate" placeholder="Plate #..." oninput="loadML()"></div><div class="fg2"><label>MAWB</label><input type="text" class="f-input" id="mlMawb" placeholder="Int / Dom MAWB..." oninput="loadML()"></div><div class="fg2"><label>Booking From</label><input type="date" class="f-input" id="mlBookFrom" onchange="loadML()"></div><div class="fg2"><label>Booking To</label><input type="date" class="f-input" id="mlBookTo" onchange="loadML()"></div><div class="fg2"><label>Call From</label><input type="date" class="f-input" id="mlCallFrom" onchange="loadML()"></div><div class="fg2"><label>Call To</label><input type="date" class="f-input" id="mlCallTo" onchange="loadML()"></div><div class="fg2"><label>Customs From</label><input type="date" class="f-input" id="mlCustomsFrom" onchange="loadML()"></div><div class="fg2"><label>Customs To</label><input type="date" class="f-input" id="mlCustomsTo" onchange="loadML()"></div></div>
 <div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortML('request_number')">Request # <i class="fas fa-sort"></i></th><th>Actions</th><th>Requestor</th><th style="cursor:pointer" onclick="sortML('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('department_name')">Dept <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('plate_number')">Truck Plate # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('packaging_type_name')">Packaging <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('quantity')">Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('final_call_datetime')">Final Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th>Drop #</th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortML('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('customs_cleared_datetime')">Customs Cleared <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('special_instructions')">Instructions <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('arrived_pickup_datetime')">Arrived Pickup <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('start_loading_datetime')">Start Loading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('end_loading_datetime')">End Loading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('arrived_dest_datetime')">Arrived Destination <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('start_unloading_datetime')">Start Unloading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('end_unloading_datetime')">End Unloading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('foul_trip_reason')">Foul Trip Reason <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('status_name')">Status <i class="fas fa-sort"></i></th><th>Consol</th><th>Attachments</th><th>Updated By</th><th>Updated At</th></tr></thead><tbody id="mlTbl"></tbody></table></div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><span id="mlCnt" style="font-size:13px;color:var(--muted)"></span><div style="display:flex;gap:8px"><button class="btn btn-sm btn-o" id="mlPrev" onclick="mlPage(-1)"><i class="fas fa-chevron-left"></i></button><span id="mlPg" style="font-size:13px;padding:4px 10px"></span><button class="btn btn-sm btn-o" id="mlNxt" onclick="mlPage(1)"><i class="fas fa-chevron-right"></i></button></div></div>
 </div></div>
@@ -598,12 +598,14 @@ async function loadML(){
   const csFrom=document.getElementById('mlCustomsFrom')?.value||'';
   const csTo=document.getElementById('mlCustomsTo')?.value||'';
   const mwb=document.getElementById('mlMawb')?.value||'';
+  const pl=document.getElementById('mlPlate')?.value||'';
   if(s)p.set('search',s);if(st)p.set('status_id',st);if(a)p.set('account_id',a);if(d)p.set('department_id',d);
   if(org)p.set('origin_port_id',org);if(dst)p.set('destination_port_id',dst);if(tt)p.set('truck_type_id',tt);
   if(vid)p.set('vendor_id',vid);if(bkFrom)p.set('booking_from',bkFrom);if(bkTo)p.set('booking_to',bkTo);
   if(clFrom)p.set('call_from',clFrom);if(clTo)p.set('call_to',clTo);
   if(csFrom)p.set('customs_from',csFrom);if(csTo)p.set('customs_to',csTo);
   if(mwb)p.set('mawb',mwb);
+  if(pl)p.set('plate',pl);
   try{
     const data=await(await fetch('/api/requests?'+p.toString())).json();
     mlTotal=data.total||0;
@@ -631,6 +633,7 @@ async function loadML(){
         return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
       }).join('');
     }else{tb.innerHTML='<tr><td colspan="34" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
+    [...tb.rows].forEach(row=>{if(row.children.length===ML_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=ML_KEYS[i]})});
     applyMLOrder();
   }catch(e){console.error(e)}
 }
@@ -640,7 +643,14 @@ const ML_KEYS=['request_number','actions','requestor','account_name','department
 let mlDragTh=null, mlDragBound=false, mlHeaderOrdered=false;
 function mlHeadTr(){return document.querySelector('#pg-masterlist table thead tr')}
 function mlStoredOrder(){try{const o=JSON.parse(localStorage.getItem('mlColOrder2')||'null');if(Array.isArray(o)&&o.length===ML_KEYS.length&&o.every(i=>Number.isInteger(i)&&i>=0&&i<ML_KEYS.length)&&new Set(o).size===ML_KEYS.length)return o}catch(e){}return ML_KEYS.map((_,i)=>i)}
-function mlReorderBody(order){document.querySelectorAll('#mlTbl tr').forEach(row=>{if(row.children.length!==order.length)return;const c=[...row.children];order.forEach(i=>row.appendChild(c[i]))})}
+function mlReorderBody(order){
+  document.querySelectorAll('#mlTbl tr').forEach(row=>{
+    if(row.children.length!==order.length)return;
+    const map={};[...row.children].forEach(c=>{if(c.dataset.k)map[c.dataset.k]=c});
+    if(Object.keys(map).length!==order.length)return;
+    order.forEach(i=>{const el=map[ML_KEYS[i]];if(el)row.appendChild(el)});
+  })
+}
 function applyMLFreeze(){
   const tr=mlHeadTr();if(!tr)return;
   const ths=[...tr.children];
@@ -732,7 +742,7 @@ async function editReq(id){
       if(vn)vn.textContent=(vendors.find(v=>v.id===vid)||{}).name||r.vendor_name||'-';
       const wrap=document.getElementById('ePlateWrap');
       if(wrap){
-        const canPlate=(isVendor||isAdmin)&&r.status_id===3;
+        const canPlate=(isVendor||isAdmin)&&(r.status_id===2||r.status_id===3);
         if(!canPlate){
           wrap.innerHTML='<p style="font-size:13px;margin:0;padding-top:8px">'+((curTruck&&curTruck.plate_number)||'-')+'</p>';
         }else{
@@ -773,6 +783,7 @@ async function saveReq(id){
       try{
         const ares=await fetch('/api/trips/'+encodeURIComponent(editCtx.tripKey)+'/assign-truck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({truck_id:+ps.value})});
         if(!ares.ok){throw new Error(await apiErr(ares))}
+        if(body.status_id===2)body.status_id=3;
       }catch(e){toast('Truck plate change failed: '+e.message,'error');return}
     }
   }
@@ -924,17 +935,10 @@ function onPendCheck(){
   const ttSel=document.getElementById('pendTruckType');
   const prevTt=ttSel.value;
   ttSel.innerHTML='<option value="">Select truck type...</option>';
-  const types=new Map();
-  sameOrigin.forEach(c=>{
-    const item=pendData.find(p=>p.id===+c.dataset.id);
-    if(item&&item.truck_type_id&&!types.has(item.truck_type_id)){
-      const ttn=item.truck_type_name||(tts.find(t=>t.id===item.truck_type_id)||{}).name||'Truck';
-      types.set(item.truck_type_id,ttn);
-    }
-  });
-  types.forEach((name,id)=>{ttSel.innerHTML+='<option value="'+id+'">'+name+'</option>'});
-  if(types.has(+prevTt))ttSel.value=prevTt;
-  else if(types.size===1)ttSel.value=[...types.keys()][0];
+  tts.filter(t=>t.is_active!==false).forEach(t=>{ttSel.innerHTML+='<option value="'+t.id+'">'+(t.name||('Type '+t.id))+'</option>'});
+  const reqTypes=[...new Set(sameOrigin.map(c=>{const it=pendData.find(p=>p.id===+c.dataset.id);return it&&it.truck_type_id}).filter(Boolean))];
+  if(prevTt&&ttSel.querySelector('option[value="'+prevTt+'"]'))ttSel.value=prevTt;
+  else if(reqTypes.length===1&&ttSel.querySelector('option[value="'+reqTypes[0]+'"]'))ttSel.value=reqTypes[0];
   const vendSel=document.getElementById('pendVendor');
   if(vendSel.options.length<=1){
     vendSel.innerHTML='<option value="">Select vendor...</option>';
@@ -972,9 +976,41 @@ function onPendCheck(){
     sumEl.style.display='block';
     sumEl.innerHTML='<i class="fas fa-layer-group" style="color:var(--info)"></i> <strong>Consolidation Summary:</strong> '+sameOrigin.length+' requests | Total: '+totalQty+' '+pkgName;
   }else{sumEl.style.display='none'}
+  pendCapWarn();
 }
-function onTruckTypeChange(){}
-function onTruckTypeChange(){}
+function pendCapWarn(){
+  const warnEl=document.getElementById('consolWarn');
+  const warnTxt=document.getElementById('consolWarnTxt');
+  if(!warnEl||!warnTxt)return;
+  const ttId=+document.getElementById('pendTruckType')?.value||0;
+  const checked=[...document.querySelectorAll('.pend-check:checked')];
+  const tt=ttId?tts.find(t=>t.id===ttId):null;
+  if(!tt||!checked.length){warnEl.style.display='none';return}
+  let totalKg=0,totalCbm=0;const pkgCounts={};
+  checked.forEach(c=>{
+    const pd=pendData.find(p=>p.id===+c.dataset.id);
+    if(!pd)return;
+    totalKg+=parseFloat(pd.weight_kg)||0;totalCbm+=parseFloat(pd.volume_cbm)||0;
+    const pkgId=pd.packaging_type_id||0;
+    pkgCounts[pkgId]=(pkgCounts[pkgId]||0)+(parseInt(c.dataset.qty)||0);
+  });
+  const msgs=[];
+  const maxKg=parseFloat(tt.max_capacity_kg)||0;
+  const maxCbm=parseFloat(tt.max_capacity_cbm)||0;
+  if(maxKg>0&&totalKg>maxKg)msgs.push('Weight: '+totalKg+' kg ordered vs '+maxKg+' kg capacity');
+  if(maxCbm>0&&totalCbm>maxCbm)msgs.push('Volume: '+totalCbm+' CBM ordered vs '+maxCbm+' CBM capacity');
+  (tt.capacities||[]).forEach(cap=>{
+    const q=pkgCounts[cap.packaging_type_id];
+    if(q!=null&&+cap.max_quantity>0&&q>+cap.max_quantity){
+      msgs.push('<strong>'+(cap.packaging_type_name||'units')+'</strong>: '+q+' ordered vs '+cap.max_quantity+' capacity');
+    }
+  });
+  if(msgs.length){
+    warnEl.style.display='block';warnEl.style.background='#FEE2E2';warnEl.style.color='#DC2626';
+    warnTxt.innerHTML='<i class="fas fa-exclamation-triangle"></i> <strong>Overload Warning:</strong> '+msgs.join('; ')+'. You can still proceed, but this will overbook the truck.';
+  }else{warnEl.style.display='none'}
+}
+function onTruckTypeChange(){pendCapWarn()}
 
 function clearPendSelection(){
   document.querySelectorAll('.pend-check').forEach(c=>c.checked=false);
@@ -1080,7 +1116,13 @@ async function allocateSelected(){
     if(Object.keys(consolidateDropSeqs).length)body.consolidate_drop_sequences=consolidateDropSeqs;
     const vSel=document.getElementById('pendVendor');
     const vLabel=(vSel&&vSel.selectedOptions&&vSel.selectedOptions[0])?vSel.selectedOptions[0].text:'vendor';
-    if(!confirm('Allocate '+checked.length+' request(s) to '+vLabel+'?\nFinal call: '+finalCall.replace('T',' ')))return;
+    let confirmMsg='Allocate '+checked.length+' request(s) to '+vLabel+'?\nFinal call: '+finalCall.replace('T',' ');
+    const capWarnEl=document.getElementById('consolWarn');
+    if(capWarnEl&&capWarnEl.style.display!=='none'){
+      const capTxt=(document.getElementById('consolWarnTxt')?.textContent||'').replace(/\s+/g,' ').trim();
+      confirmMsg='WARNING: '+capTxt+'\n\n'+confirmMsg;
+    }
+    if(!confirm(confirmMsg))return;
     const res=await fetch('/api/pending-allocations/'+primaryId+'/allocate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!res.ok){throw new Error(await apiErr(res))}
     const data=await res.json().catch(()=>({}));

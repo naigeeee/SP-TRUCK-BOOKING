@@ -1605,6 +1605,22 @@
             }
           },
           {
+            "name": "plate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Plate"
+            }
+          },
+          {
             "name": "sort_by",
             "in": "query",
             "required": false,
