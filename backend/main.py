@@ -3133,7 +3133,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
     date_to: Optional[str] = None, search: Optional[str] = None, truck_type_id: Optional[int] = None,
     origin_port_id: Optional[int] = None, destination_port_id: Optional[int] = None,
     account_id: Optional[int] = None, department_id: Optional[int] = None,
-    mawb: Optional[str] = None):
+    mawb: Optional[str] = None, plate: Optional[str] = None):
     get_user(request)
     if LOCAL_MODE:
         reqs = _store["truck_requests"]
@@ -3147,6 +3147,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
                 m = mawb.lower()
                 if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
             if vendor_id and truck.get("vendor_id") != vendor_id: continue
+            if plate and plate.lower() not in (truck.get("plate_number") or "").lower(): continue
             if truck_type_id and truck.get("truck_type_id") != truck_type_id and r.get("truck_type_id") != truck_type_id: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
@@ -3177,7 +3178,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
                 "domestic_mawb": r.get("domestic_mawb") or "",
                 "account_name": acct_name, "department_name": dept_name,
                 "origin_port_name": oname, "destination_port_name": dname,
-                "truck_type_name": ttn, "vendor_name": vname,
+                "truck_type_name": ttn, "plate_number": truck.get("plate_number") or "", "vendor_name": vname,
                 "booking_date": r.get("booking_date"), "status_name": sn, "status_color": sc,
                 "pickup_datetime": r.get("pickup_datetime"),
                 "call_datetime": r.get("call_datetime"),
@@ -3203,6 +3204,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
     if account_id: wh.append("tr.account_id=%s"); pa.append(account_id)
     if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
+    if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if search: wh.append("tr.request_number LIKE %s"); pa.append(f"%{search}%")
     if date_from: wh.append("tr.booking_date>=%s"); pa.append(date_from)
     if date_to: wh.append("tr.booking_date<=%s"); pa.append(date_to)
@@ -3213,7 +3215,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
         tr.status_id, ts.name as status_name, ts.color as status_color,
         a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
-        COALESCE(tt.name, ttt.name) as truck_type_name, v.name as vendor_name,
+        COALESCE(tt.name, ttt.name) as truck_type_name, tk.plate_number, v.name as vendor_name,
         tr.customs_cleared_datetime, tr.arrived_pickup_datetime, tr.start_loading_datetime,
         tr.end_loading_datetime, tr.arrived_dest_datetime, tr.start_unloading_datetime, tr.end_unloading_datetime,
         tr.assigned_truck_id

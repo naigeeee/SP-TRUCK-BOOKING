@@ -2447,6 +2447,22 @@
               ],
               "title": "Mawb"
             }
+          },
+          {
+            "name": "plate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Plate"
+            }
           }
         ],
         "responses": {
