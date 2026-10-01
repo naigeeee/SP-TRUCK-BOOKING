@@ -1210,8 +1210,10 @@ async function loadVT(){
       });
       html+='</tbody></table>';
       if(isVendor&&!tc){
-        html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select truck *</label><select class="fs" id="vtTruck-'+i+'"><option value="">Select available truck...</option>';
-        (g.available_trucks||[]).forEach(t=>{
+        const vtList=g.available_trucks||[];
+        const vtMsg=vtList.length?'Select available truck...':'No '+(g.truck_type_name||'matching')+' trucks available';
+        html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select truck *</label><select class="fs" id="vtTruck-'+i+'"><option value="">'+vtMsg+'</option>';
+        vtList.forEach(t=>{
           html+='<option value="'+t.id+'">'+t.plate_number+' ('+(t.truck_type_name||'')+')'+(t.driver_name?' - '+t.driver_name:'')+(t.active_requests?' | '+t.active_requests+' active drop(s)':'')+'</option>';
         });
         html+='</select></div><button class="btn btn-p" onclick="assignVT('+i+')"><i class="fas fa-check"></i> Assign Truck</button></div>';

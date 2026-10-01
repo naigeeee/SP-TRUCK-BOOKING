@@ -2576,6 +2576,10 @@ async def allocate(pid: int, request: Request):
 def _trip_payload(key, rs, truck, available_trucks):
     first = rs[0]
     status = 3 if any(x.get("status_id") == 3 for x in rs) else 2
+    trucks = available_trucks
+    want_tt = first.get("truck_type_id")
+    if trucks is not None and want_tt is not None:
+        trucks = [t for t in trucks if t.get("truck_type_id") == want_tt]
     return {
         "trip_id": key,
         "status_id": status,
@@ -2588,7 +2592,7 @@ def _trip_payload(key, rs, truck, available_trucks):
         "final_call_datetime": first.get("final_call_datetime"),
         "assigned_truck": truck,
         "requests": rs,
-        "available_trucks": available_trucks,
+        "available_trucks": trucks,
     }
 
 @app.get("/api/trip-assignments")
@@ -2618,6 +2622,7 @@ def trip_assignments(request: Request):
                 if t["id"] in in_transit: continue
                 active = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") == 2]
                 avail_trucks.append({"id": t["id"], "plate_number": t["plate_number"], "vendor_id": t.get("vendor_id"),
+                    "truck_type_id": t.get("truck_type_id"),
                     "truck_type_name": next((tt["name"] for tt in _store["truck_types"] if tt["id"] == t.get("truck_type_id")), ""),
                     "driver_name": t.get("driver_name", ""), "driver_phone": t.get("driver_phone", ""),
                     "status": t.get("status"), "active_requests": len(active)})
@@ -2738,6 +2743,10 @@ async def assign_trip_truck(trip_id: str, request: Request):
                     and x.get("status_id") in (2, 3) and x["id"] not in our_ids]
         start = (max(existing) + 1) if existing else 1
         ordered = sorted(reqs, key=lambda x: (x.get("drop_sequence") is None, x.get("drop_sequence") or 0, x["id"]))
+        want_tt = next((r.get("truck_type_id") for r in ordered if r.get("truck_type_id") is not None), None)
+        if want_tt is not None and truck.get("truck_type_id") != want_tt:
+            tt_name = next((x["name"] for x in _store["truck_types"] if x["id"] == want_tt), str(want_tt))
+            raise HTTPException(400, f"Truck type does not match this trip ({tt_name} required)")
         for i, r in enumerate(ordered):
             r["assigned_truck_id"] = truck_id
             r["drop_sequence"] = start + i
@@ -2756,7 +2765,7 @@ async def assign_trip_truck(trip_id: str, request: Request):
         freeze_trip_ids_on_truck(truck_id)
         recalculate_trip_rates(truck_id)
         return {"ok": True, "truck_id": truck_id, "assigned": len(ordered), "status_id": 3}
-    truck = db_1("SELECT id, vendor_id, is_available FROM trucks WHERE id=%s AND is_active=1", (truck_id,))
+    truck = db_1("SELECT id, vendor_id, is_available, truck_type_id FROM trucks WHERE id=%s AND is_active=1", (truck_id,))
     if not truck:
         raise HTTPException(404, "Truck not found")
     if vid is not None and truck.get("vendor_id") != vid:
@@ -2767,10 +2776,10 @@ async def assign_trip_truck(trip_id: str, request: Request):
         try: single_id = int(trip_id[4:])
         except ValueError: single_id = None
         if not single_id: raise HTTPException(404, "No active requests for this trip")
-        rows = db_q("SELECT id, drop_sequence, assigned_truck_id, vendor_id, status_id FROM truck_requests WHERE id=%s AND status_id IN (2,3)", (single_id,))
+        rows = db_q("SELECT id, drop_sequence, assigned_truck_id, vendor_id, status_id, truck_type_id FROM truck_requests WHERE id=%s AND status_id IN (2,3)", (single_id,))
     else:
         want = trip_base(trip_id)
-        active_rows = db_q("SELECT id, drop_sequence, assigned_truck_id, vendor_id, status_id, trip_id FROM truck_requests WHERE status_id IN (2,3) AND trip_id IS NOT NULL", ())
+        active_rows = db_q("SELECT id, drop_sequence, assigned_truck_id, vendor_id, status_id, trip_id, truck_type_id FROM truck_requests WHERE status_id IN (2,3) AND trip_id IS NOT NULL", ())
         rows = [r for r in active_rows if trip_base(r.get("trip_id")) == want]
     if vid is not None:
         reqs = [r for r in rows if r.get("vendor_id") == vid
@@ -2788,6 +2797,11 @@ async def assign_trip_truck(trip_id: str, request: Request):
     existing = [x.get("drop_sequence") for x in actives if x["id"] not in our_ids]
     start = (max(existing) + 1) if existing else 1
     ordered = sorted(reqs, key=lambda x: (x.get("drop_sequence") is None, x.get("drop_sequence") or 0, x["id"]))
+    want_tt = next((r.get("truck_type_id") for r in ordered if r.get("truck_type_id") is not None), None)
+    if want_tt is not None and truck.get("truck_type_id") != want_tt:
+        tt_row = db_1("SELECT name FROM truck_types WHERE id=%s", (want_tt,))
+        tt_name = (tt_row or {}).get("name") or str(want_tt)
+        raise HTTPException(400, f"Truck type does not match this trip ({tt_name} required)")
     for i, r in enumerate(ordered):
         db_x("""UPDATE truck_requests SET assigned_truck_id=%s, drop_sequence=%s,
             status_id=IF(status_id=2,3,status_id), updated_by=%s, updated_at=NOW() WHERE id=%s""",
