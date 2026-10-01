@@ -905,7 +905,11 @@ def _merge_role_visibility(cfg):
     """Ensure every known role key exists: new_user = no pages, vendors = vendor defaults."""
     out = dict(cfg or {})
     out.setdefault("new_user", [])
-    for vr in vendor_role_names():
+    live_vendors = set(vendor_role_names())
+    for k in [k for k in out if k.startswith(VENDOR_ROLE_PREFIX)]:
+        if k not in live_vendors:
+            out.pop(k)  # vendor deleted or renamed -> drop the stale role key
+    for vr in live_vendors:
         out.setdefault(vr, list(DEFAULT_VENDOR_PAGES))
     return out
 
@@ -1104,6 +1108,37 @@ async def update_status(st_id: int, request: Request):
     return db_1("SELECT * FROM truck_statuses WHERE id=%s", (st_id,))
 
 # Vendors
+def _sync_vendor_role(old_role, new_role=None):
+    """Vendor renamed (new_role set) or deleted (new_role None): keep users and
+    the stored role-visibility config in step with the vendor list."""
+    if LOCAL_MODE:
+        for u in _store.get("users", []):
+            if u.get("role") == old_role:
+                u["role"] = new_role or "new_user"
+        cfg = _store.get("role_visibility")
+        if isinstance(cfg, dict) and old_role in cfg:
+            if new_role:
+                cfg[new_role] = cfg.pop(old_role)
+            else:
+                cfg.pop(old_role)
+        return
+    if new_role:
+        db_x("UPDATE users SET role=%s WHERE role=%s", (new_role, old_role))
+    else:
+        db_x("UPDATE users SET role=%s WHERE role=%s", ("new_user", old_role))
+    row = db_1("SELECT config FROM role_visibility WHERE id=1")
+    if row and row.get("config"):
+        try:
+            cfg = json.loads(row["config"]) if isinstance(row["config"], str) else dict(row["config"])
+        except Exception:
+            return
+        if old_role in cfg:
+            if new_role:
+                cfg[new_role] = cfg.pop(old_role)
+            else:
+                cfg.pop(old_role)
+            db_x("UPDATE role_visibility SET config=%s WHERE id=1", (json.dumps(cfg),))
+
 @app.get("/api/vendors")
 def list_vendors(request: Request):
     get_user(request)
@@ -1134,26 +1169,50 @@ async def create_vendor(request: Request):
 async def update_vendor(vid: int, request: Request):
     require_admin(request)
     body = await request.json()
+    if "name" in body:
+        new_name = (body.get("name") or "").strip()
+        if not new_name: raise HTTPException(400, "Name required")
+        if LOCAL_MODE:
+            if any(v["id"] != vid and (v.get("name") or "").strip().lower() == new_name.lower()
+                   for v in _store["vendors"]):
+                raise HTTPException(400, "Vendor exists")
+        elif db_1("SELECT id FROM vendors WHERE LOWER(name)=LOWER(%s) AND is_active=1 AND id!=%s", (new_name, vid)):
+            raise HTTPException(400, "Vendor exists")
     if LOCAL_MODE:
         for v in _store["vendors"]:
             if v["id"] == vid:
+                old_name = (v.get("name") or "").strip()
                 for f in ("name", "contact_person", "phone", "email", "address"):
                     if f in body: v[f] = body[f]
+                new_name = (v.get("name") or "").strip()
+                if new_name and new_name != old_name:
+                    _sync_vendor_role(VENDOR_ROLE_PREFIX + old_name, VENDOR_ROLE_PREFIX + new_name)
                 return row2d(v)
         raise HTTPException(404, "Not found")
+    old = db_1("SELECT name FROM vendors WHERE id=%s", (vid,))
+    old_name = ((old or {}).get("name") or "").strip() if old else ""
     sets, params = [], []
     for f in ("name", "contact_person", "phone", "email", "address"):
         if f in body: sets.append(f"{f}=%s"); params.append(body[f])
     if sets: params.append(vid); db_x(f"UPDATE vendors SET {','.join(sets)} WHERE id=%s", tuple(params))
+    new_name = ((body.get("name") or "").strip() if "name" in body else old_name)
+    if old_name and new_name and new_name != old_name:
+        _sync_vendor_role(VENDOR_ROLE_PREFIX + old_name, VENDOR_ROLE_PREFIX + new_name)
     return db_1("SELECT * FROM vendors WHERE id=%s", (vid,))
 
 @app.delete("/api/vendors/{vid}")
 def delete_vendor(vid: int, request: Request):
     require_admin(request)
     if LOCAL_MODE:
-        _store["vendors"] = [v for v in _store["vendors"] if v["id"] != vid]
+        v = next((x for x in _store["vendors"] if x["id"] == vid), None)
+        _store["vendors"] = [x for x in _store["vendors"] if x["id"] != vid]
+        if v:
+            _sync_vendor_role(VENDOR_ROLE_PREFIX + (v.get("name") or "").strip())
         return {"ok": True}
+    old = db_1("SELECT name FROM vendors WHERE id=%s", (vid,))
     db_x("UPDATE vendors SET is_active=0 WHERE id=%s", (vid,))
+    if old and (old.get("name") or "").strip():
+        _sync_vendor_role(VENDOR_ROLE_PREFIX + old["name"].strip())
     return {"ok": True}
 
 # Truck Types with capacities

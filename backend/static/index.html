@@ -354,6 +354,7 @@ async function loadMaster(){
 }
 
 async function refreshMasterData(){
+  roleList=null;
   await loadMaster();
 }
 
@@ -1698,9 +1699,7 @@ function roleBadge(r){
 }
 async function loadUsers(){
   try{
-    if(!roleList){
-      try{roleList=await(await fetch('/api/roles')).json()}catch(e){roleList=null}
-    }
+    try{roleList=await(await fetch('/api/roles')).json()}catch(e){roleList=null}
     const data=await(await fetch('/api/users')).json();
     const tb=document.getElementById('uTbl');
     const isMaster=user.role==='master_admin';
