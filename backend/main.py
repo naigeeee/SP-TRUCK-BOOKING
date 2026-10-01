@@ -1304,6 +1304,21 @@ def delete_tt(tt_id: int, request: Request):
 # Trucks (Fleet)
 # ---------------------------------------------------------------------------
 
+TRUCKS_RECONCILE_SQL = """UPDATE trucks SET status='available'
+    WHERE is_active=1 AND status='assigned'
+    AND NOT EXISTS (SELECT 1 FROM truck_requests r WHERE r.assigned_truck_id=trucks.id AND r.status_id NOT IN (4,5,7))"""
+
+def build_trucks_query(scope_vid=None, status=None, available=None):
+    q = """SELECT t.*, tt.name as truck_type_name, v.name as vendor_name,
+        (SELECT COUNT(DISTINCT truck_request_id) FROM truck_request_history WHERE truck_id=t.id AND status_id IN (4,5,7)) as history_count
+        FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
+        LEFT JOIN vendors v ON t.vendor_id=v.id"""
+    w, p = ["WHERE t.is_active=1"], []
+    if scope_vid is not None: w.append("AND t.vendor_id=%s"); p.append(scope_vid)
+    if status: w.append("AND t.status=%s"); p.append(status)
+    if available is not None: w.append("AND t.is_available=%s"); p.append(int(available))
+    return f"{q} {' '.join(w)} ORDER BY t.plate_number", tuple(p)
+
 @app.get("/api/trucks")
 def list_trucks(request: Request, status: Optional[str] = None, available: Optional[int] = None):
     scope_vid, _ = vendor_scope(request)
@@ -1332,20 +1347,11 @@ def list_trucks(request: Request, status: Optional[str] = None, available: Optio
         if scope_vid is not None: trucks = [t for t in trucks if t.get("vendor_id") == scope_vid]
         return trucks
     try:
-        db_x("""UPDATE trucks SET status='available'
-            WHERE is_active=1 AND status='assigned'
-            AND NOT EXISTS (SELECT 1 FROM truck_requests r WHERE r.assigned_truck_id=trucks.id AND r.status_id NOT IN (4,5,7))""")
+        db_x(TRUCKS_RECONCILE_SQL)
     except Exception as e:
         print(f"[fleet] status reconcile skipped: {e}")
-    q = """SELECT t.*, tt.name as truck_type_name, v.name as vendor_name,
-        (SELECT COUNT(DISTINCT truck_request_id) FROM truck_request_history WHERE truck_id=t.id AND status_id IN (4,5,7)) as history_count
-        FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
-        LEFT JOIN vendors v ON t.vendor_id=v.id"""
-    w, p = ["WHERE t.is_active=1"], []
-    if scope_vid is not None: w.append("t.vendor_id=%s"); p.append(scope_vid)
-    if status: w.append("t.status=%s"); p.append(status)
-    if available is not None: w.append("t.is_available=%s"); p.append(int(available))
-    trucks = db_q(f"{q} {' '.join(w)} ORDER BY t.plate_number", tuple(p))
+    sql, params = build_trucks_query(scope_vid, status, available)
+    trucks = db_q(sql, params)
     for t in trucks:
         t["current_requests"] = db_q("""SELECT tr.id, tr.request_number, tr.status_id, ts.name as status_name,
             po.name as origin_port_name, pd.name as destination_port_name
