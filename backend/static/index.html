@@ -1139,7 +1139,10 @@ async function loadFleet(){
     const av=document.getElementById('fAvail')?.value;
     let url='/api/trucks?';
     if(av!=='')url+='available='+av+'&';
-    const data=await(await fetch(url)).json();
+    const res=await fetch(url);
+    if(!res.ok)throw new Error(await apiErr(res));
+    const data=await res.json();
+    if(!Array.isArray(data))throw new Error('Unexpected server response');
     const tb=document.getElementById('fTbl');
     const isAdmin=['master_admin','admin'].includes(user.role);
     const myVid=myVendorId();
@@ -1155,11 +1158,16 @@ async function loadFleet(){
         const canManage=isAdmin||(isVendor&&myVid!=null&&t.vendor_id===myVid);
         const availCell=isAvail?'<span class="badge b-gn"><i class="fas fa-circle" style="font-size:6px"></i> Available</span>':'<span class="badge b-yl"><i class="fas fa-circle" style="font-size:6px"></i> Not Available</span>';
         const availBtn=canManage?' <button class="btn btn-sm btn-o" onclick="toggleTruckAvail('+t.id+','+(isAvail?0:1)+')" title="'+(isAvail?'Mark not available':'Mark available')+'"><i class="fas fa-'+(isAvail?'ban':'check')+'"></i></button>':'';
-        const actions=canManage?'<td>'+(isAdmin?'<button class="btn btn-sm btn-o" onclick="editTruck('+JSON.stringify(t).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delTruck('+t.id+')"><i class="fas fa-trash"></i></button> ':'')+histBtn+'</td>':'<td>'+histBtn+'</td>';
+        const actions=canManage?'<td>'+(isAdmin?'<button class="btn btn-sm btn-o" onclick="editTruck('+JSON.stringify(t).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> ':'')+'<button class="btn btn-sm btn-d" onclick="delTruck('+t.id+')"><i class="fas fa-trash"></i></button>'+(histBtn?' '+histBtn:'')+'</td>':'<td>'+histBtn+'</td>';
         return'<tr><td><strong>'+t.plate_number+'</strong></td><td>'+(t.truck_type_name||'')+'</td><td>'+(t.vendor_name||'')+'</td><td>'+(t.driver_name||'-')+'</td><td>'+(t.driver_phone||'-')+'</td><td>'+reqHtml+'</td><td>'+availCell+availBtn+'</td>'+actions+'</tr>';
       }).join('');
     }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-truck"></i><p>No trucks found</p></td></tr>'}
-  }catch(e){console.error(e)}
+  }catch(e){
+    console.error(e);
+    const tb=document.getElementById('fTbl');
+    if(tb)tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-exclamation-triangle"></i><p>Could not load trucks: '+String(e.message).replace(/</g,'&lt;')+'</p></td></tr>';
+    toast('Could not load trucks: '+e.message,'error');
+  }
 }
 
 async function toggleTruckAvail(id,want){

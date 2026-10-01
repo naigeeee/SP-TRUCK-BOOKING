@@ -1331,9 +1331,12 @@ def list_trucks(request: Request, status: Optional[str] = None, available: Optio
             trucks = [t for t in trucks if bool(t.get("is_available", True)) == want]
         if scope_vid is not None: trucks = [t for t in trucks if t.get("vendor_id") == scope_vid]
         return trucks
-    db_x("""UPDATE trucks t SET t.status='available'
-        WHERE t.is_active=1 AND t.status='assigned'
-        AND NOT EXISTS (SELECT 1 FROM truck_requests r WHERE r.assigned_truck_id=t.id AND r.status_id NOT IN (4,5,7))""")
+    try:
+        db_x("""UPDATE trucks SET status='available'
+            WHERE is_active=1 AND status='assigned'
+            AND NOT EXISTS (SELECT 1 FROM truck_requests r WHERE r.assigned_truck_id=trucks.id AND r.status_id NOT IN (4,5,7))""")
+    except Exception as e:
+        print(f"[fleet] status reconcile skipped: {e}")
     q = """SELECT t.*, tt.name as truck_type_name, v.name as vendor_name,
         (SELECT COUNT(DISTINCT truck_request_id) FROM truck_request_history WHERE truck_id=t.id AND status_id IN (4,5,7)) as history_count
         FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
@@ -1434,7 +1437,12 @@ async def update_truck(tid: int, request: Request):
 
 @app.delete("/api/trucks/{tid}")
 def delete_truck(tid: int, request: Request):
-    require_admin(request)
+    user = get_user(request)
+    if user.get("role") not in ("master_admin", "admin"):
+        _u, vid = require_vendor(request)
+        own = next((t for t in _store["trucks"] if t["id"] == tid), None) if LOCAL_MODE else db_1("SELECT vendor_id FROM trucks WHERE id=%s", (tid,))
+        if not own or own.get("vendor_id") != vid:
+            raise HTTPException(403, "Not your vendor's truck")
     if LOCAL_MODE:
         _store["trucks"] = [t for t in _store["trucks"] if t["id"] != tid]
         return {"ok": True}
