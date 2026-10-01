@@ -1518,14 +1518,14 @@ def archive_truck_requests(truck_id, email="system"):
                     "truck_type_id": r.get("truck_type_id"), "quantity": r.get("quantity", 0),
                     "weight_kg": r.get("weight_kg", 0), "volume_cbm": r.get("volume_cbm", 0),
                     "status_id": r.get("status_id"), "pickup_datetime": r.get("pickup_datetime"),
-                    "call_datetime": r.get("call_datetime"),
+                    "call_datetime": r.get("call_datetime"), "final_call_datetime": r.get("final_call_datetime"),
                     "trip_id": trip_by_id.get(r["id"]), "drop_sequence": r.get("drop_sequence"),
                     "account_id": r.get("account_id"), "department_id": r.get("department_id"),
                     "updated_by": r.get("updated_by") or email,
                     "archived_at": nows(), "archived_by": email})
         return
     reqs = db_q("""SELECT id,request_number,requestor_name,requestor_email,origin_port_id,destination_port_id,
-        truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,call_datetime,
+        truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,call_datetime,final_call_datetime,
         drop_sequence,trip_id,account_id,department_id,updated_by
         FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (4,5,7)""", (truck_id,))
     for r in reqs:
@@ -1533,11 +1533,11 @@ def archive_truck_requests(truck_id, email="system"):
             continue
         db_i("""INSERT INTO truck_request_history (truck_id,truck_request_id,request_number,requestor_name,requestor_email,
             origin_port_id,destination_port_id,truck_type_id,quantity,weight_kg,volume_cbm,status_id,pickup_datetime,
-            call_datetime,trip_id,drop_sequence,account_id,department_id,updated_by,archived_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            call_datetime,final_call_datetime,trip_id,drop_sequence,account_id,department_id,updated_by,archived_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (truck_id, r["id"], r["request_number"], r["requestor_name"], r["requestor_email"],
              r["origin_port_id"], r["destination_port_id"], r["truck_type_id"], r["quantity"], r["weight_kg"],
-             r["volume_cbm"], r["status_id"], r["pickup_datetime"], r.get("call_datetime"),
+             r["volume_cbm"], r["status_id"], r["pickup_datetime"], r.get("call_datetime"), r.get("final_call_datetime"),
              trip_by_id.get(r["id"]) or r.get("trip_id"), r.get("drop_sequence"), r.get("account_id"), r.get("department_id"),
              r.get("updated_by") or email, email))
 
@@ -1892,17 +1892,25 @@ async def create_request(request: Request):
         import traceback; traceback.print_exc()
         raise HTTPException(500, str(e))
 
+VENDOR_LOCKED_FIELDS = ("account_id", "department_id", "origin_port_id", "destination_port_id",
+                         "international_mawb", "domestic_mawb", "call_datetime",
+                         "customs_cleared_datetime", "final_call_datetime", "special_instructions")
+
 @app.put("/api/requests/{rid}")
 async def update_request(rid: int, request: Request):
     user = get_user(request)
     body = await request.json()
     body["updated_by"] = user.get("email", "")
     body["updated_at"] = nows()
+    if is_vendor_role(user.get("role", "")):
+        for k in VENDOR_LOCKED_FIELDS:
+            body.pop(k, None)
     for k in ("truck_type_id", "assigned_truck_id"):
         if k in body and body[k] in (0, "0", ""):
             body[k] = None
     fields = ("account_id", "department_id", "origin_port_id", "destination_port_id", "pickup_datetime",
               "delivery_datetime", "call_datetime", "customs_cleared_datetime", "booking_date",
+              "final_call_datetime",
               "truck_type_id", "packaging_type_id", "quantity", "weight_kg", "volume_cbm",
               "special_instructions", "international_mawb", "domestic_mawb", "status_id",
               "assigned_truck_id", "estimated_cost", "actual_cost",
