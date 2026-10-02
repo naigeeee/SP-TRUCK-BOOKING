@@ -139,8 +139,8 @@ _store = {
     "role_visibility": {
         "viewer": ["dashboard", "masterlist"],
         "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
-        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility", "vendor-trucks"],
-        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility", "vendor-trucks"]
+        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"],
+        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"]
     },
     "_cnt": {"users": 1, "ports": 3, "accounts": 1, "departments": 4, "packaging_types": 3,
              "truck_statuses": 7, "truck_types": 3, "truck_type_capacities": 6, "trucks": 4,
@@ -896,8 +896,8 @@ async def remove_user(uid: int, request: Request):
 DEFAULT_ROLE_VISIBILITY = {
     "viewer": ["dashboard", "masterlist"],
     "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
-    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility", "vendor-trucks"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "library", "users", "role-visibility", "vendor-trucks"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"],
     "new_user": [],
 }
 
@@ -1682,6 +1682,10 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             updater = next((u for u in _store["users"] if u.get("email") == r.get("updated_by")), None)
             r["updated_by_name"] = updater.get("name", "") if updater else r.get("updated_by", "")
             r["updated_by_email"] = r.get("updated_by", "")
+            r["foul_trip_approved_by"] = r.get("foul_trip_approved_by", "") or ""
+            approver = next((u for u in _store["users"] if u.get("email") == r.get("foul_trip_approved_by")), None)
+            r["foul_trip_approved_by_name"] = approver.get("name", "") if approver else r["foul_trip_approved_by"]
+            r["foul_trip_approved_by_email"] = r["foul_trip_approved_by"]
             r["updated_at"] = r.get("updated_at", "")
             r["attachments"] = [row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == r["id"]]
             r["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
@@ -1783,7 +1787,8 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         LEFT JOIN ports pd ON tr.destination_port_id=pd.id LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
-        LEFT JOIN vendors vv ON tr.vendor_id=vv.id LEFT JOIN users uu ON tr.updated_by=uu.email"""
+        LEFT JOIN vendors vv ON tr.vendor_id=vv.id LEFT JOIN users uu ON tr.updated_by=uu.email
+        LEFT JOIN users fa ON tr.foul_trip_approved_by=fa.email"""
     total = (db_1(f"SELECT COUNT(*) as c {joins} WHERE {ws}", tuple(pa)) or {}).get("c", 0)
     pa.extend([per_page, (page - 1) * per_page])
     items = db_q(f"""SELECT tr.*, a.name as account_name, d.name as department_name,
@@ -1791,7 +1796,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         ts.name as status_name, ts.color as status_color,
         tt.name as truck_type_name, pt.name as packaging_type_name,
         tk.plate_number, COALESCE(v.name, vv.name) as vendor_name, tr.updated_by, tr.updated_at,
-        uu.name as updated_by_name, tr.updated_by as updated_by_email
+        uu.name as updated_by_name, tr.updated_by as updated_by_email,
+        COALESCE(fa.name, tr.foul_trip_approved_by) as foul_trip_approved_by_name,
+        tr.foul_trip_approved_by as foul_trip_approved_by_email
         {joins}
         WHERE {ws} ORDER BY {order_col} {sd} LIMIT %s OFFSET %s""", tuple(pa))
     for i in items: i["attachments"] = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (i["id"],))
@@ -1885,7 +1892,8 @@ async def create_request(request: Request):
                 "vendor_id": None, "final_call_datetime": None, "trip_id": None, "drop_sequence": None,
                 "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
                 "end_loading_datetime": None, "arrived_dest_datetime": None, "start_unloading_datetime": None,
-                "end_unloading_datetime": None, "foul_trip_reason": None,
+                "end_unloading_datetime": None, "foul_trip_reason": None, "foul_trip_count": None,
+                "foul_trip_approved_by": None, "foul_trip_approved_at": None,
                 "created_at": nows(), "updated_at": nows()}
             _store["truck_requests"].append(req)
             pid = nid("pending_allocations")
@@ -1904,6 +1912,7 @@ async def create_request(request: Request):
              body.get("international_mawb") or None, body.get("domestic_mawb") or None))
         db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'New request')", (rid,))
         return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1934,30 +1943,59 @@ async def update_request(rid: int, request: Request):
               "assigned_truck_id", "estimated_cost", "actual_cost",
               "trip_date", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime",
               "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason",
-              "foul_trip_date", "cancellation_date",
+              "foul_trip_date", "cancellation_date", "foul_trip_count",
               "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower", "toll",
               "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep",
               "drop_sequence", "updated_by", "cost_updated_by", "updated_at")
     new_status = body.get("status_id")
     if new_status == 4:
         validate_delivered_chronology(body)
-    if new_status in (5, 7):
-        cur_status = None
-        if LOCAL_MODE:
-            cur = next((x for x in _store["truck_requests"] if x["id"] == rid), None)
-            cur_status = cur.get("status_id") if cur else None
+    # Foul Trip Count Confirmation: compulsory (1 or 2) the moment a request becomes a
+    # Foul Trip, and any count that is supplied at any time must be 1 or 2.
+    if "foul_trip_count" in body:
+        raw_cnt = body.get("foul_trip_count")
+        if raw_cnt is None or str(raw_cnt).strip() == "":
+            body["foul_trip_count"] = None
         else:
-            cur = db_1("SELECT status_id FROM truck_requests WHERE id=%s", (rid,))
-            cur_status = cur.get("status_id") if cur else None
-        if cur_status != new_status:
+            try:
+                cnt_val = int(str(raw_cnt).strip())
+            except ValueError:
+                raise HTTPException(400, "Foul Trip Count Confirmation must be 1 or 2")
+            if cnt_val not in (1, 2):
+                raise HTTPException(400, "Foul Trip Count Confirmation must be 1 or 2")
+            body["foul_trip_count"] = cnt_val
+    foul_touched = any(k in body for k in ("foul_trip_date", "foul_trip_reason", "foul_trip_count"))
+    cur_row = None
+    if new_status in (5, 7) or foul_touched:
+        if LOCAL_MODE:
+            cur_row = next((x for x in _store["truck_requests"] if x["id"] == rid), None)
+        else:
+            cur_row = db_1("SELECT status_id, foul_trip_date, foul_trip_reason, foul_trip_count FROM truck_requests WHERE id=%s", (rid,))
+        cur_status = cur_row.get("status_id") if cur_row else None
+        if new_status in (5, 7) and cur_status != new_status:
             if new_status == 7:
                 if not (str(body.get("foul_trip_date") or "").strip()):
                     raise HTTPException(400, "Foul Trip Date is required when status is Foul Trip")
                 if not (str(body.get("foul_trip_reason") or "").strip()):
                     raise HTTPException(400, "Foul Trip Reason is required when status is Foul Trip")
+                if body.get("foul_trip_count") not in (1, 2):
+                    raise HTTPException(400, "Foul Trip Count Confirmation (1 or 2) is required when status is Foul Trip")
             if new_status == 5:
                 if not (str(body.get("cancellation_date") or "").strip()):
                     raise HTTPException(400, "Cancellation Date is required when status is Cancelled")
+    # A green-tick approval only ever covers the foul trip as it stood when it was given:
+    # entering Foul Trip, changing its date / reason / count afterwards, or leaving the status
+    # withdraws it — so the trip has to be reviewed again before it counts on Cost Analysis.
+    reset_approval = False
+    if cur_row is not None:
+        cur_status = cur_row.get("status_id")
+        eff_status = new_status if new_status is not None else cur_status
+        if eff_status != cur_status:
+            reset_approval = True
+        elif eff_status == 7:
+            for k in ("foul_trip_date", "foul_trip_reason", "foul_trip_count"):
+                if k in body and str(body.get(k) or "").strip() != str(cur_row.get(k) or "").strip():
+                    reset_approval = True
     if LOCAL_MODE:
         for r in _store["truck_requests"]:
             if r["id"] == rid:
@@ -2034,11 +2072,16 @@ async def update_request(rid: int, request: Request):
                                 if t["id"] == tid: t["status"] = "available"; break
                         else:
                             recalculate_trip_rates(tid)
+                if reset_approval:
+                    r["foul_trip_approved_by"] = None
+                    r["foul_trip_approved_at"] = None
                 return row2d(r)
         raise HTTPException(404, "Not found")
     sets, params = [], []
     for k in fields:
         if k in body: sets.append(f"{k}=%s"); params.append(body[k])
+    if reset_approval:
+        sets.extend(["foul_trip_approved_by=NULL", "foul_trip_approved_at=NULL"])
     if not sets: raise HTTPException(400, "Nothing to update")
     if new_status:
         cur = db_1("SELECT status_id FROM truck_requests WHERE id=%s", (rid,))
@@ -2122,6 +2165,90 @@ async def update_request(rid: int, request: Request):
         else:
             db_x("UPDATE truck_requests SET actual_cost=estimated_cost WHERE id=%s AND actual_cost=0", (rid,))
     return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
+
+# ---------------------------------------------------------------------------
+# Foul Trip Review: the green tick that lets a foul trip into Cost Analysis
+# ---------------------------------------------------------------------------
+
+@app.post("/api/requests/{rid}/approve-foul-trip")
+def approve_foul_trip(rid: int, request: Request):
+    """Admin green tick: records who reviewed a Foul Trip and when."""
+    user = require_admin(request)
+    email = user.get("email", "")
+    stamp = nows()
+    if LOCAL_MODE:
+        for r in _store["truck_requests"]:
+            if r["id"] == rid:
+                if r.get("status_id") != 7:
+                    raise HTTPException(400, "Only Foul Trip requests can be approved")
+                if r.get("foul_trip_count") not in (1, 2):
+                    raise HTTPException(400, "Foul Trip Count Confirmation (1 or 2) is required before approval")
+                r["foul_trip_approved_by"] = email
+                r["foul_trip_approved_at"] = stamp
+                return row2d(r)
+        raise HTTPException(404, "Not found")
+    row = db_1("SELECT id, status_id, foul_trip_count FROM truck_requests WHERE id=%s", (rid,))
+    if not row: raise HTTPException(404, "Not found")
+    if row.get("status_id") != 7:
+        raise HTTPException(400, "Only Foul Trip requests can be approved")
+    if int(row.get("foul_trip_count") or 0) not in (1, 2):
+        raise HTTPException(400, "Foul Trip Count Confirmation (1 or 2) is required before approval")
+    db_x("UPDATE truck_requests SET foul_trip_approved_by=%s, foul_trip_approved_at=%s WHERE id=%s",
+         (email, stamp, rid))
+    return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
+
+@app.get("/api/foul-trip-review")
+def foul_trip_review(request: Request):
+    require_admin(request)
+    if LOCAL_MODE:
+        rows = [row2d(r) for r in _store["truck_requests"] if r.get("status_id") == 7]
+        for r in rows:
+            r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+            r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
+            r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
+            r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+            r["status_name"] = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
+            r["status_color"] = next((s["color"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "")
+            truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
+            tt_id = r.get("truck_type_id") or (truck.get("truck_type_id") if truck else None)
+            r["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == tt_id), "")
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == (truck.get("vendor_id") if truck else r.get("vendor_id"))), "")
+            r["plate_number"] = truck.get("plate_number", "") if truck else ""
+            truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r.get("assigned_truck_id")] if r.get("assigned_truck_id") else []
+            r["trip_id"] = resolve_trip_id(r, truck_reqs) if truck_reqs else (r.get("trip_id") or None)
+            appr = next((u for u in _store["users"] if u.get("email") == r.get("foul_trip_approved_by")), None)
+            r["foul_trip_approved_by_name"] = appr.get("name", "") if appr else (r.get("foul_trip_approved_by") or "")
+            r["foul_trip_approved_by_email"] = r.get("foul_trip_approved_by") or ""
+        rows.sort(key=lambda x: (str(x.get("foul_trip_date") or ""), x.get("id") or 0), reverse=True)
+        return {"items": rows,
+                "pending": sum(1 for r in rows if not r.get("foul_trip_approved_by")),
+                "approved": sum(1 for r in rows if r.get("foul_trip_approved_by"))}
+    rows = db_q("""SELECT tr.*, a.name as account_name, d.name as department_name,
+        po.name as origin_port_name, pd.name as destination_port_name,
+        ts.name as status_name, ts.color as status_color,
+        COALESCE(tt.name, ttt.name) as truck_type_name, COALESCE(v.name, vv.name) as vendor_name,
+        tk.plate_number, COALESCE(fa.name, tr.foul_trip_approved_by) as foul_trip_approved_by_name,
+        tr.foul_trip_approved_by as foul_trip_approved_by_email
+        FROM truck_requests tr
+        LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
+        LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+        LEFT JOIN truck_statuses ts ON tr.status_id=ts.id LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN vendors vv ON tr.vendor_id=vv.id LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
+        LEFT JOIN users fa ON tr.foul_trip_approved_by=fa.email
+        WHERE tr.status_id=7 ORDER BY tr.foul_trip_date DESC, tr.id DESC""", ())
+    for i in rows:
+        if i.get("assigned_truck_id"):
+            truck_reqs = db_q("""SELECT id, request_number, status_id, drop_sequence, trip_id,
+                account_id, assigned_truck_id FROM truck_requests WHERE assigned_truck_id=%s""",
+                (i["assigned_truck_id"],))
+            i["trip_id"] = resolve_trip_id(i, truck_reqs)
+        else:
+            i["trip_id"] = i.get("trip_id") or None
+        i["foul_trip_approved_by_email"] = i.get("foul_trip_approved_by") or ""
+    return {"items": rows,
+            "pending": sum(1 for r in rows if not r.get("foul_trip_approved_by")),
+            "approved": sum(1 for r in rows if r.get("foul_trip_approved_by"))}
 
 @app.delete("/api/requests/clear-all")
 def clear_all_requests(request: Request):
@@ -3334,6 +3461,42 @@ def delete_eval(eid: int, request: Request):
 # Cost Summary
 # ---------------------------------------------------------------------------
 
+def foul_fuel_costs(rate_match, base, status_id, foul_trip_count):
+    """Rate-based additions shown on Cost Analysis.
+
+    Foul Trip Cost  = rate per trip x foul_trip_pct% x foul_trip_count (Foul Trip only)
+    Fuel Surcharge  = rate per trip x fuel_surcharge_pct%            (Delivered + Foul Trip)
+    """
+    base = base or 0
+    foul_pct = float(rate_match.get("foul_trip_pct") or 0) if rate_match else 0
+    fuel_pct = float(rate_match.get("fuel_surcharge_pct") or 0) if rate_match else 0
+    try:
+        cnt = int(foul_trip_count or 0)
+    except (TypeError, ValueError):
+        cnt = 0
+    if cnt not in (1, 2):
+        cnt = 1
+    foul_cost = round(base * foul_pct / 100 * cnt, 2) if status_id == 7 and foul_pct else 0
+    fuel_cost = round(base * fuel_pct / 100, 2) if status_id in (4, 7) and fuel_pct else 0
+    return foul_cost, fuel_cost
+
+def cost_summary_stats(rows):
+    """Expanded Cost Analysis headline numbers (rows are the filtered requests)."""
+    est = round(sum(r.get("estimated_cost") or 0 for r in rows), 2)
+    act = round(sum(r.get("actual_cost") or 0 for r in rows), 2)
+    foul = round(sum(r.get("foul_trip_cost") or 0 for r in rows), 2)
+    fuel = round(sum(r.get("fuel_surcharge_cost") or 0 for r in rows), 2)
+    return {
+        "total_requests": len(rows),
+        "total_estimated_cost": est,
+        "total_actual_cost": act,
+        "delivered": sum(1 for r in rows if r.get("status_id") == 4),
+        "foul_trip": sum(1 for r in rows if r.get("status_id") == 7),
+        "total_foul_trip_cost": foul,
+        "total_fuel_surcharge_cost": fuel,
+        "total_cost": round(act + foul + fuel, 2),
+    }
+
 @app.get("/api/cost-summary")
 def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Query(...),
     account_id: Optional[int] = None, department_id: Optional[int] = None,
@@ -3351,6 +3514,10 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             if not fc or fc < date_from or fc > date_to: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
+            # Cost Analysis covers Delivered + Foul Trip, and a Foul Trip only counts
+            # once an admin has green-ticked it on the Foul Trip Review page.
+            if r.get("status_id") not in (4, 7): continue
+            if r.get("status_id") == 7 and not (r.get("foul_trip_approved_by") or ""): continue
             if status_id and r.get("status_id") != status_id: continue
             truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
             if vendor_id and (not truck or truck.get("vendor_id") != vendor_id): continue
@@ -3358,8 +3525,6 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
                 m = mawb.lower()
                 if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
             flt.append(r)
-        est_total = 0
-        act_total = 0
         req_list = []
         for r in flt:
             sn = next((s["name"] for s in _store["truck_statuses"] if s["id"] == r.get("status_id")), "Unknown")
@@ -3374,25 +3539,28 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             dept_name = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
             est = r.get("estimated_cost", 0) or 0
             act = r.get("actual_cost", 0) or 0
-            if (not est or not act) and truck:
+            rate_match = None
+            if truck:
                 tt_id_rate = r.get("truck_type_id") or truck.get("truck_type_id")
                 rate_match = find_best_rate(truck.get("vendor_id"), tt_id_rate, r.get("origin_port_id"), r.get("destination_port_id"), booking_date=r.get("booking_date"))
-                if rate_match:
-                    est = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
-                    if est:
-                        r["estimated_cost"] = est
-                        if r.get("status_id") in (4, 7):
-                            if not act:
-                                r["actual_cost"] = est
-                                act = est
-            est_total += est
-            act_total += act
+            if (not est or not act) and rate_match:
+                est = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
+                if est:
+                    r["estimated_cost"] = est
+                    if r.get("status_id") in (4, 7):
+                        if not act:
+                            r["actual_cost"] = est
+                            act = est
+            foul_cost, fuel_cost = foul_fuel_costs(rate_match, est, r.get("status_id"), r.get("foul_trip_count"))
             rd = {k: r.get(k) for k in ("id", "request_number", "quantity", "weight_kg", "volume_cbm",
                 "pickup_datetime", "call_datetime", "final_call_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
-                "foul_trip_reason", "foul_trip_date", "cancellation_date", "booking_date", "international_mawb", "domestic_mawb",
+                "foul_trip_reason", "foul_trip_date", "foul_trip_count", "cancellation_date", "booking_date", "international_mawb", "domestic_mawb",
                 "end_unloading_datetime", "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
                 "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep", "cost_updated_by")}
             rd["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
+            rd["foul_trip_cost"] = foul_cost
+            rd["fuel_surcharge_cost"] = fuel_cost
+            rd["total_cost"] = round((act or 0) + foul_cost + fuel_cost, 2)
             cu = next((u for u in _store["users"] if u.get("email") == rd.get("cost_updated_by")), None)
             rd["cost_updated_by_name"] = cu.get("name", "") if cu else ""
             rd["cost_updated_by_email"] = rd.get("cost_updated_by") or ""
@@ -3412,9 +3580,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             req_list.append(rd)
         coords = get_port_coords_map()
         add_distances_to_requests(req_list, coords)
-        return {"total_requests": len(flt), "total_estimated_cost": est_total,
-            "total_actual_cost": act_total,
-            "requests": req_list}
+        return {**cost_summary_stats(req_list), "requests": req_list}
     wh = ["DATE(tr.final_call_datetime)>=%s", "DATE(tr.final_call_datetime)<=%s"]
     pa = [date_from, date_to]
     if account_id: wh.append("tr.account_id=%s"); pa.append(account_id)
@@ -3422,14 +3588,18 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if vendor_id: wh.append("tk.vendor_id=%s"); pa.append(vendor_id)
+    # Cost Analysis covers Delivered + Foul Trip, and a Foul Trip only counts
+    # once an admin has green-ticked it on the Foul Trip Review page.
+    wh.append("tr.status_id IN (4,7)")
+    wh.append("(tr.status_id<>7 OR (tr.foul_trip_approved_by IS NOT NULL AND tr.foul_trip_approved_by<>''))")
     if status_id: wh.append("tr.status_id=%s"); pa.append(status_id)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     ws = " AND ".join(wh)
-    s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     reqs = db_q(f"""SELECT tr.*, ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
         v.name as vendor_name, a.name as account_name, d.name as department_name,
-        cu.name as cost_updated_by_name, tr.cost_updated_by as cost_updated_by_email
+        cu.name as cost_updated_by_name, tr.cost_updated_by as cost_updated_by_email,
+        tk.vendor_id as rate_vendor_id, tk.truck_type_id as rate_truck_type_id
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
@@ -3438,25 +3608,41 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
         LEFT JOIN users cu ON tr.cost_updated_by=cu.email
         WHERE {ws} ORDER BY tr.created_at DESC""", tuple(pa))
+    rate_cache = {}
+
+    def _rate_for(row):
+        """Matched active rate for a request's vendor/truck type/origin (cached per key)."""
+        vid = row.get("rate_vendor_id")
+        if not vid or not row.get("assigned_truck_id"): return None
+        tt_id = row.get("truck_type_id") or row.get("rate_truck_type_id")
+        key = (vid, tt_id, row.get("origin_port_id"))
+        if key not in rate_cache:
+            rate_cache[key] = db_q("""SELECT rate_per_trip, default_rate, destination_drops, destination_port_id,
+                effective_date, expiry_date, foul_trip_pct, fuel_surcharge_pct
+                FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1""", key)
+        rates = [x for x in rate_cache[key] if rate_in_range(x, row.get("booking_date"))]
+        exact = next((x for x in rates if x.get("destination_port_id") == row.get("destination_port_id")), None)
+        return exact or (rates[0] if rates else None)
+
     for i in reqs:
+        rate = _rate_for(i)
         if (not i.get("estimated_cost") or not i.get("actual_cost")) and i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
-            truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (i["assigned_truck_id"],))
-            if truck:
-                tt_id = i.get("truck_type_id") or truck.get("truck_type_id")
-                rates = db_q("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id, effective_date, expiry_date FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1",
-                    (truck["vendor_id"], tt_id, i.get("origin_port_id")))
-                rates = [r for r in rates if rate_in_range(r, i.get("booking_date"))]
-                exact = next((r for r in rates if r.get("destination_port_id") == i.get("destination_port_id")), None)
-                rate = exact or (rates[0] if rates else None)
-                if rate:
-                    est = compute_rate(rate, i.get("destination_port_id"), i.get("drop_sequence"))
-                    if est:
-                        if i.get("estimated_cost") != est:
-                            db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, i["id"]))
-                            i["estimated_cost"] = est
-                        if i.get("status_id") in (4, 7) and not i.get("actual_cost"):
-                            db_x("UPDATE truck_requests SET actual_cost=%s WHERE id=%s AND actual_cost=0", (est, i["id"]))
-                            i["actual_cost"] = est
+            if rate:
+                est = compute_rate(rate, i.get("destination_port_id"), i.get("drop_sequence"))
+                if est:
+                    if i.get("estimated_cost") != est:
+                        db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, i["id"]))
+                        i["estimated_cost"] = est
+                    if i.get("status_id") in (4, 7) and not i.get("actual_cost"):
+                        db_x("UPDATE truck_requests SET actual_cost=%s WHERE id=%s AND actual_cost=0", (est, i["id"]))
+                        i["actual_cost"] = est
+        base = i.get("estimated_cost") or 0
+        if not base and rate:
+            base = compute_rate(rate, i.get("destination_port_id"), i.get("drop_sequence"))
+        foul_cost, fuel_cost = foul_fuel_costs(rate, base, i.get("status_id"), i.get("foul_trip_count"))
+        i["foul_trip_cost"] = foul_cost
+        i["fuel_surcharge_cost"] = fuel_cost
+        i["total_cost"] = round((i.get("actual_cost") or 0) + foul_cost + fuel_cost, 2)
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
             truck_reqs = db_q("""SELECT id, request_number, status_id, drop_sequence, trip_id,
                 account_id, assigned_truck_id FROM truck_requests WHERE assigned_truck_id=%s""",
@@ -3465,10 +3651,9 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         else:
             i["trip_id"] = i.get("trip_id") or None
         i["delivered_date"] = (i.get("end_unloading_datetime") or "")[:10]
-    s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
-    return {**(s or {}), "requests": reqs}
+    return {**cost_summary_stats(reqs), "requests": reqs}
 
 BULK_COST_FIELDS = ("toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
                     "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep")
@@ -3504,6 +3689,8 @@ async def bulk_cost_update(request: Request):
     def matches(r):
         if r.get("status_id") not in (4, 7):
             return False
+        if r.get("status_id") == 7 and not (r.get("foul_trip_approved_by") or ""):
+            return False
         d = (r.get("foul_trip_date") or str(r.get("end_unloading_datetime") or "")[:10])[:10]
         if not d or d < date_from or d > date_to:
             return False
@@ -3535,7 +3722,8 @@ async def bulk_cost_update(request: Request):
                 r["cost_updated_by"] = bulk_user.get("email", "")
         return {"ok": True, "updated": n, "field_amount": {k: (round(v / n, 2) if split else v) for k, v in amounts.items()}}
 
-    wh = ["tr.status_id IN (4,7)", "COALESCE(tr.foul_trip_date, DATE(tr.end_unloading_datetime)) BETWEEN %s AND %s"]
+    wh = ["tr.status_id IN (4,7)", "(tr.status_id<>7 OR (tr.foul_trip_approved_by IS NOT NULL AND tr.foul_trip_approved_by<>''))",
+          "COALESCE(tr.foul_trip_date, DATE(tr.end_unloading_datetime)) BETWEEN %s AND %s"]
     pa = [date_from, date_to]
     if vendor_id:
         wh.append("COALESCE(tk.vendor_id, tr.vendor_id)=%s"); pa.append(vendor_id)

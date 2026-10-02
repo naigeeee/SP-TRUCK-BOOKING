@@ -1900,6 +1900,60 @@
         }
       }
     },
+    "/api/requests/{rid}/approve-foul-trip": {
+      "post": {
+        "summary": "Approve Foul Trip",
+        "description": "Admin green tick: records who reviewed a Foul Trip and when.",
+        "operationId": "approve_foul_trip_api_requests__rid__approve_foul_trip_post",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/foul-trip-review": {
+      "get": {
+        "summary": "Foul Trip Review",
+        "operationId": "foul_trip_review_api_foul_trip_review_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/requests/clear-all": {
       "delete": {
         "summary": "Clear All Requests",
