@@ -1917,6 +1917,8 @@ async def update_request(rid: int, request: Request):
     body = await request.json()
     body["updated_by"] = user.get("email", "")
     body["updated_at"] = nows()
+    if any(k in body for k in ("actual_cost",) + BULK_COST_FIELDS):
+        body["cost_updated_by"] = user.get("email", "")
     if is_vendor_role(user.get("role", "")):
         for k in ("account_id", "department_id", "origin_port_id", "destination_port_id",
                   "international_mawb", "domestic_mawb", "call_datetime",
@@ -1935,7 +1937,7 @@ async def update_request(rid: int, request: Request):
               "foul_trip_date", "cancellation_date",
               "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower", "toll",
               "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep",
-              "drop_sequence", "updated_by", "updated_at")
+              "drop_sequence", "updated_by", "cost_updated_by", "updated_at")
     new_status = body.get("status_id")
     if new_status == 4:
         validate_delivered_chronology(body)
@@ -3389,8 +3391,11 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
                 "pickup_datetime", "call_datetime", "final_call_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
                 "foul_trip_reason", "foul_trip_date", "cancellation_date", "booking_date", "international_mawb", "domestic_mawb",
                 "end_unloading_datetime", "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
-                "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep")}
+                "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep", "cost_updated_by")}
             rd["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
+            cu = next((u for u in _store["users"] if u.get("email") == rd.get("cost_updated_by")), None)
+            rd["cost_updated_by_name"] = cu.get("name", "") if cu else ""
+            rd["cost_updated_by_email"] = rd.get("cost_updated_by") or ""
             rd["status_name"] = sn
             rd["status_color"] = sc
             rd["truck_type_name"] = ttn
@@ -3423,13 +3428,15 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     reqs = db_q(f"""SELECT tr.*, ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
-        v.name as vendor_name, a.name as account_name, d.name as department_name
+        v.name as vendor_name, a.name as account_name, d.name as department_name,
+        cu.name as cost_updated_by_name, tr.cost_updated_by as cost_updated_by_email
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
         LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
+        LEFT JOIN users cu ON tr.cost_updated_by=cu.email
         WHERE {ws} ORDER BY tr.created_at DESC""", tuple(pa))
     for i in reqs:
         if (not i.get("estimated_cost") or not i.get("actual_cost")) and i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
@@ -3468,7 +3475,7 @@ BULK_COST_FIELDS = ("toll_fee", "management_fee", "fuel", "parking", "miscellane
 
 @app.post("/api/cost-summary/bulk-update")
 async def bulk_cost_update(request: Request):
-    require_admin(request)
+    bulk_user = require_admin(request)
     body = await request.json()
     date_from = (body.get("date_from") or "").strip()
     date_to = (body.get("date_to") or "").strip()
@@ -3525,6 +3532,7 @@ async def bulk_cost_update(request: Request):
             add = (v / n) if split else v
             for r in targets:
                 r[k] = round((r.get(k) or 0) + add, 2)
+                r["cost_updated_by"] = bulk_user.get("email", "")
         return {"ok": True, "updated": n, "field_amount": {k: (round(v / n, 2) if split else v) for k, v in amounts.items()}}
 
     wh = ["tr.status_id IN (4,7)", "COALESCE(tr.foul_trip_date, DATE(tr.end_unloading_datetime)) BETWEEN %s AND %s"]
@@ -3548,6 +3556,8 @@ async def bulk_cost_update(request: Request):
         add = round(add, 2)
         out_fields[k] = add
         db_x(f"UPDATE truck_requests SET {k}=COALESCE({k},0)+%s WHERE id IN ({marks})", tuple([add] + ids))
+    db_x(f"UPDATE truck_requests SET cost_updated_by=%s WHERE id IN ({marks})",
+         tuple([bulk_user.get("email", "")] + ids))
     return {"ok": True, "updated": n, "field_amount": out_fields}
 
 # ---------------------------------------------------------------------------
