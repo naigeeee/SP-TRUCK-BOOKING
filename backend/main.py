@@ -2170,6 +2170,21 @@ async def update_request(rid: int, request: Request):
 # Foul Trip Review: the green tick that lets a foul trip into Cost Analysis
 # ---------------------------------------------------------------------------
 
+def _review_rate(row, cache):
+    """Matched active rate for a Foul Trip Review row, cached per vendor / type / origin."""
+    vid = row.get("rate_vendor_id")
+    if not vid or not row.get("assigned_truck_id"):
+        return None
+    tt_id = row.get("truck_type_id") or row.get("rate_truck_type_id")
+    key = (vid, tt_id, row.get("origin_port_id"))
+    if key not in cache:
+        cache[key] = db_q("""SELECT rate_per_trip, default_rate, destination_drops, destination_port_id,
+            effective_date, expiry_date, foul_trip_pct, fuel_surcharge_pct
+            FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1""", key)
+    rates = [x for x in cache[key] if rate_in_range(x, row.get("booking_date"))]
+    exact = next((x for x in rates if x.get("destination_port_id") == row.get("destination_port_id")), None)
+    return exact or (rates[0] if rates else None)
+
 @app.post("/api/requests/{rid}/approve-foul-trip")
 def approve_foul_trip(rid: int, request: Request):
     """Admin green tick: records who reviewed a Foul Trip and when."""
@@ -2219,6 +2234,17 @@ def foul_trip_review(request: Request):
             appr = next((u for u in _store["users"] if u.get("email") == r.get("foul_trip_approved_by")), None)
             r["foul_trip_approved_by_name"] = appr.get("name", "") if appr else (r.get("foul_trip_approved_by") or "")
             r["foul_trip_approved_by_email"] = r.get("foul_trip_approved_by") or ""
+            # Rate/Trip, Foul Trip % and Foul Trip Cost — same maths as Cost Analysis
+            rate = find_best_rate((truck or {}).get("vendor_id") or r.get("vendor_id"), tt_id,
+                                  r.get("origin_port_id"), r.get("destination_port_id"),
+                                  booking_date=r.get("booking_date"))
+            base = r.get("estimated_cost") or 0
+            if not base and rate:
+                base = compute_rate(rate, r.get("destination_port_id"), r.get("drop_sequence"))
+            r["rate_per_trip"] = base or None
+            r["foul_trip_pct"] = (rate or {}).get("foul_trip_pct")
+            r["foul_trip_cost"] = foul_fuel_costs(rate, base, 7, r.get("foul_trip_count"))[0]
+        add_distances_to_requests(rows, get_port_coords_map())
         rows.sort(key=lambda x: (str(x.get("foul_trip_date") or ""), x.get("id") or 0), reverse=True)
         return {"items": rows,
                 "pending": sum(1 for r in rows if not r.get("foul_trip_approved_by")),
@@ -2228,7 +2254,8 @@ def foul_trip_review(request: Request):
         ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, COALESCE(v.name, vv.name) as vendor_name,
         tk.plate_number, COALESCE(fa.name, tr.foul_trip_approved_by) as foul_trip_approved_by_name,
-        tr.foul_trip_approved_by as foul_trip_approved_by_email
+        tr.foul_trip_approved_by as foul_trip_approved_by_email,
+        tk.vendor_id as rate_vendor_id, tk.truck_type_id as rate_truck_type_id
         FROM truck_requests tr
         LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
@@ -2237,6 +2264,7 @@ def foul_trip_review(request: Request):
         LEFT JOIN vendors vv ON tr.vendor_id=vv.id LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
         LEFT JOIN users fa ON tr.foul_trip_approved_by=fa.email
         WHERE tr.status_id=7 ORDER BY tr.foul_trip_date DESC, tr.id DESC""", ())
+    rate_cache = {}
     for i in rows:
         if i.get("assigned_truck_id"):
             truck_reqs = db_q("""SELECT id, request_number, status_id, drop_sequence, trip_id,
@@ -2246,6 +2274,15 @@ def foul_trip_review(request: Request):
         else:
             i["trip_id"] = i.get("trip_id") or None
         i["foul_trip_approved_by_email"] = i.get("foul_trip_approved_by") or ""
+        # Rate/Trip, Foul Trip % and Foul Trip Cost — same maths as Cost Analysis
+        rate = _review_rate(i, rate_cache)
+        base = i.get("estimated_cost") or 0
+        if not base and rate:
+            base = compute_rate(rate, i.get("destination_port_id"), i.get("drop_sequence"))
+        i["rate_per_trip"] = base or None
+        i["foul_trip_pct"] = (rate or {}).get("foul_trip_pct")
+        i["foul_trip_cost"] = foul_fuel_costs(rate, base, 7, i.get("foul_trip_count"))[0]
+    add_distances_to_requests(rows, get_port_coords_map())
     return {"items": rows,
             "pending": sum(1 for r in rows if not r.get("foul_trip_approved_by")),
             "approved": sum(1 for r in rows if r.get("foul_trip_approved_by"))}
@@ -3461,6 +3498,20 @@ def delete_eval(eid: int, request: Request):
 # Cost Summary
 # ---------------------------------------------------------------------------
 
+def total_cost_of(row, foul_cost=None, fuel_cost=None):
+    """Total Cost on Cost Analysis.
+
+    Actual Cost + Toll Fee + Management Fee + Fuel + Parking + Miscellaneous + Manpower
+    + Toll + Welfare + WH Rental + Toll Fee (Easytrip) + Toll Fee (Autosweep)
+    + Foul Trip Cost + Fuel Surcharge Cost.
+    """
+    if foul_cost is None:
+        foul_cost = row.get("foul_trip_cost") or 0
+    if fuel_cost is None:
+        fuel_cost = row.get("fuel_surcharge_cost") or 0
+    base = (row.get("actual_cost") or 0) + sum(row.get(f) or 0 for f in BULK_COST_FIELDS)
+    return round(base + foul_cost + fuel_cost, 2)
+
 def foul_fuel_costs(rate_match, base, status_id, foul_trip_count):
     """Rate-based additions shown on Cost Analysis.
 
@@ -3494,7 +3545,7 @@ def cost_summary_stats(rows):
         "foul_trip": sum(1 for r in rows if r.get("status_id") == 7),
         "total_foul_trip_cost": foul,
         "total_fuel_surcharge_cost": fuel,
-        "total_cost": round(act + foul + fuel, 2),
+        "total_cost": round(sum(total_cost_of(r) for r in rows), 2),
     }
 
 @app.get("/api/cost-summary")
@@ -3560,7 +3611,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             rd["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
             rd["foul_trip_cost"] = foul_cost
             rd["fuel_surcharge_cost"] = fuel_cost
-            rd["total_cost"] = round((act or 0) + foul_cost + fuel_cost, 2)
+            rd["total_cost"] = total_cost_of(rd, foul_cost, fuel_cost)
             cu = next((u for u in _store["users"] if u.get("email") == rd.get("cost_updated_by")), None)
             rd["cost_updated_by_name"] = cu.get("name", "") if cu else ""
             rd["cost_updated_by_email"] = rd.get("cost_updated_by") or ""
@@ -3642,7 +3693,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         foul_cost, fuel_cost = foul_fuel_costs(rate, base, i.get("status_id"), i.get("foul_trip_count"))
         i["foul_trip_cost"] = foul_cost
         i["fuel_surcharge_cost"] = fuel_cost
-        i["total_cost"] = round((i.get("actual_cost") or 0) + foul_cost + fuel_cost, 2)
+        i["total_cost"] = total_cost_of(i, foul_cost, fuel_cost)
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
             truck_reqs = db_q("""SELECT id, request_number, status_id, drop_sequence, trip_id,
                 account_id, assigned_truck_id FROM truck_requests WHERE assigned_truck_id=%s""",
