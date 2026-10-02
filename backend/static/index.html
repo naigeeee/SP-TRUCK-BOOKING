@@ -204,7 +204,7 @@ tr:hover td{background:#F8FAFC}
 
 <!-- Cost Analysis -->
 <section class="pg" id="pg-cost">
-<div class="pg-hdr"><h1><i class="fas fa-chart-pie" style="color:var(--info)"></i> Cost Analysis</h1><div class="acts"><button class="btn btn-o btn-sm adm" id="bulkCostBtn" style="display:none" onclick="showBulkCostModal()"><i class="fas fa-layer-group"></i> Bulk Cost Update</button> <button class="btn btn-o btn-sm" onclick="exportCostCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
+<div class="pg-hdr"><h1><i class="fas fa-chart-pie" style="color:var(--info)"></i> Cost Analysis</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="resetCostCols()" title="Restore default column order"><i class="fas fa-columns"></i> Reset Columns</button> <button class="btn btn-o btn-sm adm" id="bulkCostBtn" style="display:none" onclick="showBulkCostModal()"><i class="fas fa-layer-group"></i> Bulk Cost Update</button> <button class="btn btn-o btn-sm" onclick="exportCostCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
 <div class="card" style="margin-bottom:20px"><div class="card-h"><h3><i class="fas fa-filter"></i> Filters</h3></div><div class="card-b">
 <div class="fr3"><div class="fg"><label class="fl">Final Call From *</label><input type="date" class="fi" id="cFrom" required></div><div class="fg"><label class="fl">Final Call To *</label><input type="date" class="fi" id="cTo" required></div><div class="fg"><label class="fl">Account</label><select class="fs" id="cAcct"></select></div></div>
 <div class="fr3"><div class="fg"><label class="fl">Department</label><select class="fs" id="cDept"></select></div><div class="fg"><label class="fl">Origin Port</label><select class="fs" id="cOrg"></select></div><div class="fg"><label class="fl">Destination Port</label><select class="fs" id="cDst"></select></div></div>
@@ -212,7 +212,7 @@ tr:hover td{background:#F8FAFC}
 <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-p" onclick="loadCost()"><i class="fas fa-search"></i> Generate Report</button></div>
 </div></div>
 <div id="costRes" style="display:none"><div class="stats" id="cStats"></div>
-<div class="card"><div class="card-h"><h3><i class="fas fa-table"></i> Detailed Breakdown</h3></div><div class="card-b"><div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortCost('request_number')">Request # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('department_name')">Department <i class="fas fa-sort"></i></th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortCost('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('actual_cost')">Actual Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee')">Toll Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('management_fee')">Management Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('fuel')">Fuel <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('parking')">Parking <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('miscellaneous')">Miscellaneous <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('manpower')">Manpower <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll')">Toll <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('welfare')">Welfare <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('wh_rental')">WH Rental <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_easytrip')">Toll Fee (Easytrip) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_autosweep')">Toll Fee (Autosweep) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('status_name')">Status <i class="fas fa-sort"></i></th><th>Foul Trip Reason</th><th>Actions</th></tr></thead><tbody id="cTbl"></tbody></table></div></div></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-table"></i> Detailed Breakdown</h3></div><div class="card-b"><div class="tw" style="max-height:calc(100vh - 260px);overflow:auto"><table><thead><tr><th style="cursor:pointer" onclick="sortCost('request_number')">Request # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('department_name')">Department <i class="fas fa-sort"></i></th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortCost('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('actual_cost')">Actual Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee')">Toll Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('management_fee')">Management Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('fuel')">Fuel <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('parking')">Parking <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('miscellaneous')">Miscellaneous <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('manpower')">Manpower <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll')">Toll <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('welfare')">Welfare <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('wh_rental')">WH Rental <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_easytrip')">Toll Fee (Easytrip) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_autosweep')">Toll Fee (Autosweep) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('status_name')">Status <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('foul_trip_date')">Foul Trip Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('cancellation_date')">Cancellation Date <i class="fas fa-sort"></i></th><th>Foul Trip Reason</th><th>Actions</th></tr></thead><tbody id="cTbl"></tbody></table></div></div></div>
 </div>
 </section>
 
@@ -755,8 +755,8 @@ async function editReq(id){
     const allowed=validTrans[r.status_id]||[r.status_id];
     const filteredSts=sts.filter(s=>allowed.includes(s.id));
     popSel('eSt',filteredSts,'id','name');
-    document.getElementById('eAcct').value=r.account_id;document.getElementById('eDept').value=r.department_id;document.getElementById('eOrg').value=r.origin_port_id;document.getElementById('eDst').value=r.destination_port_id;document.getElementById('eTT').value=r.truck_type_id;document.getElementById('eSt').value=r.status_id;
-    document.getElementById('eSt').onchange=function(){const v=+this.value;const t=new Date();const pad=n=>String(n).padStart(2,'0');const today=t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());if(v===7){const f=document.getElementById('eFoulDate');if(f&&!f.value)f.value=today}if(v===5){const c=document.getElementById('eCancelDate');if(c&&!c.value)c.value=today}};
+    document.getElementById('eAcct').value=r.account_id;document.getElementById('eDept').value=r.department_id;document.getElementById('eOrg').value=r.origin_port_id;document.getElementById('eDst').value=r.destination_port_id;document.getElementById('eTT').value=r.truck_type_id;document.getElementById('eSt').value=r.status_id;document.getElementById('eSt').dataset.prev=String(r.status_id);
+    document.getElementById('eSt').onchange=function(){const v=+this.value;const prev=+this.dataset.prev||0;const fd=document.getElementById('eFoulDate');const cd=document.getElementById('eCancelDate');if(prev===7&&v!==7&&fd)fd.value='';if(prev===5&&v!==5&&cd)cd.value='';this.dataset.prev=String(v);const t=new Date();const pad=n=>String(n).padStart(2,'0');const today=t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());if(v===7&&fd&&!fd.value)fd.value=today;if(v===5&&cd&&!cd.value)cd.value=today};
     if(isVendor){['eAcct','eDept','eOrg','eDst','eImawb','eDmawb','eCall','eCustoms','eFinal'].forEach(function(i){const el=document.getElementById(i);if(el){el.disabled=true;el.title='Vendor role cannot edit this field'}})}
     document.getElementById('eAtts').innerHTML=(r.attachments||[]).map(a=>'<div class="att-item"><div class="att-info"><i class="fas fa-file"></i><div><div class="att-nm">'+a.original_filename+'</div><div class="att-sz">'+fmtS(a.file_size)+'</div></div></div><div><a href="/api/attachments/'+a.id+'/download" class="btn btn-sm btn-o"><i class="fas fa-download"></i></a> <button class="btn btn-sm btn-d" onclick="delAtt('+a.id+','+id+')"><i class="fas fa-trash"></i></button></div></div>').join('');
     document.getElementById('eFile').onchange=async()=>{const files=document.getElementById('eFile').files;for(const f of files){const fd=new FormData();fd.append('file',f);await fetch('/api/requests/'+id+'/attachments',{method:'POST',body:fd});toast(f.name+' uploaded')}editReq(id)};
@@ -1272,7 +1272,7 @@ async function loadVT(){
       html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">';
       html+='<div><strong style="color:var(--pri);font-size:15px">'+(g.trip_id||'-')+'</strong> '+stBadge(g.status_id===3?'In Transit':'Allocated',g.status_id===3?'#8B5CF6':'#3B82F6')+' <span style="color:var(--mut);font-size:12px">| '+(g.requests?g.requests.length:0)+' request(s)</span></div>';
       html+='<div style="font-size:13px;color:var(--mut)">'+(g.final_call_datetime?'<i class="fas fa-phone"></i> Final call: <strong>'+fmtD(g.final_call_datetime)+'</strong>':'')+'</div></div>';
-      html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Destination</label><p style="font-size:13px">'+(g.destination_port_name||'-')+'</p></div><div><label class="fl">Assigned Truck</label><p style="font-size:13px">'+(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>')+'</p></div></div>';
+      html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Total Drops</label><p style="font-size:13px">'+((g.requests||[]).length||0)+'</p></div><div><label class="fl">Assigned Truck</label><p style="font-size:13px">'+(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>')+'</p></div></div>';
       html+='<table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase"><th style="padding:4px 6px">Drop</th><th>Request #</th><th>Requestor</th><th>Account</th><th>Origin</th><th>Destination</th><th>Qty</th><th>Weight / Volume</th></tr></thead><tbody>';
       (g.requests||[]).forEach(r=>{
         html+='<tr style="border-top:1px solid var(--bdr)"><td style="padding:5px 6px"><b>'+(r.drop_sequence||'-')+'</b></td><td>'+(r.request_number||'')+'</td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.origin_port_name||'-')+'</td><td>'+(r.destination_port_name||'-')+'</td><td>'+(r.quantity||0)+' '+(r.packaging_type_name||'')+'</td><td>'+(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM</td></tr>';
@@ -1390,7 +1390,7 @@ async function loadRates(){
         html+=cur.map(rowHtml).join('');
       }
       if(hist.length){
-        html+='<tr><td colspan="8" style="background:#F9FAFB;font-weight:700;color:#6B7280;padding:8px 10px"><i class="fas fa-history"></i> Historical Rate <span style="font-weight:400;color:var(--mut)">('+hist.length+')</span></td></tr>';
+        html+='<tr><td colspan="8" style="background:#FEF2F2;font-weight:700;color:#B91C1C;padding:8px 10px"><i class="fas fa-history"></i> Historical Rate <span style="font-weight:400;color:#B91C1C;opacity:.8">('+hist.length+')</span></td></tr>';
         html+=hist.map(rowHtml).join('');
       }
       tb.innerHTML=html;
@@ -1549,8 +1549,8 @@ async function loadCost(){
 }
 function exportCostCSV(){
   if(!costData||!costData.requests||!costData.requests.length){toast('No data to export','error');return}
-  const rows=[['Request #','Trip ID','Account','Department','Distance (KM)','Origin Port','Destination Port','International MAWB','Domestic MAWB','Truck Type','Vendor','Booking Date','Initial Call datetime (TBC)','Final Call Datetime','Delivered Date','Actual Cost','Toll Fee','Management Fee','Fuel','Parking','Miscellaneous','Manpower','Toll','Welfare','WH Rental','Toll Fee (Easytrip)','Toll Fee (Autosweep)','Status','Foul Trip Reason']];
-  costData.requests.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.account_name||'',r.department_name||'',r.distance_km!=null?r.distance_km:'',r.origin_port_name||'',r.destination_port_name||'',r.international_mawb||'',r.domestic_mawb||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.call_datetime||'',r.final_call_datetime||'',r.delivered_date||'',r.actual_cost||0,(r.toll_fee||0),(r.management_fee||0),(r.fuel||0),(r.parking||0),(r.miscellaneous||0),(r.manpower||0),(r.toll||0),(r.welfare||0),(r.wh_rental||0),(r.toll_fee_easytrip||0),(r.toll_fee_autosweep||0),r.status_name||'',r.foul_trip_reason||''])});
+  const rows=[['Request #','Trip ID','Account','Department','Distance (KM)','Origin Port','Destination Port','International MAWB','Domestic MAWB','Truck Type','Vendor','Booking Date','Initial Call datetime (TBC)','Final Call Datetime','Delivered Date','Actual Cost','Toll Fee','Management Fee','Fuel','Parking','Miscellaneous','Manpower','Toll','Welfare','WH Rental','Toll Fee (Easytrip)','Toll Fee (Autosweep)','Status','Foul Trip Date','Cancellation Date','Foul Trip Reason']];
+  costData.requests.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.account_name||'',r.department_name||'',r.distance_km!=null?r.distance_km:'',r.origin_port_name||'',r.destination_port_name||'',r.international_mawb||'',r.domestic_mawb||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.call_datetime||'',r.final_call_datetime||'',r.delivered_date||'',r.actual_cost||0,(r.toll_fee||0),(r.management_fee||0),(r.fuel||0),(r.parking||0),(r.miscellaneous||0),(r.manpower||0),(r.toll||0),(r.welfare||0),(r.wh_rental||0),(r.toll_fee_easytrip||0),(r.toll_fee_autosweep||0),r.status_name||'',r.foul_trip_date||'',r.cancellation_date||'',r.foul_trip_reason||''])});
   let csv='';rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n'});
   const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cost-analysis-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
@@ -1573,13 +1573,76 @@ function costRowHtml(r){
   const costCells=COST_FIELDS.map(f=>'<td>₱'+fmtN(r[f[0]]||0)+'</td>').join('');
   const canEdit=(r.status_id===4||r.status_id===5||r.status_id===7)&&isAdmin;
   const act=canEdit?'<button class="btn btn-sm btn-o" onclick="editCost('+r.id+')" title="Edit costs"><i class="fas fa-edit"></i></button>':'-';
-  return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.department_name||'-')+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>₱'+fmtN(r.actual_cost||0)+'</td>'+costCells+'<td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.foul_trip_reason||'-')+'</td><td>'+act+'</td></tr>';
+  return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.department_name||'-')+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>₱'+fmtN(r.actual_cost||0)+'</td>'+costCells+'<td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(r.foul_trip_reason||'-')+'</td><td>'+act+'</td></tr>';
 }
 function renderCostTable(){
   const tb=document.getElementById('cTbl');
-  if(!costData||!costData.requests||!costData.requests.length){tb.innerHTML='<tr><td colspan="30" class="empty"><i class="fas fa-inbox"></i><p>No data for selected filters</p></td></tr>';return}
+  if(!costData||!costData.requests||!costData.requests.length){tb.innerHTML='<tr><td colspan="32" class="empty"><i class="fas fa-inbox"></i><p>No data for selected filters</p></td></tr>';return}
   tb.innerHTML=costData.requests.map(costRowHtml).join('');
+  [...tb.rows].forEach(row=>{if(row.children.length===COST_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=COST_KEYS[i]})});
+  applyCostOrder();
 }
+const COST_KEYS=['request_number','trip_id','account_name','department_name','distance_km','origin_port_name','destination_port_name','international_mawb','domestic_mawb','truck_type_name','vendor_name','booking_date','call_datetime','final_call_datetime','delivered_date','actual_cost','toll_fee','management_fee','fuel','parking','miscellaneous','manpower','toll','welfare','wh_rental','toll_fee_easytrip','toll_fee_autosweep','status_name','foul_trip_date','cancellation_date','foul_trip_reason','actions'];
+let cDragTh=null,cDragBound=false,cHeaderOrdered=false;
+function cHeadTr(){const t=document.getElementById('cTbl');return t&&t.parentElement&&t.parentElement.tHead?t.parentElement.tHead.rows[0]:null}
+function cStoredOrder(){try{const o=JSON.parse(localStorage.getItem('cColOrder')||'null');if(Array.isArray(o)&&o.length===COST_KEYS.length&&o.every(i=>Number.isInteger(i)&&i>=0&&i<COST_KEYS.length)&&new Set(o).size===COST_KEYS.length)return o}catch(e){}return COST_KEYS.map((_,i)=>i)}
+function cReorderBody(order){
+  document.querySelectorAll('#cTbl tr').forEach(row=>{
+    if(row.children.length!==order.length)return;
+    const map={};[...row.children].forEach(c=>{if(c.dataset.k)map[c.dataset.k]=c});
+    if(Object.keys(map).length!==order.length)return;
+    order.forEach(i=>{const el=map[COST_KEYS[i]];if(el)row.appendChild(el)});
+  })
+}
+function applyCostFreeze(){
+  const tr=cHeadTr();if(!tr)return;
+  const ths=[...tr.children];
+  ths.forEach(th=>{th.style.position='';th.style.left='';th.style.top='';th.style.zIndex='';th.style.background='';th.style.boxShadow=''});
+  const rows=[...document.querySelectorAll('#cTbl tr')];
+  rows.forEach(row=>[...row.children].forEach(c=>{c.style.position='';c.style.left='';c.style.zIndex='';c.style.background='';c.style.boxShadow=''}));
+  const pi=Math.min(8,ths.length-1);
+  const thBg=ths.length>pi+1?getComputedStyle(ths[pi+1]).backgroundColor:getComputedStyle(ths[ths.length-1]).backgroundColor;
+  ths.forEach((th,i)=>{th.style.position='sticky';th.style.top='0';th.style.zIndex=i<=pi?5:4});
+  let acc=0;
+  for(let i=0;i<=pi;i++){
+    const w=ths[i].getBoundingClientRect().width;
+    ths[i].style.left=acc+'px';ths[i].style.background=thBg;
+    if(i===pi)ths[i].style.boxShadow='inset -1px 0 0 var(--bdr)';
+    rows.forEach(row=>{const c=row.children[i];if(c){c.style.position='sticky';c.style.left=acc+'px';c.style.zIndex=2;c.style.background='#fff';if(i===pi)c.style.boxShadow='inset -1px 0 0 var(--bdr)'}});
+    acc+=w;
+  }
+}
+window.addEventListener('resize',()=>{if(cHeaderOrdered)applyCostFreeze()});
+function applyCostOrder(){
+  const tr=cHeadTr();if(!tr)return;
+  const ths=[...tr.children];
+  if(ths.length!==COST_KEYS.length)return;
+  ths.forEach((th,i)=>{if(!th.dataset.k)th.dataset.k=COST_KEYS[i];th.draggable=true});
+  if(!cDragBound){
+    const thead=tr.parentElement;
+    thead.addEventListener('dragstart',e=>{const th=e.target.closest('th');if(!th)return;cDragTh=th;try{e.dataTransfer.setData('text/plain',th.dataset.k)}catch(_){}e.dataTransfer.effectAllowed='move'});
+    thead.addEventListener('dragover',e=>{const th=e.target.closest('th');if(!th||!cDragTh||th===cDragTh)return;e.preventDefault();const rect=th.getBoundingClientRect();const after=(e.clientX-rect.left)>rect.width/2;th.parentElement.insertBefore(cDragTh,after?th.nextSibling:th)});
+    thead.addEventListener('dragend',()=>{if(!cDragTh)return;cDragTh=null;commitCostOrder()});
+    cDragBound=true;
+  }
+  const order=cStoredOrder();
+  if(!cHeaderOrdered){
+    const cur=[...tr.children];
+    order.forEach(i=>cur[i]&&tr.appendChild(cur[i]));
+    cHeaderOrdered=true;
+  }
+  cReorderBody(order);
+  applyCostFreeze();
+}
+function commitCostOrder(){
+  const tr=cHeadTr();if(!tr)return;
+  const order=[...tr.children].map(th=>COST_KEYS.indexOf(th.dataset.k));
+  if(order.length===COST_KEYS.length&&order.every(i=>i>=0)&&new Set(order).size===order.length){
+    localStorage.setItem('cColOrder',JSON.stringify(order));
+    cReorderBody(order);applyCostFreeze();
+  }
+}
+function resetCostCols(){localStorage.removeItem('cColOrder');location.reload()}
 function editCost(id){
   const r=(costData&&costData.requests||[]).find(x=>x.id===id);
   if(!r)return;
@@ -1608,6 +1671,7 @@ async function saveCostEdit(id){
 }
 function showBulkCostModal(){
   if(!isAdmin){toast('Admin access required','error');return}
+  bcConfirmed=false;
   document.getElementById('mTitle').textContent='Bulk Cost Update';
   const vendorOpts='<option value="">All vendors</option>'+vendors.map(v=>'<option value="'+v.id+'">'+String(v.name).replace(/</g,'&lt;')+'</option>').join('');
   const ttOpts='<option value="">All truck types</option>'+tts.map(t=>'<option value="'+t.id+'">'+String(t.name).replace(/</g,'&lt;')+'</option>').join('');
@@ -1628,7 +1692,12 @@ function showBulkCostModal(){
   document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="applyBulkCost()"><i class="fas fa-check"></i> Apply</button>';
   document.getElementById('overlay').classList.add('on');
 }
+let bcConfirmed=false;
+function bulkFoot(){document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="applyBulkCost()"><i class="fas fa-check"></i> Apply</button>'}
+function cancelBulkConfirm(){bcConfirmed=false;const w=document.getElementById('bcWarn');if(w)w.remove();bulkFoot()}
+function bcConfirmYes(){bcConfirmed=true;applyBulkCost()}
 async function applyBulkCost(){
+  const wantConfirm=bcConfirmed;bcConfirmed=false;
   const date_from=document.getElementById('bcFrom').value;
   const date_to=document.getElementById('bcTo').value;
   if(!date_from||!date_to){toast('Date From and Date To are required','error');return}
@@ -1643,6 +1712,18 @@ async function applyBulkCost(){
   const vid=document.getElementById('bcVendor').value;const ttid=document.getElementById('bcTT').value;
   if(vid)payload.vendor_id=+vid;
   if(ttid)payload.truck_type_id=+ttid;
+  if(!payload.split&&!wantConfirm){
+    if(!document.getElementById('bcWarn')){
+      const bd=document.getElementById('mBody');
+      const warn=document.createElement('div');
+      warn.id='bcWarn';
+      warn.style.cssText='display:flex;gap:8px;align-items:flex-start;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:10px 12px;border-radius:8px;margin-bottom:10px;font-size:13px';
+      warn.innerHTML='<i class="fas fa-exclamation-triangle" style="color:#D97706;margin-top:2px"></i><div><strong>Split amount is OFF.</strong> The full amount will be added to <strong>each</strong> matching truck request instead of being divided. Confirm to continue.</div>';
+      bd.insertBefore(warn,bd.firstChild);
+      document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="cancelBulkConfirm()"><i class="fas fa-arrow-left"></i> Go back</button><button class="btn btn-d" onclick="bcConfirmYes()"><i class="fas fa-exclamation-triangle"></i> Yes, add to each request</button>';
+    }
+    return;
+  }
   try{
     const res=await fetch('/api/cost-summary/bulk-update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!res.ok){throw new Error(await apiErr(res))}
