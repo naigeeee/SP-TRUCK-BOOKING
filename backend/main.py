@@ -1548,7 +1548,7 @@ def archive_truck_requests(truck_id, email="system"):
 # ---------------------------------------------------------------------------
 
 @app.get("/api/dashboard")
-def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: Optional[str] = None,
+def dashboard(request: Request, final_call_from: Optional[str] = None, final_call_to: Optional[str] = None,
     account_id: Optional[int] = None, department_id: Optional[int] = None,
     status_id: Optional[int] = None, origin_port_id: Optional[int] = None,
     destination_port_id: Optional[int] = None, mawb: Optional[str] = None):
@@ -1565,9 +1565,9 @@ def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: 
             if mawb:
                 m = mawb.lower()
                 if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
-            bk = str(r.get("booking_date") or "")[:10]
-            if booking_from and (not bk or bk < booking_from): continue
-            if booking_to and (not bk or bk > booking_to): continue
+            fc = str(r.get("final_call_datetime") or "")[:10]
+            if final_call_from and (not fc or fc < final_call_from): continue
+            if final_call_to and (not fc or fc > final_call_to): continue
             flt.append(r)
         if scope_vid is not None:
             flt = [r for r in flt if _owned_by_vendor(r, scope_vid)]
@@ -1608,8 +1608,8 @@ def dashboard(request: Request, booking_from: Optional[str] = None, booking_to: 
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
-    if booking_from: wh.append("tr.booking_date>=%s"); pa.append(booking_from)
-    if booking_to: wh.append("tr.booking_date<=%s"); pa.append(booking_to)
+    if final_call_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(final_call_from)
+    if final_call_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(final_call_to)
     ws = (" WHERE " + " AND ".join(wh)) if wh else ""
     stats = db_1(f"""SELECT COUNT(*) as total_requests,
         SUM(CASE WHEN status_id=1 THEN 1 ELSE 0 END) as pending_allocation,
@@ -1655,6 +1655,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     booking_from: Optional[str] = None, booking_to: Optional[str] = None,
     pickup_from: Optional[str] = None, pickup_to: Optional[str] = None,
     call_from: Optional[str] = None, call_to: Optional[str] = None,
+    initial_call_from: Optional[str] = None, initial_call_to: Optional[str] = None,
+    foul_from: Optional[str] = None, foul_to: Optional[str] = None,
+    cancel_from: Optional[str] = None, cancel_to: Optional[str] = None,
     customs_from: Optional[str] = None, customs_to: Optional[str] = None,
     mawb: Optional[str] = None, plate: Optional[str] = None,
     sort_by: str = "created_at", sort_dir: str = "desc", page: int = 1, per_page: int = 50):
@@ -1681,6 +1684,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             r["updated_by_email"] = r.get("updated_by", "")
             r["updated_at"] = r.get("updated_at", "")
             r["attachments"] = [row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == r["id"]]
+            r["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 r["trip_id"] = resolve_trip_id(r, truck_reqs)
@@ -1709,8 +1713,14 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if booking_to: reqs = [r for r in reqs if (r.get("booking_date") or "") <= booking_to]
         if pickup_from: reqs = [r for r in reqs if (r.get("pickup_datetime") or "")[:10] >= pickup_from]
         if pickup_to: reqs = [r for r in reqs if (r.get("pickup_datetime") or "")[:10] <= pickup_to]
-        if call_from: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] >= call_from]
-        if call_to: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] <= call_to]
+        if call_from: reqs = [r for r in reqs if (r.get("final_call_datetime") or "")[:10] >= call_from]
+        if call_to: reqs = [r for r in reqs if (r.get("final_call_datetime") or "")[:10] <= call_to]
+        if initial_call_from: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] >= initial_call_from]
+        if initial_call_to: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] <= initial_call_to]
+        if foul_from: reqs = [r for r in reqs if (r.get("foul_trip_date") or "")[:10] >= foul_from]
+        if foul_to: reqs = [r for r in reqs if (r.get("foul_trip_date") or "")[:10] <= foul_to]
+        if cancel_from: reqs = [r for r in reqs if (r.get("cancellation_date") or "")[:10] >= cancel_from]
+        if cancel_to: reqs = [r for r in reqs if (r.get("cancellation_date") or "")[:10] <= cancel_to]
         if customs_from: reqs = [r for r in reqs if (r.get("customs_cleared_datetime") or "")[:10] >= customs_from]
         if customs_to: reqs = [r for r in reqs if (r.get("customs_cleared_datetime") or "")[:10] <= customs_to]
         if mawb:
@@ -1725,7 +1735,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if sort_by == "trip_id":
             reqs.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
         else:
-            reqs.sort(key=lambda x: x.get(sort_by, ""), reverse=(sort_dir == "desc"))
+            reqs.sort(key=lambda x: ((v := x.get(sort_by, "")) is None, v if v is not None else 0), reverse=(sort_dir == "desc"))
         coords = get_port_coords_map()
         add_distances_to_requests(reqs, coords)
         total = len(reqs)
@@ -1745,17 +1755,23 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if booking_to: wh.append("tr.booking_date<=%s"); pa.append(booking_to)
     if pickup_from: wh.append("DATE(tr.pickup_datetime)>=%s"); pa.append(pickup_from)
     if pickup_to: wh.append("DATE(tr.pickup_datetime)<=%s"); pa.append(pickup_to)
-    if call_from: wh.append("DATE(tr.call_datetime)>=%s"); pa.append(call_from)
-    if call_to: wh.append("DATE(tr.call_datetime)<=%s"); pa.append(call_to)
+    if call_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(call_from)
+    if call_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(call_to)
+    if initial_call_from: wh.append("DATE(tr.call_datetime)>=%s"); pa.append(initial_call_from)
+    if initial_call_to: wh.append("DATE(tr.call_datetime)<=%s"); pa.append(initial_call_to)
+    if foul_from: wh.append("tr.foul_trip_date>=%s"); pa.append(foul_from)
+    if foul_to: wh.append("tr.foul_trip_date<=%s"); pa.append(foul_to)
+    if cancel_from: wh.append("tr.cancellation_date>=%s"); pa.append(cancel_from)
+    if cancel_to: wh.append("tr.cancellation_date<=%s"); pa.append(cancel_to)
     if customs_from: wh.append("DATE(tr.customs_cleared_datetime)>=%s"); pa.append(customs_from)
     if customs_to: wh.append("DATE(tr.customs_cleared_datetime)<=%s"); pa.append(customs_to)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date"):
         sort_by = "created_at"
-    sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "COALESCE(v.name, vv.name)", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name"}
+    sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "COALESCE(v.name, vv.name)", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name", "delivered_date": "tr.end_unloading_datetime"}
     if sort_by == "trip_id":
         order_col = "tr.created_at"
     else:
@@ -1792,6 +1808,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             i["trip_id"] = i.get("trip_id") or None
             i["active_trip_count"] = 0
             i["is_consolidated"] = False
+        i["delivered_date"] = (i.get("end_unloading_datetime") or "")[:10]
     if sort_by == "trip_id":
         items.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
     coords = get_port_coords_map()
@@ -1915,10 +1932,30 @@ async def update_request(rid: int, request: Request):
               "assigned_truck_id", "estimated_cost", "actual_cost",
               "trip_date", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime",
               "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason",
+              "foul_trip_date", "cancellation_date",
+              "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower", "toll",
+              "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep",
               "drop_sequence", "updated_by", "updated_at")
     new_status = body.get("status_id")
     if new_status == 4:
         validate_delivered_chronology(body)
+    if new_status in (5, 7):
+        cur_status = None
+        if LOCAL_MODE:
+            cur = next((x for x in _store["truck_requests"] if x["id"] == rid), None)
+            cur_status = cur.get("status_id") if cur else None
+        else:
+            cur = db_1("SELECT status_id FROM truck_requests WHERE id=%s", (rid,))
+            cur_status = cur.get("status_id") if cur else None
+        if cur_status != new_status:
+            if new_status == 7:
+                if not (str(body.get("foul_trip_date") or "").strip()):
+                    raise HTTPException(400, "Foul Trip Date is required when status is Foul Trip")
+                if not (str(body.get("foul_trip_reason") or "").strip()):
+                    raise HTTPException(400, "Foul Trip Reason is required when status is Foul Trip")
+            if new_status == 5:
+                if not (str(body.get("cancellation_date") or "").strip()):
+                    raise HTTPException(400, "Cancellation Date is required when status is Cancelled")
     if LOCAL_MODE:
         for r in _store["truck_requests"]:
             if r["id"] == rid:
@@ -2584,6 +2621,7 @@ def _trip_payload(key, rs, truck, available_trucks):
         "trip_id": key,
         "status_id": status,
         "vendor_id": first.get("vendor_id"),
+        "vendor_name": first.get("vendor_name") or "",
         "truck_type_id": first.get("truck_type_id"),
         "truck_type_name": first.get("truck_type_name"),
         "origin_port_id": first.get("origin_port_id"),
@@ -2646,20 +2684,30 @@ def trip_assignments(request: Request):
                 r["origin_port_name"] = r.get("origin_port_name") or next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
                 r["destination_port_name"] = r.get("destination_port_name") or next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
                 r["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
+                r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+                tv = r.get("vendor_id")
+                if not tv and r.get("assigned_truck_id"):
+                    trow = next((x for x in _store["trucks"] if x["id"] == r.get("assigned_truck_id")), None)
+                    tv = trow.get("vendor_id") if trow else None
+                r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == tv), "")
                 r["requestor_name"] = r.get("requestor_name", "")
             out.append(_trip_payload(key, rs, truck, avail_trucks))
         out.sort(key=lambda x: str(x.get("final_call_datetime") or "9999-12-31"))
         return out
     rows = db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.status_id, tr.drop_sequence, tr.trip_id,
         tr.assigned_truck_id, tr.vendor_id, tr.final_call_datetime, tr.quantity, tr.weight_kg, tr.volume_cbm,
-        tr.packaging_type_id, tr.destination_port_id, tr.origin_port_id, tr.truck_type_id,
+        tr.packaging_type_id, tr.destination_port_id, tr.origin_port_id, tr.truck_type_id, tr.account_id,
         tt.name as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
-        pt.name as packaging_type_name
+        pt.name as packaging_type_name, a.name as account_name, COALESCE(vv.name, v.name) as vendor_name
         FROM truck_requests tr
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id
         LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
+        LEFT JOIN accounts a ON tr.account_id=a.id
+        LEFT JOIN vendors vv ON tr.vendor_id=vv.id
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
+        LEFT JOIN vendors v ON tk.vendor_id=v.id
         WHERE tr.status_id=2 AND tr.assigned_truck_id IS NULL ORDER BY tr.id""")
     trucks_by_id = {}
     if rows:
@@ -2830,6 +2878,7 @@ async def reject_alloc(pid: int, request: Request):
                 for r in _store["truck_requests"]:
                     if r["id"] == pa["truck_request_id"]:
                         r["status_id"] = 5
+                        r["cancellation_date"] = date.today().isoformat()
                         tid = r.get("assigned_truck_id")
                         if tid:
                             peers = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid]
@@ -2846,7 +2895,7 @@ async def reject_alloc(pid: int, request: Request):
     pa = db_1("SELECT truck_request_id FROM pending_allocations WHERE id=%s", (pid,))
     if not pa: raise HTTPException(404, "Pending allocation not found")
     if pa:
-        db_x("UPDATE truck_requests SET status_id=5 WHERE id=%s", (pa["truck_request_id"],))
+        db_x("UPDATE truck_requests SET status_id=5, cancellation_date=COALESCE(cancellation_date, CURDATE()) WHERE id=%s", (pa["truck_request_id"],))
         req = db_1("""SELECT id, request_number, status_id, drop_sequence, trip_id,
             account_id, assigned_truck_id FROM truck_requests WHERE id=%s""", (pa["truck_request_id"],))
         if req and req.get("assigned_truck_id") and not req.get("trip_id"):
@@ -3031,12 +3080,29 @@ def list_rates(request: Request, vendor_name: Optional[str] = None, origin_port_
         LEFT JOIN ports po ON vr.origin_port_id=po.id LEFT JOIN ports pd ON vr.destination_port_id=pd.id
         WHERE {ws} ORDER BY vr.vendor_name, vr.effective_date DESC""", tuple(pa))
 
+def _clean_pct(body, key):
+    if key not in body:
+        return
+    v = body.get(key)
+    if v is None or str(v).strip() == "":
+        body[key] = None
+        return
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        raise HTTPException(400, f"{key} must be a number")
+    if f < 0 or f > 100:
+        raise HTTPException(400, f"{key} must be between 0 and 100")
+    body[key] = round(f, 2)
+
 @app.post("/api/vendor-rates")
 async def create_rate(request: Request):
     require_admin(request)
     body = await request.json()
     for f in ("vendor_name", "truck_type_id", "origin_port_id", "destination_port_id", "effective_date"):
         if not body.get(f): raise HTTPException(400, f"{f} required")
+    _clean_pct(body, "foul_trip_pct")
+    _clean_pct(body, "fuel_surcharge_pct")
     if LOCAL_MODE:
         rid = nid("vendor_rates")
         rate = {"id": rid, "vendor_name": body["vendor_name"], "vendor_id": body.get("vendor_id"),
@@ -3045,16 +3111,20 @@ async def create_rate(request: Request):
             "rate_per_trip": body.get("rate_per_trip", 0),
             "destination_drops": body.get("destination_drops", []),
             "default_rate": body.get("default_rate", 0),
+            "foul_trip_pct": body.get("foul_trip_pct"),
+            "fuel_surcharge_pct": body.get("fuel_surcharge_pct"),
             "effective_date": body["effective_date"],
             "expiry_date": body.get("expiry_date"), "is_active": True, "created_at": nows(), "updated_at": nows()}
         _store["vendor_rates"].append(rate)
         backfill_rate_estimated_costs(body.get("vendor_id"), body["truck_type_id"], body["origin_port_id"])
         return row2d(rate)
     rid = db_i("""INSERT INTO vendor_rates (vendor_name,vendor_id,truck_type_id,origin_port_id,destination_port_id,
-        rate_per_trip,default_rate,destination_drops,effective_date,expiry_date) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        rate_per_trip,default_rate,destination_drops,foul_trip_pct,fuel_surcharge_pct,effective_date,expiry_date)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
         (body["vendor_name"], body.get("vendor_id"), body["truck_type_id"], body["origin_port_id"], body["destination_port_id"],
          body.get("rate_per_trip", 0), body.get("default_rate", 0),
          json.dumps(body.get("destination_drops", [])) if body.get("destination_drops") else None,
+         body.get("foul_trip_pct"), body.get("fuel_surcharge_pct"),
          body["effective_date"], body.get("expiry_date")))
     backfill_rate_estimated_costs(body.get("vendor_id"), body["truck_type_id"], body["origin_port_id"])
     return db_1("SELECT * FROM vendor_rates WHERE id=%s", (rid,))
@@ -3063,17 +3133,19 @@ async def create_rate(request: Request):
 async def update_rate(rid: int, request: Request):
     require_admin(request)
     body = await request.json()
+    _clean_pct(body, "foul_trip_pct")
+    _clean_pct(body, "fuel_surcharge_pct")
     if LOCAL_MODE:
         for r in _store["vendor_rates"]:
             if r["id"] == rid:
-                for k in ("vendor_name", "vendor_id", "truck_type_id", "origin_port_id", "destination_port_id", "rate_per_trip", "destination_drops", "default_rate", "effective_date", "expiry_date", "is_active"):
+                for k in ("vendor_name", "vendor_id", "truck_type_id", "origin_port_id", "destination_port_id", "rate_per_trip", "destination_drops", "default_rate", "foul_trip_pct", "fuel_surcharge_pct", "effective_date", "expiry_date", "is_active"):
                     if k in body: r[k] = body[k]
                 r["updated_at"] = nows()
                 backfill_rate_estimated_costs(r.get("vendor_id"), r.get("truck_type_id"), r.get("origin_port_id"))
                 return row2d(r)
         raise HTTPException(404, "Not found")
     sets, params = [], []
-    for k in ("vendor_name", "vendor_id", "truck_type_id", "origin_port_id", "destination_port_id", "rate_per_trip", "destination_drops", "default_rate", "effective_date", "expiry_date", "is_active"):
+    for k in ("vendor_name", "vendor_id", "truck_type_id", "origin_port_id", "destination_port_id", "rate_per_trip", "destination_drops", "default_rate", "foul_trip_pct", "fuel_surcharge_pct", "effective_date", "expiry_date", "is_active"):
         if k in body:
             val = body[k]
             if k == "destination_drops" and isinstance(val, list):
@@ -3153,9 +3225,9 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
             if account_id and r.get("account_id") != account_id: continue
             if department_id and r.get("department_id") != department_id: continue
-            bk = str(r.get("booking_date") or "")[:10]
-            if date_from and bk and bk < date_from: continue
-            if date_to and bk and bk > date_to: continue
+            fc = str(r.get("final_call_datetime") or "")[:10]
+            if date_from and fc < date_from: continue
+            if date_to and fc > date_to: continue
             if search:
                 rn = str(r.get("request_number", "")).lower()
                 if search.lower() not in rn: continue
@@ -3183,6 +3255,8 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
                 "pickup_datetime": r.get("pickup_datetime"),
                 "call_datetime": r.get("call_datetime"),
                 "final_call_datetime": r.get("final_call_datetime"),
+                "end_unloading_datetime": r.get("end_unloading_datetime"),
+                "delivered_date": (r.get("end_unloading_datetime") or "")[:10],
                 "lt_customs_to_arrival": _fmt_duration(r.get("customs_cleared_datetime"), r.get("arrived_pickup_datetime")),
                 "lt_pickup_to_arrival": _fmt_duration(r.get("call_datetime"), r.get("arrived_pickup_datetime")),
                 "lt_arrival_to_start_load": _fmt_duration(r.get("arrived_pickup_datetime"), r.get("start_loading_datetime")),
@@ -3206,8 +3280,8 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if search: wh.append("tr.request_number LIKE %s"); pa.append(f"%{search}%")
-    if date_from: wh.append("tr.booking_date>=%s"); pa.append(date_from)
-    if date_to: wh.append("tr.booking_date<=%s"); pa.append(date_to)
+    if date_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(date_from)
+    if date_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(date_to)
     ws = " AND ".join(wh)
     rows = db_q(f"""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime, tr.call_datetime,
         tr.final_call_datetime, tr.trip_id,
@@ -3241,6 +3315,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
         row["lt_arrived_dest_to_start_unload"] = _fmt_duration(row.get("arrived_dest_datetime"), row.get("start_unloading_datetime"))
         row["lt_start_unload_to_end_unload"] = _fmt_duration(row.get("start_unloading_datetime"), row.get("end_unloading_datetime"))
         row["lt_full_leg"] = _fmt_duration(row.get("arrived_pickup_datetime"), row.get("end_unloading_datetime"))
+        row["delivered_date"] = (row.get("end_unloading_datetime") or "")[:10]
     coords = get_port_coords_map()
     add_distances_to_requests(rows, coords)
     return rows
@@ -3270,8 +3345,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         for r in reqs:
             if account_id and r.get("account_id") != account_id: continue
             if department_id and r.get("department_id") != department_id: continue
-            bk = str(r.get("booking_date") or "")[:10]
-            if bk and (bk < date_from or bk > date_to): continue
+            fc = str(r.get("final_call_datetime") or "")[:10]
+            if not fc or fc < date_from or fc > date_to: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
             if status_id and r.get("status_id") != status_id: continue
@@ -3312,7 +3387,10 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             act_total += act
             rd = {k: r.get(k) for k in ("id", "request_number", "quantity", "weight_kg", "volume_cbm",
                 "pickup_datetime", "call_datetime", "final_call_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
-                "foul_trip_reason", "booking_date", "international_mawb", "domestic_mawb")}
+                "foul_trip_reason", "foul_trip_date", "cancellation_date", "booking_date", "international_mawb", "domestic_mawb",
+                "end_unloading_datetime", "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
+                "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep")}
+            rd["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
             rd["status_name"] = sn
             rd["status_color"] = sc
             rd["truck_type_name"] = ttn
@@ -3332,7 +3410,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         return {"total_requests": len(flt), "total_estimated_cost": est_total,
             "total_actual_cost": act_total,
             "requests": req_list}
-    wh = ["tr.booking_date>=%s", "tr.booking_date<=%s"]
+    wh = ["DATE(tr.final_call_datetime)>=%s", "DATE(tr.final_call_datetime)<=%s"]
     pa = [date_from, date_to]
     if account_id: wh.append("tr.account_id=%s"); pa.append(account_id)
     if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
@@ -3379,10 +3457,98 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             i["trip_id"] = resolve_trip_id(i, truck_reqs)
         else:
             i["trip_id"] = i.get("trip_id") or None
+        i["delivered_date"] = (i.get("end_unloading_datetime") or "")[:10]
     s = db_1(f"SELECT COUNT(*) as total_requests,COALESCE(SUM(estimated_cost),0) as total_estimated_cost,COALESCE(SUM(actual_cost),0) as total_actual_cost FROM truck_requests tr LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id WHERE {ws}", tuple(pa))
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return {**(s or {}), "requests": reqs}
+
+BULK_COST_FIELDS = ("toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
+                    "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep")
+
+@app.post("/api/cost-summary/bulk-update")
+async def bulk_cost_update(request: Request):
+    require_admin(request)
+    body = await request.json()
+    date_from = (body.get("date_from") or "").strip()
+    date_to = (body.get("date_to") or "").strip()
+    if not date_from or not date_to:
+        raise HTTPException(400, "Date From and Date To are required")
+    vendor_id = body.get("vendor_id") or None
+    truck_type_id = body.get("truck_type_id") or None
+    split = bool(body.get("split"))
+    amounts = {}
+    for k, v in (body.get("amounts") or {}).items():
+        if k not in BULK_COST_FIELDS:
+            raise HTTPException(400, f"Unknown field: {k}")
+        if v is None or str(v).strip() == "":
+            continue
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"Invalid amount for {k}")
+        if f < 0:
+            raise HTTPException(400, "Amounts cannot be negative")
+        if f:
+            amounts[k] = f
+    if not amounts:
+        raise HTTPException(400, "Enter at least one amount")
+
+    def matches(r):
+        if r.get("status_id") not in (4, 7):
+            return False
+        d = (r.get("foul_trip_date") or str(r.get("end_unloading_datetime") or "")[:10])[:10]
+        if not d or d < date_from or d > date_to:
+            return False
+        if vendor_id:
+            tv = r.get("vendor_id")
+            if not tv and r.get("assigned_truck_id"):
+                trow = next((x for x in _store["trucks"] if x["id"] == r.get("assigned_truck_id")), None)
+                tv = trow.get("vendor_id") if trow else None
+            if tv != vendor_id:
+                return False
+        if truck_type_id:
+            tt = r.get("truck_type_id")
+            if not tt and r.get("assigned_truck_id"):
+                trow = next((x for x in _store["trucks"] if x["id"] == r.get("assigned_truck_id")), None)
+                tt = trow.get("truck_type_id") if trow else None
+            if tt != truck_type_id:
+                return False
+        return True
+
+    if LOCAL_MODE:
+        targets = [r for r in _store["truck_requests"] if matches(r)]
+        n = len(targets)
+        if not n:
+            raise HTTPException(400, "No matching requests found")
+        for k, v in amounts.items():
+            add = (v / n) if split else v
+            for r in targets:
+                r[k] = round((r.get(k) or 0) + add, 2)
+        return {"ok": True, "updated": n, "field_amount": {k: (round(v / n, 2) if split else v) for k, v in amounts.items()}}
+
+    wh = ["tr.status_id IN (4,7)", "COALESCE(tr.foul_trip_date, DATE(tr.end_unloading_datetime)) BETWEEN %s AND %s"]
+    pa = [date_from, date_to]
+    if vendor_id:
+        wh.append("COALESCE(tk.vendor_id, tr.vendor_id)=%s"); pa.append(vendor_id)
+    if truck_type_id:
+        wh.append("(tr.truck_type_id=%s OR tk.truck_type_id=%s)"); pa.extend([truck_type_id, truck_type_id])
+    ws = " AND ".join(wh)
+    rows = db_q(f"""SELECT tr.id FROM truck_requests tr
+        LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
+        WHERE {ws}""", tuple(pa))
+    ids = [r["id"] for r in rows]
+    n = len(ids)
+    if not n:
+        raise HTTPException(400, "No matching requests found")
+    marks = ",".join(["%s"] * n)
+    out_fields = {}
+    for k, v in amounts.items():
+        add = (v / n) if split else v
+        add = round(add, 2)
+        out_fields[k] = add
+        db_x(f"UPDATE truck_requests SET {k}=COALESCE({k},0)+%s WHERE id IN ({marks})", tuple([add] + ids))
+    return {"ok": True, "updated": n, "field_amount": out_fields}
 
 # ---------------------------------------------------------------------------
 # Google Sheets Sync Endpoints (public, no auth — for Apps Script)

@@ -1177,7 +1177,7 @@
         "operationId": "dashboard_api_dashboard_get",
         "parameters": [
           {
-            "name": "booking_from",
+            "name": "final_call_from",
             "in": "query",
             "required": false,
             "schema": {
@@ -1189,11 +1189,11 @@
                   "type": "null"
                 }
               ],
-              "title": "Booking From"
+              "title": "Final Call From"
             }
           },
           {
-            "name": "booking_to",
+            "name": "final_call_to",
             "in": "query",
             "required": false,
             "schema": {
@@ -1205,7 +1205,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Booking To"
+              "title": "Final Call To"
             }
           },
           {
@@ -1554,6 +1554,102 @@
                 }
               ],
               "title": "Call To"
+            }
+          },
+          {
+            "name": "initial_call_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Initial Call From"
+            }
+          },
+          {
+            "name": "initial_call_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Initial Call To"
+            }
+          },
+          {
+            "name": "foul_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Foul From"
+            }
+          },
+          {
+            "name": "foul_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Foul To"
+            }
+          },
+          {
+            "name": "cancel_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cancel From"
+            }
+          },
+          {
+            "name": "cancel_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cancel To"
             }
           },
           {
@@ -2690,6 +2786,22 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cost-summary/bulk-update": {
+      "post": {
+        "summary": "Bulk Cost Update",
+        "operationId": "bulk_cost_update_api_cost_summary_bulk_update_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
