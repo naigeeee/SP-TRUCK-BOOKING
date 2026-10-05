@@ -716,6 +716,19 @@ ROLE_LABELS_BASE = {
     "viewer": "Viewer", "normal_user": "Normal User", "admin": "Admin",
     "master_admin": "Master Admin", "new_user": "New User (no access)",
 }
+# Master admins may rename roles; the amended names live beside the page grants
+# in the role_visibility config under this reserved key (never a role itself).
+ROLE_LABELS_KEY = "role_labels"
+
+def clean_role_labels(labels) -> dict:
+    """Plain-text only: strip angle brackets, cap length, drop empties."""
+    if not isinstance(labels, dict): return {}
+    out = {}
+    for k, v in labels.items():
+        if not isinstance(v, str): continue
+        v = v.replace("<", "").replace(">", "").strip()
+        if v: out[str(k)] = v[:64]
+    return out
 
 def is_vendor_role(role) -> bool:
     return bool(role) and str(role).startswith(VENDOR_ROLE_PREFIX)
@@ -797,13 +810,20 @@ def me(request: Request):
 @app.get("/api/roles")
 def list_roles(request: Request):
     get_user(request)
-    roles = [{"value": r, "label": ROLE_LABELS_BASE[r], "kind": "base"}
+    labels = clean_role_labels((_load_role_visibility_cfg() or {}).get(ROLE_LABELS_KEY))
+    roles = [{"value": r, "label": labels.get(r) or ROLE_LABELS_BASE[r], "kind": "base"}
              for r in ("viewer", "normal_user", "admin", "master_admin", "new_user")]
     for v in all_vendors():
         name = v.get("name") or ""
         if not name: continue
-        roles.append({"value": VENDOR_ROLE_PREFIX + name,
-                      "label": VENDOR_ROLE_PREFIX + name, "kind": "vendor",
+        role = VENDOR_ROLE_PREFIX + name
+        if labels.get(role):
+            label = labels[role]
+        elif labels.get("vendor"):
+            label = f"{labels['vendor']} - {name}"
+        else:
+            label = role
+        roles.append({"value": role, "label": label, "kind": "vendor",
                       "vendor_id": v.get("id")})
     return roles
 
@@ -901,9 +921,26 @@ DEFAULT_ROLE_VISIBILITY = {
     "new_user": [],
 }
 
+def _load_role_visibility_cfg():
+    """Stored config dict (pages per role + role_labels) or None when absent."""
+    if LOCAL_MODE:
+        cfg = _store.get("role_visibility")
+    else:
+        row = db_1("SELECT config FROM role_visibility WHERE id=1")
+        cfg = row.get("config") if row else None
+        if isinstance(cfg, str):
+            try:
+                cfg = json.loads(cfg)
+            except Exception:
+                return None
+    return cfg if isinstance(cfg, dict) else None
+
 def _merge_role_visibility(cfg):
-    """Ensure every known role key exists: new_user = no pages, vendors = vendor defaults."""
-    out = dict(cfg or {})
+    """Ensure every known role key exists: new_user = no pages, vendors = vendor defaults.
+    Reserved keys (role_labels) are kept but never treated as roles."""
+    raw = cfg if isinstance(cfg, dict) else {}
+    labels = clean_role_labels(raw.get(ROLE_LABELS_KEY))
+    out = {k: v for k, v in raw.items() if k != ROLE_LABELS_KEY}
     out.setdefault("new_user", [])
     live_vendors = set(vendor_role_names())
     for k in [k for k in out if k.startswith(VENDOR_ROLE_PREFIX)]:
@@ -911,19 +948,15 @@ def _merge_role_visibility(cfg):
             out.pop(k)  # vendor deleted or renamed -> drop the stale role key
     for vr in live_vendors:
         out.setdefault(vr, list(DEFAULT_VENDOR_PAGES))
+    valid = set(BASE_ROLES) | {"vendor"} | live_vendors
+    out[ROLE_LABELS_KEY] = {k: v for k, v in labels.items() if k in valid}
     return out
 
 @app.get("/api/role-visibility")
 def get_role_visibility(request: Request):
     get_user(request)
-    if LOCAL_MODE:
-        return _merge_role_visibility(_store.get("role_visibility", DEFAULT_ROLE_VISIBILITY))
-    row = db_1("SELECT config FROM role_visibility WHERE id=1")
-    if row and row.get("config"):
-        if isinstance(row["config"], str):
-            return _merge_role_visibility(json.loads(row["config"]))
-        return _merge_role_visibility(row["config"])
-    return _merge_role_visibility(DEFAULT_ROLE_VISIBILITY)
+    cfg = _load_role_visibility_cfg()
+    return _merge_role_visibility(DEFAULT_ROLE_VISIBILITY if cfg is None else cfg)
 
 @app.put("/api/role-visibility")
 async def set_role_visibility(request: Request):
@@ -931,9 +964,21 @@ async def set_role_visibility(request: Request):
     body = await request.json()
     if not isinstance(body, dict): raise HTTPException(400, "Invalid config")
     valid_roles = set(BASE_ROLES) | {"vendor"} | set(vendor_role_names())
+    labels_in = body.pop(ROLE_LABELS_KEY, None)
+    if labels_in is not None:
+        if not isinstance(labels_in, dict): raise HTTPException(400, "Invalid role labels")
+        if any(not isinstance(v, str) for v in labels_in.values()): raise HTTPException(400, "Invalid role labels")
+        for role in labels_in:
+            if role not in valid_roles: raise HTTPException(400, f"Invalid role: {role}")
     for role, pages in body.items():
         if role not in valid_roles: raise HTTPException(400, f"Invalid role: {role}")
         if not isinstance(pages, list): raise HTTPException(400, f"Invalid pages for {role}")
+    # labels submitted -> cleaned; omitted -> keep the names already stored
+    if labels_in is None:
+        prev = _load_role_visibility_cfg() or {}
+        labels = clean_role_labels(prev.get(ROLE_LABELS_KEY))
+    else:
+        labels = clean_role_labels(labels_in)
     expanded = {}
     vendor_keys = [VENDOR_ROLE_PREFIX + (v.get("name") or "") for v in all_vendors()]
     for role, pages in body.items():
@@ -941,6 +986,7 @@ async def set_role_visibility(request: Request):
             for vk in vendor_keys: expanded[vk] = list(pages)
         else:
             expanded[role] = list(pages)
+    expanded[ROLE_LABELS_KEY] = labels
     if LOCAL_MODE:
         _store["role_visibility"] = expanded
         return {"ok": True}
@@ -1108,6 +1154,17 @@ async def update_status(st_id: int, request: Request):
     return db_1("SELECT * FROM truck_statuses WHERE id=%s", (st_id,))
 
 # Vendors
+def _rename_role_label(cfg, old_role, new_role):
+    """Follow a vendor role rename/delete inside the stored role_labels map."""
+    labels = cfg.get(ROLE_LABELS_KEY)
+    if not isinstance(labels, dict) or old_role not in labels:
+        return False
+    if new_role:
+        labels[new_role] = labels.pop(old_role)
+    else:
+        labels.pop(old_role)
+    return True
+
 def _sync_vendor_role(old_role, new_role=None):
     """Vendor renamed (new_role set) or deleted (new_role None): keep users and
     the stored role-visibility config in step with the vendor list."""
@@ -1116,11 +1173,13 @@ def _sync_vendor_role(old_role, new_role=None):
             if u.get("role") == old_role:
                 u["role"] = new_role or "new_user"
         cfg = _store.get("role_visibility")
-        if isinstance(cfg, dict) and old_role in cfg:
-            if new_role:
-                cfg[new_role] = cfg.pop(old_role)
-            else:
-                cfg.pop(old_role)
+        if isinstance(cfg, dict):
+            if old_role in cfg:
+                if new_role:
+                    cfg[new_role] = cfg.pop(old_role)
+                else:
+                    cfg.pop(old_role)
+            _rename_role_label(cfg, old_role, new_role)
         return
     if new_role:
         db_x("UPDATE users SET role=%s WHERE role=%s", (new_role, old_role))
@@ -1132,11 +1191,16 @@ def _sync_vendor_role(old_role, new_role=None):
             cfg = json.loads(row["config"]) if isinstance(row["config"], str) else dict(row["config"])
         except Exception:
             return
+        changed = False
         if old_role in cfg:
             if new_role:
                 cfg[new_role] = cfg.pop(old_role)
             else:
                 cfg.pop(old_role)
+            changed = True
+        if _rename_role_label(cfg, old_role, new_role):
+            changed = True
+        if changed:
             db_x("UPDATE role_visibility SET config=%s WHERE id=1", (json.dumps(cfg),))
 
 @app.get("/api/vendors")

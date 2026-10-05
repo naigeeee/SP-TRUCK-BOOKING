@@ -292,6 +292,8 @@ async function init(){
     try{vis=await(await fetch('/api/role-visibility')).json()}catch(e){}
     if(vis){
       userPages=vis[user.role]||[];
+      roleLabelsSaved=vis.role_labels||{};
+      document.getElementById('uRole').textContent=roleName(user.role);
     }else if(isVendor){
       userPages=[...DEFAULT_VENDOR_PAGES];
     }else{
@@ -2099,22 +2101,29 @@ async function delLib(tbl,id){if(!confirm('Delete this item?'))return;try{const 
 
 // Users
 let roleList=null;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function roleMeta(r){
   const l=Array.isArray(roleList)?roleList:null;
   const m=l?l.find(x=>x.value===r):null;
-  if(m)return m;
-  if(r==='new_user')return{value:r,label:'New User',kind:'base'};
-  if(r&&r.indexOf('Vendor - ')===0)return{value:r,label:r,kind:'vendor'};
-  return{value:r,label:(r||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),kind:'base'};
+  const isVendorRole=!!r&&r.indexOf('Vendor - ')===0;
+  let label;
+  if(roleLabelsSaved[r])label=roleLabelsSaved[r];
+  else if(m&&m.label)label=m.label;
+  else if(isVendorRole)label=(roleLabelsSaved['vendor']||'Vendor')+' - '+r.slice(9);
+  else if(r==='new_user')label='New User';
+  else label=(r||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  return {value:r,label,kind:isVendorRole?'vendor':'base'};
 }
+function roleName(r){return roleMeta(r).label}
 function roleBadge(r){
   const m=roleMeta(r);
-  if(r==='master_admin')return '<span class="badge b-pp"><i class="fas fa-crown"></i> Master Admin</span>';
-  if(r==='admin')return '<span class="badge b-bl"><i class="fas fa-shield-alt"></i> Admin</span>';
-  if(m.kind==='vendor')return '<span class="badge b-gn"><i class="fas fa-truck"></i> '+m.label+'</span>';
-  if(r==='new_user')return '<span class="badge b-yl"><i class="fas fa-user-plus"></i> New User</span>';
-  if(r==='normal_user')return '<span class="badge b-gy"><i class="fas fa-user"></i> Normal User</span>';
-  return '<span class="badge b-gn"><i class="fas fa-eye"></i> Viewer</span>';
+  const lbl=esc(m.label);
+  if(r==='master_admin')return '<span class="badge b-pp"><i class="fas fa-crown"></i> '+lbl+'</span>';
+  if(r==='admin')return '<span class="badge b-bl"><i class="fas fa-shield-alt"></i> '+lbl+'</span>';
+  if(m.kind==='vendor')return '<span class="badge b-gn"><i class="fas fa-truck"></i> '+lbl+'</span>';
+  if(r==='new_user')return '<span class="badge b-yl"><i class="fas fa-user-plus"></i> '+lbl+'</span>';
+  if(r==='normal_user')return '<span class="badge b-gy"><i class="fas fa-user"></i> '+lbl+'</span>';
+  return '<span class="badge b-gn"><i class="fas fa-eye"></i> '+lbl+'</span>';
 }
 async function loadUsers(){
   try{
@@ -2123,7 +2132,7 @@ async function loadUsers(){
     const tb=document.getElementById('uTbl');
     const isMaster=user.role==='master_admin';
     const isAdmin=['master_admin','admin'].includes(user.role);
-    const optsHtml=(sel,roles)=>roles.map(r=>{const m=roleMeta(r);return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+m.label+'</option>'}).join('');
+    const optsHtml=(sel,roles)=>roles.map(r=>{const m=roleMeta(r);return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+esc(m.label)+'</option>'}).join('');
     const masterRoles=Array.isArray(roleList)&&roleList.length?roleList.map(x=>x.value):['viewer','normal_user','admin','master_admin','new_user'];
     const adminRoles=masterRoles.filter(r=>r!=='master_admin');
     tb.innerHTML=data.map(u=>{
@@ -2208,7 +2217,14 @@ const ALL_PAGES=[
 ];
 const ROLE_LABELS={viewer:'Viewer',normal_user:'Normal User',admin:'Admin',master_admin:'Master Admin',new_user:'New User',vendor:'Vendor'};
 const ROLE_ORDER=['viewer','normal_user','admin','master_admin','new_user','vendor'];
-let roleVisConfig={};
+let roleVisConfig={},roleLabelsSaved={};
+function rvLabel(r){
+  if(roleLabelsSaved[r])return roleLabelsSaved[r];
+  const l=Array.isArray(roleList)?roleList:null;
+  const m=l?l.find(x=>x.value===r):null;
+  if(m&&m.label)return m.label;
+  return ROLE_LABELS[r]||r;
+}
 function rvPages(r){
   if(r==='vendor'){
     if(Array.isArray(roleVisConfig['vendor']))return roleVisConfig['vendor'];
@@ -2220,15 +2236,30 @@ function rvPages(r){
 
 async function loadRoleVisibility(){
   try{
-    roleVisConfig=await(await fetch('/api/role-visibility')).json();
+    const [vRes,rRes]=await Promise.all([fetch('/api/role-visibility'),fetch('/api/roles')]);
+    roleVisConfig=await vRes.json();
+    if(rRes.ok){const rl=await rRes.json();if(Array.isArray(rl))roleList=rl}
+    roleLabelsSaved=roleVisConfig.role_labels||{};
     renderRoleVisibility();
   }catch(e){console.error(e)}
 }
 
 function renderRoleVisibility(){
   const el=document.getElementById('rvBody');
-  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:10px 12px;border-bottom:2px solid #E5E7EB;min-width:180px">Page</th>';
-  ROLE_ORDER.forEach(r=>{html+='<th style="text-align:center;padding:10px 12px;border-bottom:2px solid #E5E7EB;min-width:100px">'+ROLE_LABELS[r]+'</th>'});
+  const canRename=!!user&&user.role==='master_admin';
+  let html='';
+  if(canRename){
+    html+='<div style="margin-bottom:12px;padding:9px 12px;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:8px;font-size:12.5px;color:#3730A3"><i class="fas fa-pen"></i> <strong>Rename a role:</strong> type over any role name in the header below, then <strong>Save Changes</strong>. The new name is used everywhere, including the User Roles page.</div>';
+  }
+  html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:10px 12px;border-bottom:2px solid #E5E7EB;min-width:180px">Page</th>';
+  ROLE_ORDER.forEach(r=>{
+    const lbl=esc(rvLabel(r));
+    let inner=lbl;
+    if(canRename){
+      inner='<input class="rv-role-name" data-role="'+r+'" value="'+lbl+'" maxlength="64" aria-label="Role name" style="width:100%;max-width:130px;text-align:center;font-weight:700;font-size:13px;font-family:inherit;color:#111827;background:#fff;border:1px solid #D1D5DB;border-radius:6px;padding:5px 6px">';
+    }
+    html+='<th style="text-align:center;padding:10px 12px;border-bottom:2px solid #E5E7EB;min-width:100px">'+inner+'</th>';
+  });
   html+='</tr></thead><tbody>';
   ALL_PAGES.forEach(p=>{
     html+='<tr><td style="padding:8px 12px;border-bottom:1px solid #F3F4F6;font-weight:600">'+p.label+'</td>';
@@ -2249,11 +2280,20 @@ async function saveRoleVisibility(){
   document.querySelectorAll('.rv-cb').forEach(cb=>{
     if(cb.checked)config[cb.dataset.role].push(cb.dataset.page);
   });
+  const labels={};
+  document.querySelectorAll('.rv-role-name').forEach(inp=>{
+    const v=inp.value.trim();
+    if(v)labels[inp.dataset.role]=v;
+  });
+  if(Object.keys(labels).length)config.role_labels=labels;
   try{
     const res=await fetch('/api/role-visibility',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)});
     if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to save','error');return}
     roleVisConfig=await(await fetch('/api/role-visibility')).json();
+    roleLabelsSaved=roleVisConfig.role_labels||{};
     renderRoleVisibility();
+    const ur=document.getElementById('uRole');
+    if(ur&&user)ur.textContent=roleName(user.role);
     toast('Role visibility saved');
   }catch(e){toast('Failed to save','error')}
 }
