@@ -777,7 +777,7 @@ async function editReq(id){
     document.getElementById('eSt').onchange=function(){const v=+this.value;const prev=+this.dataset.prev||0;const fd=document.getElementById('eFoulDate');const cd=document.getElementById('eCancelDate');if(prev===7&&v!==7&&fd)fd.value='';if(prev===5&&v!==5&&cd)cd.value='';if(v===1){const ps=document.getElementById('ePlate');if(ps)ps.value=''}this.dataset.prev=String(v);const t=new Date();const pad=n=>String(n).padStart(2,'0');const today=t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());if(v===7&&fd&&!fd.value)fd.value=today;if(v===5&&cd&&!cd.value)cd.value=today};
     if(isVendor){['eAcct','eDept','eOrg','eDst','eImawb','eDmawb','eCall','eCustoms','eFinal'].forEach(function(i){const el=document.getElementById(i);if(el){el.disabled=true;el.title='Vendor role cannot edit this field'}})}
     document.getElementById('eAtts').innerHTML=(r.attachments||[]).map(a=>'<div class="att-item"><div class="att-info"><i class="fas fa-file"></i><div><div class="att-nm">'+a.original_filename+'</div><div class="att-sz">'+fmtS(a.file_size)+'</div></div></div><div><a href="/api/attachments/'+a.id+'/download" class="btn btn-sm btn-o"><i class="fas fa-download"></i></a> <button class="btn btn-sm btn-d" onclick="delAtt('+a.id+','+id+')"><i class="fas fa-trash"></i></button></div></div>').join('');
-    document.getElementById('eFile').onchange=async()=>{const files=document.getElementById('eFile').files;for(const f of files){const fd=new FormData();fd.append('file',f);await fetch('/api/requests/'+id+'/attachments',{method:'POST',body:fd});toast(f.name+' uploaded')}editReq(id)};
+    document.getElementById('eFile').onchange=async()=>{const s=await saveReqForm(id);if(!s.ok){toast('Upload cancelled - '+(s.error||'save failed'),'error');return}const files=document.getElementById('eFile').files;for(const f of files){const fd=new FormData();fd.append('file',f);const ur=await fetch('/api/requests/'+id+'/attachments',{method:'POST',body:fd});if(ur.ok){toast(f.name+' uploaded')}else{const e=await ur.json().catch(()=>({}));toast(f.name+' upload failed: '+(e.detail||''),'error')}}editReq(id)};
     try{
       const tl=await(await fetch('/api/trucks')).json();
       const curTruck=tl.find(t=>t.id===r.assigned_truck_id)||null;
@@ -805,7 +805,7 @@ async function editReq(id){
   }catch(e){toast('Failed','error')}
 }
 
-async function saveReq(id){
+function collectReqForm(){
   const statusId=+document.getElementById('eSt').value;
   if(statusId===4){
     const arrPick=document.getElementById('eArrPickup').value;
@@ -814,26 +814,36 @@ async function saveReq(id){
     const arrDest=document.getElementById('eArrDest').value;
     const startUnload=document.getElementById('eStartUnload').value;
     const endUnload=document.getElementById('eEndUnload').value;
-    if(!arrPick||!startLoad||!endLoad||!arrDest||!startUnload||!endUnload){toast('Delivered status requires: Arrived Pickup, Start Loading, End Loading, Arrived Destination, Start Unloading, End Unloading','error');return}
+    if(!arrPick||!startLoad||!endLoad||!arrDest||!startUnload||!endUnload)return {error:'Delivered status requires: Arrived Pickup, Start Loading, End Loading, Arrived Destination, Start Unloading, End Unloading'};
     const events=[{v:arrPick,l:'Arrived Pickup'},{v:startLoad,l:'Start Loading'},{v:endLoad,l:'End Loading'},{v:arrDest,l:'Arrived Destination'},{v:startUnload,l:'Start Unloading'},{v:endUnload,l:'End Unloading'}];
     for(let i=1;i<events.length;i++){
-      if(events[i].v<events[i-1].v){toast(events[i].l+' ('+events[i].v+') cannot be earlier than '+events[i-1].l+' ('+events[i-1].v+')','error');return}
+      if(events[i].v<events[i-1].v)return {error:events[i].l+' ('+events[i].v+') cannot be earlier than '+events[i-1].l+' ('+events[i-1].v+')'};
     }
   }
   if(statusId===7){
     const foulReason=document.getElementById('eFoul').value;
-    if(!foulReason||!foulReason.trim()){toast('Foul Trip reason is required','error');return}
-    if(statusId!==editOrigStatus&&!document.getElementById('eFoulDate').value){toast('Foul Trip Date is required for Foul Trip status','error');return}
+    if(!foulReason||!foulReason.trim())return {error:'Foul Trip reason is required'};
+    if(statusId!==editOrigStatus&&!document.getElementById('eFoulDate').value)return {error:'Foul Trip Date is required for Foul Trip status'};
     const fcSel=document.getElementById('eFoulCount');
-    if(statusId!==editOrigStatus&&(!fcSel||fcSel.value!=='1')&&(!fcSel||fcSel.value!=='2')){toast('Foul Trip Count Confirmation (1 or 2) is required for Foul Trip status','error');return}
+    if(statusId!==editOrigStatus&&(!fcSel||fcSel.value!=='1')&&(!fcSel||fcSel.value!=='2'))return {error:'Foul Trip Count Confirmation (1 or 2) is required for Foul Trip status'};
   }
   const fcEl=document.getElementById('eFoulCount');
   const fcVal=fcEl&&fcEl.value?+fcEl.value:null;
   if(statusId===5&&statusId!==editOrigStatus){
     const cDate=document.getElementById('eCancelDate').value;
-    if(!cDate){toast('Cancellation Date is required for Cancelled status','error');return}
+    if(!cDate)return {error:'Cancellation Date is required for Cancelled status'};
   }
   const body={account_id:+document.getElementById('eAcct').value,department_id:+document.getElementById('eDept').value,origin_port_id:+document.getElementById('eOrg').value,destination_port_id:+document.getElementById('eDst').value,truck_type_id:document.getElementById('eTT').value?+document.getElementById('eTT').value:null,status_id:statusId,call_datetime:document.getElementById('eCall').value||null,customs_cleared_datetime:document.getElementById('eCustoms').value||null,final_call_datetime:document.getElementById('eFinal').value||null,quantity:+document.getElementById('eQty').value||0,weight_kg:+document.getElementById('eWt').value||0,volume_cbm:+document.getElementById('eVol').value||0,special_instructions:document.getElementById('eNotes').value,international_mawb:document.getElementById('eImawb').value||'',domestic_mawb:document.getElementById('eDmawb').value||'',arrived_pickup_datetime:document.getElementById('eArrPickup').value||null,start_loading_datetime:document.getElementById('eStartLoad').value||null,end_loading_datetime:document.getElementById('eEndLoad').value||null,arrived_dest_datetime:document.getElementById('eArrDest').value||null,start_unloading_datetime:document.getElementById('eStartUnload').value||null,end_unloading_datetime:document.getElementById('eEndUnload').value||null,foul_trip_reason:document.getElementById('eFoul').value,foul_trip_date:document.getElementById('eFoulDate').value||null,cancellation_date:document.getElementById('eCancelDate').value||null,foul_trip_count:fcVal};
+  return {body,statusId};
+}
+
+// Saves the edit form. Returns {ok:true} or {error} and never toasts, so the
+// attachment upload can run it first: the modal re-renders after an upload, so
+// anything typed but not yet saved would otherwise be thrown away.
+async function saveReqForm(id){
+  const g=collectReqForm();
+  if(g.error)return g;
+  const body=g.body,statusId=g.statusId;
   if(editCtx){
     const ps=document.getElementById('ePlate');
     if(ps&&ps.value&&+ps.value!==(editCtx.origTruckId||0)&&statusId!==1){
@@ -841,15 +851,25 @@ async function saveReq(id){
         const ares=await fetch('/api/trips/'+encodeURIComponent(editCtx.tripKey)+'/assign-truck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({truck_id:+ps.value})});
         if(!ares.ok){throw new Error(await apiErr(ares))}
         if(body.status_id===2)body.status_id=3;
-      }catch(e){toast('Truck plate change failed: '+e.message,'error');return}
+      }catch(e){return {error:'Truck plate change failed: '+e.message}}
     }
   }
-  try{const res=await fetch('/api/requests/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!res.ok){throw new Error(await apiErr(res))}toast('Request updated');closeM();loadML();loadDash()}catch(e){toast(e.message,'error')}
+  try{
+    const res=await fetch('/api/requests/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok)return {error:await apiErr(res)};
+    return {ok:true};
+  }catch(e){return {error:(e&&e.message)||'Failed to save'}}
+}
+
+async function saveReq(id){
+  const s=await saveReqForm(id);
+  if(!s.ok){toast(s.error||'Failed to save','error');return}
+  toast('Request updated');closeM();loadML();loadDash();
 }
 
 async function delReq(id){if(!confirm('Delete this request?'))return;try{const res=await fetch('/api/requests/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadML()}catch(e){toast('Failed','error')}}
 
-async function delAtt(aid,rid){if(!confirm('Delete attachment?'))return;try{const res=await fetch('/api/attachments/'+aid,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');editReq(rid)}catch(e){toast('Failed','error')}}
+async function delAtt(aid,rid){if(!confirm('Delete attachment?'))return;const s=await saveReqForm(rid);if(!s.ok){toast('Delete cancelled - '+(s.error||'save failed'),'error');return}try{const res=await fetch('/api/attachments/'+aid,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');editReq(rid)}catch(e){toast('Failed','error')}}
 
 function clearAllRequests(){
   document.getElementById('mTitle').textContent='Clear All Requests';
