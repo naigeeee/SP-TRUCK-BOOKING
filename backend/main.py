@@ -2881,14 +2881,12 @@ def trip_assignments(request: Request):
             r["trip_id"] = r.get("trip_id") or store_trip.get(r["id"])
         avail_trucks = None
         if vid is not None:
-            in_transit = set(r.get("assigned_truck_id") for r in _store["truck_requests"] if r.get("status_id") == 3 and r.get("assigned_truck_id"))
             avail_trucks = []
             for t in _store["trucks"]:
                 if t.get("vendor_id") != vid: continue
                 if not t.get("is_available", True): continue
                 if t.get("status") not in ("available", "assigned"): continue
-                if t["id"] in in_transit: continue
-                active = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") == 2]
+                active = [r for r in _store["truck_requests"] if r.get("assigned_truck_id") == t["id"] and r.get("status_id") in (2, 3)]
                 avail_trucks.append({"id": t["id"], "plate_number": t["plate_number"], "vendor_id": t.get("vendor_id"),
                     "truck_type_id": t.get("truck_type_id"),
                     "truck_type_name": next((tt["name"] for tt in _store["truck_types"] if tt["id"] == t.get("truck_type_id")), ""),
@@ -2963,10 +2961,9 @@ def trip_assignments(request: Request):
         avail_trucks = db_q("""SELECT t.id, t.plate_number, t.vendor_id, t.driver_name, t.driver_phone, t.status, t.truck_type_id,
             tt.name as truck_type_name FROM trucks t LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
             WHERE t.is_active=1 AND t.is_available=1 AND t.vendor_id=%s AND t.status IN ('available','assigned')
-            AND t.id NOT IN (SELECT assigned_truck_id FROM truck_requests WHERE status_id=3 AND assigned_truck_id IS NOT NULL)
             ORDER BY t.plate_number""", (vid,))
         for t in avail_trucks:
-            cnt = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id=2", (t["id"],))
+            cnt = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3)", (t["id"],))
             t["active_requests"] = cnt.get("c", 0) if cnt else 0
     groups = {}
     for r in rows:
