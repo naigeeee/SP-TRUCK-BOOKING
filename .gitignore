@@ -4,6 +4,7 @@ token.txt
 setup-check.txt
 __pycache__/
 *.pyc
+backend/uploads/
 .venv/
 venv/
 node_modules/
