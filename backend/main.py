@@ -419,6 +419,118 @@ def freeze_trip_ids_on_truck(truck_id):
         if tid and tid != orig:
             db_x("UPDATE truck_requests SET trip_id=%s WHERE id=%s", (tid, x["id"]))
 
+# Trip numbering: a trip is a batch of requests sharing the base of the trip id
+# ('ACTS-000078-A' -> 'ACTS-000078'). Drop numbers inside a batch are always 1..n
+# and the trip letter is the letter of that drop number, so whenever a member leaves
+# the batch the rest have to be pushed up together.
+
+def trip_group_rows(base):
+    """Still-active members of a trip that carry a drop number."""
+    if not base:
+        return []
+    if LOCAL_MODE:
+        return [r for r in _store["truck_requests"]
+                if r.get("trip_id") and r.get("drop_sequence") is not None
+                and trip_base(r["trip_id"]) == base and r.get("status_id") in (2, 3, 6)]
+    rows = db_q("""SELECT id, status_id, drop_sequence, trip_id, assigned_truck_id, vendor_id,
+        truck_type_id, origin_port_id, destination_port_id, booking_date FROM truck_requests
+        WHERE status_id IN (2,3,6) AND drop_sequence IS NOT NULL AND trip_id IS NOT NULL
+        AND (trip_id=%s OR trip_id LIKE %s)""", (base, f"{base}-%"))
+    return [r for r in rows if trip_base(r.get("trip_id")) == base]
+
+def trip_group_dropped(base):
+    """Every member of a trip that still carries a drop number, whatever its status.
+    Used to tell a number that was freed (its request went back to Pending) from one
+    that is simply held by a trip member that already finished."""
+    if not base:
+        return []
+    if LOCAL_MODE:
+        return [r for r in _store["truck_requests"]
+                if r.get("trip_id") and r.get("drop_sequence") is not None
+                and trip_base(r["trip_id"]) == base]
+    rows = db_q("""SELECT id, status_id, drop_sequence, trip_id FROM truck_requests
+        WHERE drop_sequence IS NOT NULL AND trip_id IS NOT NULL
+        AND (trip_id=%s OR trip_id LIKE %s)""", (base, f"{base}-%"))
+    return [r for r in rows if trip_base(r.get("trip_id")) == base]
+
+def trip_group_is_gapped(rows):
+    seqs = sorted(r.get("drop_sequence") or 0 for r in rows)
+    return seqs != list(range(1, len(seqs) + 1))
+
+def _trip_estimated_cost(row, seq):
+    rate = best_rate_for(row.get("vendor_id"), row.get("truck_type_id"),
+                         row.get("origin_port_id"), row.get("destination_port_id"),
+                         booking_date=row.get("booking_date"))
+    return compute_rate(rate, row.get("destination_port_id"), seq) if rate else 0
+
+def apply_trip_order(base, ordered):
+    """Write drop numbers 1..n and their trip letters for a trip, in the given order."""
+    if not base or not ordered:
+        return 0
+    changed = 0
+    for i, row in enumerate(ordered, start=1):
+        seq, tid = i, f"{base}-{_trip_letter(i)}"
+        if row.get("drop_sequence") == seq and row.get("trip_id") == tid:
+            continue
+        changed += 1
+        if LOCAL_MODE:
+            src = next((x for x in _store["truck_requests"] if x["id"] == row["id"]), None)
+            if not src:
+                continue
+            src["drop_sequence"], src["trip_id"] = seq, tid
+            if not src.get("assigned_truck_id"):
+                src["estimated_cost"] = _trip_estimated_cost(src, seq)
+        else:
+            db_x("UPDATE truck_requests SET drop_sequence=%s, trip_id=%s WHERE id=%s", (seq, tid, row["id"]))
+            if not row.get("assigned_truck_id"):
+                db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s",
+                     (_trip_estimated_cost(row, seq), row["id"]))
+    return changed
+
+def resequence_trip(base, ordered=None):
+    """Push a trip's remaining members up so the drop numbers are 1..n again."""
+    if not base:
+        return 0
+    rows = trip_group_rows(base) if ordered is None else list(ordered)
+    if ordered is None:
+        rows.sort(key=lambda r: (r.get("drop_sequence") or 0, r.get("id") or 0))
+    return apply_trip_order(base, rows)
+
+def resequence_trip_if_freed(base):
+    """Renumber a trip only when one of its numbers was truly freed — the request holding
+    it went back to Pending. A number still held by a Delivered/Cancelled member stays
+    put, exactly as it does on a truck trip."""
+    if not base:
+        return 0
+    if not trip_group_is_gapped(trip_group_rows(base)):
+        return 0
+    if not trip_group_is_gapped(trip_group_dropped(base)):
+        return 0
+    return resequence_trip(base)
+
+def trip_counts_for(row, cache):
+    """(active_trip_count, is_consolidated) for a request that has no truck of its own.
+    A trip left short by a revert is repaired the moment it is seen, so drop numbers
+    never stay behind on screen."""
+    base = trip_base(row.get("trip_id"))
+    if not base or row.get("status_id") not in (2, 3, 6):
+        return 0, False
+    grp = cache.get(base)
+    if grp is None:
+        grp = trip_group_rows(base)
+        if resequence_trip_if_freed(base):
+            grp = trip_group_rows(base)
+        cache[base] = grp
+    # The rows being rendered were read before any repair, so hand them the repaired numbers.
+    for g in grp:
+        if g.get("id") == row.get("id"):
+            if g.get("drop_sequence") is not None:
+                row["drop_sequence"] = g.get("drop_sequence")
+            row["trip_id"] = g.get("trip_id") or row.get("trip_id")
+            break
+    active = [x for x in grp if x.get("status_id") in (2, 3)]
+    return len(active), row.get("status_id") in (2, 3) and len(active) > 1
+
 def _ensure_trip_id_before_terminal(row, truck_peers):
     if row.get("trip_id") or not row.get("assigned_truck_id"):
         return
@@ -453,6 +565,21 @@ def find_best_rate(vendor_id, truck_type_id, origin_port_id, dest_port_id, booki
     exact = next((vr for vr in candidates if vr.get("destination_port_id") == dest_port_id), None)
     if exact: return exact
     return candidates[0] if candidates else None
+
+def best_rate_for(vendor_id, truck_type_id, origin_port_id, dest_port_id, booking_date=None):
+    """Same match as find_best_rate, but reads the rate table when the app runs on a database."""
+    if LOCAL_MODE:
+        return find_best_rate(vendor_id, truck_type_id, origin_port_id, dest_port_id, booking_date=booking_date)
+    if not vendor_id or not truck_type_id or not origin_port_id:
+        return None
+    rates = db_q("""SELECT rate_per_trip, default_rate, destination_drops, destination_port_id,
+        effective_date, expiry_date, foul_trip_pct, fuel_surcharge_pct
+        FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1""",
+        (vendor_id, truck_type_id, origin_port_id))
+    if booking_date is not None:
+        rates = [r for r in rates if rate_in_range(r, booking_date)]
+    exact = next((r for r in rates if r.get("destination_port_id") == dest_port_id), None)
+    return exact or (rates[0] if rates else None)
 
 def backfill_rate_estimated_costs(vendor_id, truck_type_id, origin_port_id):
     if LOCAL_MODE:
@@ -638,7 +765,7 @@ def add_distances_to_requests(reqs, coords_map):
             trips.setdefault(trip_key, []).append(r)
         elif (not trip_key) and r.get("assigned_truck_id") and ds is not None and r.get("status_id") in (2, 3):
             trips.setdefault(("truck", r["assigned_truck_id"]), []).append(r)
-        else:
+        elif r.get("status_id") != 1:
             r["distance_km"] = compute_distance_for_request(r, coords_map)
     for key in trips:
         group = trips[key]
@@ -651,7 +778,10 @@ def add_distances_to_requests(reqs, coords_map):
                 r["distance_km"] = compute_distance_for_request(r, coords_map, prev_port_id=prev_dest)
             prev_dest = r.get("destination_port_id")
     for r in reqs:
-        if "distance_km" not in r:
+        # A Pending request is not on any trip, so it has no distance to travel.
+        if r.get("status_id") == 1:
+            r["distance_km"] = None
+        elif "distance_km" not in r:
             r["distance_km"] = None
 
 def gen_name_from_email(email):
@@ -1723,11 +1853,12 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     foul_from: Optional[str] = None, foul_to: Optional[str] = None,
     cancel_from: Optional[str] = None, cancel_to: Optional[str] = None,
     customs_from: Optional[str] = None, customs_to: Optional[str] = None,
-    mawb: Optional[str] = None, plate: Optional[str] = None,
+    mawb: Optional[str] = None, plate: Optional[str] = None, trip: Optional[str] = None,
     sort_by: str = "created_at", sort_dir: str = "desc", page: int = 1, per_page: int = 50):
     scope_vid, _ = vendor_scope(request)
     if LOCAL_MODE:
         reqs = [row2d(r) for r in _store["truck_requests"]]
+        trip_cache = {}
         for r in reqs:
             r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
             r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
@@ -1761,8 +1892,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
                 r["is_consolidated"] = r.get("status_id") in (2, 3) and len(active) > 1
             else:
                 r["trip_id"] = r.get("trip_id") or None
-                r["active_trip_count"] = 0
-                r["is_consolidated"] = False
+                cnt, consol = trip_counts_for(r, trip_cache)
+                r["active_trip_count"] = cnt
+                r["is_consolidated"] = consol
         if scope_vid is not None:
             reqs = [r for r in reqs if _owned_by_vendor(r, scope_vid)]
         if status_id: reqs = [r for r in reqs if r.get("status_id") == status_id]
@@ -1797,6 +1929,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if plate:
             pl = plate.lower()
             reqs = [r for r in reqs if pl in (r.get("plate_number") or "").lower()]
+        if trip:
+            tp = trip.lower()
+            reqs = [r for r in reqs if tp in (r.get("trip_id") or "").lower()]
         if search:
             s = search.lower()
             reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "")).lower()]
@@ -1835,6 +1970,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if customs_to: wh.append("DATE(tr.customs_cleared_datetime)<=%s"); pa.append(customs_to)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
+    if trip: wh.append("tr.trip_id LIKE %s"); pa.append(f"%{trip}%")
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
     ws = " AND ".join(wh)
     if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date"):
@@ -1866,6 +2002,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         {joins}
         WHERE {ws} ORDER BY {order_col} {sd} LIMIT %s OFFSET %s""", tuple(pa))
     for i in items: i["attachments"] = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (i["id"],))
+    trip_cache = {}
     for i in items:
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
             truck_reqs = db_q("""SELECT id, request_number, status_id, drop_sequence, trip_id,
@@ -1877,8 +2014,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             i["is_consolidated"] = i.get("status_id") in (2, 3) and len(active) > 1
         else:
             i["trip_id"] = i.get("trip_id") or None
-            i["active_trip_count"] = 0
-            i["is_consolidated"] = False
+            cnt, consol = trip_counts_for(i, trip_cache)
+            i["active_trip_count"] = cnt
+            i["is_consolidated"] = consol
         i["delivered_date"] = (i.get("end_unloading_datetime") or "")[:10]
     if sort_by == "trip_id":
         items.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
@@ -2072,6 +2210,7 @@ async def update_request(rid: int, request: Request):
                     _ensure_trip_id_before_terminal(r, peers)
                 if new_status == 1:
                     old_tid = r.get("assigned_truck_id")
+                    old_base = trip_base(r.get("trip_id"))
                     reverted_seq = r.get("drop_sequence")
                     r["assigned_truck_id"] = None
                     r["drop_sequence"] = None
@@ -2097,6 +2236,8 @@ async def update_request(rid: int, request: Request):
                                 if t["id"] == old_tid: t["status"] = "available"; break
                         else:
                             recalculate_trip_rates(old_tid)
+                    if old_base:
+                        resequence_trip_if_freed(old_base)
                 if new_status == 4 and r.get("assigned_truck_id"):
                     if r.get("actual_cost", 0) == 0: r["actual_cost"] = r.get("estimated_cost", 0)
                     tid = r["assigned_truck_id"]
@@ -2162,8 +2303,9 @@ async def update_request(rid: int, request: Request):
             if cur2.get("trip_id"):
                 db_x("UPDATE truck_requests SET trip_id=%s WHERE id=%s AND trip_id IS NULL", (cur2["trip_id"], rid))
     if new_status == 1:
-        req = db_1("SELECT assigned_truck_id, drop_sequence FROM truck_requests WHERE id=%s", (rid,))
+        req = db_1("SELECT assigned_truck_id, drop_sequence, trip_id FROM truck_requests WHERE id=%s", (rid,))
         old_tid = req.get("assigned_truck_id") if req else None
+        old_base = trip_base(req.get("trip_id")) if req else None
         reverted_seq = req.get("drop_sequence") if req else None
         db_x("""UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL, trip_id=NULL,
             estimated_cost=0, actual_cost=0, truck_type_id=NULL, vendor_id=NULL, final_call_datetime=NULL
@@ -2177,6 +2319,8 @@ async def update_request(rid: int, request: Request):
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (old_tid,))
             else:
                 recalculate_trip_rates(old_tid)
+        if old_base:
+            resequence_trip_if_freed(old_base)
         existing = db_1("SELECT id FROM pending_allocations WHERE truck_request_id=%s AND is_accepted IS NULL", (rid,))
         if not existing:
             db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'Reverted to pending')", (rid,))
@@ -2434,8 +2578,24 @@ async def update_drop_sequence(rid: int, request: Request):
     if not new_seq or new_seq < 1: raise HTTPException(400, "drop_sequence required and must be >= 1")
     if LOCAL_MODE:
         req = next((r for r in _store["truck_requests"] if r["id"] == rid), None)
-        if not req or not req.get("assigned_truck_id"): raise HTTPException(400, "Request not allocated to a truck")
-        if req.get("status_id") != 2: raise HTTPException(400, "Drop # can only be rearranged for Allocated requests")
+        if not req: raise HTTPException(404, "Request not found")
+    else:
+        req = db_1("SELECT assigned_truck_id, drop_sequence, status_id, trip_id FROM truck_requests WHERE id=%s", (rid,))
+        if not req: raise HTTPException(404, "Request not found")
+    if req.get("status_id") != 2: raise HTTPException(400, "Drop # can only be rearranged for Allocated requests")
+    if not req.get("assigned_truck_id"):
+        # Allocated to a vendor with no truck: the trip group itself carries the drop numbers.
+        base = trip_base(req.get("trip_id"))
+        if not base: raise HTTPException(400, "Request not allocated to a trip")
+        rows = trip_group_rows(base)
+        rows.sort(key=lambda r: (r.get("drop_sequence") or 0, r.get("id") or 0))
+        if len(rows) > 1:
+            others = [r for r in rows if r["id"] != rid]
+            pos = max(1, min(new_seq, len(rows)))
+            ordered = others[:pos - 1] + [r for r in rows if r["id"] == rid] + others[pos - 1:]
+            apply_trip_order(base, ordered)
+        return {"ok": True}
+    if LOCAL_MODE:
         truck_id = req["assigned_truck_id"]
         old_seq = req.get("drop_sequence")
         if old_seq == new_seq: return {"ok": True}
@@ -2453,9 +2613,6 @@ async def update_drop_sequence(rid: int, request: Request):
         freeze_trip_ids_on_truck(truck_id)
         recalculate_trip_rates(truck_id)
         return {"ok": True}
-    req = db_1("SELECT assigned_truck_id, drop_sequence, status_id FROM truck_requests WHERE id=%s", (rid,))
-    if not req or not req.get("assigned_truck_id"): raise HTTPException(400, "Request not allocated to a truck")
-    if req.get("status_id") != 2: raise HTTPException(400, "Drop # can only be rearranged for Allocated requests")
     truck_id = req["assigned_truck_id"]
     old_seq = req.get("drop_sequence")
     if old_seq == new_seq: return {"ok": True}
@@ -2706,7 +2863,7 @@ def _allocate_vendor(pid, user, body, vendor_id, consolidate_pa_ids):
     for i, p in enumerate(batch):
         seq = explicit[i]
         eff_tt = tt_override if tt_override else p.get("truck_type_id")
-        rate = find_best_rate(vendor_id, eff_tt, p.get("origin_port_id"), p.get("destination_port_id"), booking_date=p.get("booking_date"))
+        rate = best_rate_for(vendor_id, eff_tt, p.get("origin_port_id"), p.get("destination_port_id"), booking_date=p.get("booking_date"))
         est = compute_rate(rate, p.get("destination_port_id"), seq) if rate else 0
         db_x("""UPDATE truck_requests SET vendor_id=%s, final_call_datetime=%s, status_id=2,
             truck_type_id=%s, drop_sequence=%s, trip_id=%s, estimated_cost=%s, updated_by=%s, updated_at=NOW()
@@ -3598,6 +3755,17 @@ def cost_summary_stats(rows):
     act = round(sum(r.get("actual_cost") or 0 for r in rows), 2)
     foul = round(sum(r.get("foul_trip_cost") or 0 for r in rows), 2)
     fuel = round(sum(r.get("fuel_surcharge_cost") or 0 for r in rows), 2)
+    vend = {}
+    for r in rows:
+        name = (r.get("vendor_name") or "").strip() or "Unassigned"
+        d = vend.setdefault(name, {"vendor_name": name, "requests": 0, "delivered": 0, "foul_trip": 0})
+        d["requests"] += 1
+        if r.get("status_id") == 4: d["delivered"] += 1
+        if r.get("status_id") == 7: d["foul_trip"] += 1
+    total = len(rows)
+    vendor_summary = [dict(d, pct=(round(100.0 * d["requests"] / total, 1) if total else 0.0))
+                      for d in vend.values()]
+    vendor_summary.sort(key=lambda d: (-d["requests"], d["vendor_name"]))
     return {
         "total_requests": len(rows),
         "total_estimated_cost": est,
@@ -3607,6 +3775,7 @@ def cost_summary_stats(rows):
         "total_foul_trip_cost": foul,
         "total_fuel_surcharge_cost": fuel,
         "total_cost": round(sum(total_cost_of(r) for r in rows), 2),
+        "vendor_summary": vendor_summary,
     }
 
 @app.get("/api/cost-summary")
@@ -3646,7 +3815,8 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
             ttn = next((t["name"] for t in _store["truck_types"] if t["id"] == tt_id), "")
             origin_name = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
             dest_name = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
-            vname = next((v["name"] for v in _store["vendors"] if v["id"] == truck.get("vendor_id")), "") if truck else ""
+            v_id = (truck.get("vendor_id") if truck else None) or r.get("vendor_id")
+            vname = next((v["name"] for v in _store["vendors"] if v["id"] == v_id), "") if v_id else ""
             acct_name = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
             dept_name = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
             est = r.get("estimated_cost", 0) or 0
@@ -3699,7 +3869,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
-    if vendor_id: wh.append("tk.vendor_id=%s"); pa.append(vendor_id)
+    if vendor_id: wh.append("(tk.vendor_id=%s OR tr.vendor_id=%s)"); pa.extend([vendor_id, vendor_id])
     # Cost Analysis covers Delivered + Foul Trip, and a Foul Trip only counts
     # once an admin has green-ticked it on the Foul Trip Review page.
     wh.append("tr.status_id IN (4,7)")
@@ -3709,13 +3879,14 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     ws = " AND ".join(wh)
     reqs = db_q(f"""SELECT tr.*, ts.name as status_name, ts.color as status_color,
         COALESCE(tt.name, ttt.name) as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
-        v.name as vendor_name, a.name as account_name, d.name as department_name,
+        COALESCE(v.name, vv.name) as vendor_name, a.name as account_name, d.name as department_name,
         cu.name as cost_updated_by_name, tr.cost_updated_by as cost_updated_by_email,
         tk.vendor_id as rate_vendor_id, tk.truck_type_id as rate_truck_type_id
         FROM truck_requests tr LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id LEFT JOIN vendors v ON tk.vendor_id=v.id
+        LEFT JOIN vendors vv ON tr.vendor_id=vv.id
         LEFT JOIN truck_types ttt ON tk.truck_type_id=ttt.id
         LEFT JOIN accounts a ON tr.account_id=a.id LEFT JOIN departments d ON tr.department_id=d.id
         LEFT JOIN users cu ON tr.cost_updated_by=cu.email
@@ -3723,10 +3894,11 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
     rate_cache = {}
 
     def _rate_for(row):
-        """Matched active rate for a request's vendor/truck type/origin (cached per key)."""
-        vid = row.get("rate_vendor_id")
-        if not vid or not row.get("assigned_truck_id"): return None
+        """Matched active rate for a request's vendor/truck type/origin (cached per key).
+        A request allocated to a vendor without a truck still carries its own vendor_id."""
+        vid = row.get("rate_vendor_id") or row.get("vendor_id")
         tt_id = row.get("truck_type_id") or row.get("rate_truck_type_id")
+        if not vid or not tt_id: return None
         key = (vid, tt_id, row.get("origin_port_id"))
         if key not in rate_cache:
             rate_cache[key] = db_q("""SELECT rate_per_trip, default_rate, destination_drops, destination_port_id,
@@ -3738,7 +3910,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
 
     for i in reqs:
         rate = _rate_for(i)
-        if (not i.get("estimated_cost") or not i.get("actual_cost")) and i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
+        if (not i.get("estimated_cost") or not i.get("actual_cost")) and i.get("status_id") in (2, 3, 4, 5, 7):
             if rate:
                 est = compute_rate(rate, i.get("destination_port_id"), i.get("drop_sequence"))
                 if est:
