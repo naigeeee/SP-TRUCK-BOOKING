@@ -974,10 +974,12 @@ async def set_role(uid: int, request: Request):
     body = await request.json()
     role = body.get("role")
     if role not in set(BASE_ROLES) | set(vendor_role_names()): raise HTTPException(400, "Invalid role")
-    if uid == user["id"]: raise HTTPException(400, "Cannot change your own role")
     target = next((u for u in _store["users"] if u["id"] == uid), None) if LOCAL_MODE else db_1("SELECT * FROM users WHERE id=%s", (uid,))
     if not target: raise HTTPException(404, "User not found")
-    if target["role"] == "master_admin" and role != "master_admin": raise HTTPException(403, "Cannot downgrade another master admin")
+    # A master admin may change their own role (self toggle); only *other*
+    # master admins are protected from being downgraded.
+    if uid != user["id"] and target["role"] == "master_admin" and role != "master_admin":
+        raise HTTPException(403, "Cannot downgrade another master admin")
     ROLE_HIERARCHY = {"viewer": 0, "normal_user": 1, "admin": 2, "master_admin": 3}
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get(target["role"], 0):
         if role != "master_admin" or target["role"] != "master_admin":

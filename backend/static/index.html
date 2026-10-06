@@ -2441,8 +2441,13 @@ async function loadUsers(){
       const nameDisplay=isAdmin?'<a href="#" onclick="editUserName('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\');return false" style="color:var(--pri);text-decoration:none;cursor:pointer" title="Edit name"><strong>'+u.name+'</strong> <i class="fas fa-pen" style="font-size:10px;opacity:0.5"></i></a>':'<strong>'+u.name+'</strong>';
       const rb=roleBadge(u.role);
       let actions='';
-      if(u.email===user.email){actions='<span style="font-size:12px;color:var(--muted)">Current user</span>';}
-      else{
+      if(u.email===user.email){
+        if(isMaster){
+          actions='<select class="f-input" onchange="setUserRole('+u.id+',this.value)" title="Change your own role" style="width:auto">'+optsHtml(u.role,masterRoles)+'</select> <span style="font-size:11px;color:var(--muted)">you</span>';
+        }else{
+          actions='<span style="font-size:12px;color:var(--muted)">Current user</span>';
+        }
+      }else{
         let canRemove=false;
         let roleSelect='';
         if(isMaster&&u.role!=='master_admin'){
@@ -2480,7 +2485,16 @@ async function saveUserName(id){
 }
 
 async function setUserRole(id,role){
-  try{const res=await fetch('/api/users/'+id+'/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');return}toast('Role updated');loadUsers()}catch(e){toast(e.message||'Failed','error')}
+  try{
+    const res=await fetch('/api/users/'+id+'/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed','error');loadUsers();return}
+    if(user&&id===user.id){
+      toast('Your role is now '+((roleMeta(role)||{}).label||role)+' — reloading…');
+      setTimeout(()=>location.reload(),800);
+      return;
+    }
+    toast('Role updated');loadUsers();
+  }catch(e){toast(e.message||'Failed','error');loadUsers()}
 }
 
 async function setUserRoleAdmin(id,role){
