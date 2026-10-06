@@ -112,9 +112,9 @@ _store = {
         {"id": 7, "name": "Foul Trip", "code": "foul_trip", "color": "#DC2626", "is_active": True},
     ],
     "truck_types": [
-        {"id": 1, "name": "6W Truck", "code": "6W", "max_capacity_kg": 5000, "max_capacity_cbm": 20, "is_active": True, "created_at": "2026-01-01"},
-        {"id": 2, "name": "10W Truck", "code": "10W", "max_capacity_kg": 10000, "max_capacity_cbm": 40, "is_active": True, "created_at": "2026-01-01"},
-        {"id": 3, "name": "Container 20ft", "code": "C20", "max_capacity_kg": 20000, "max_capacity_cbm": 33, "is_active": True, "created_at": "2026-01-01"},
+        {"id": 1, "name": "6W Truck", "code": "6W", "max_capacity_kg": 5000, "max_capacity_cbm": 20, "max_capacity_units": 20, "is_active": True, "created_at": "2026-01-01"},
+        {"id": 2, "name": "10W Truck", "code": "10W", "max_capacity_kg": 10000, "max_capacity_cbm": 40, "max_capacity_units": 40, "is_active": True, "created_at": "2026-01-01"},
+        {"id": 3, "name": "Container 20ft", "code": "C20", "max_capacity_kg": 20000, "max_capacity_cbm": 33, "max_capacity_units": None, "is_active": True, "created_at": "2026-01-01"},
     ],
     "truck_type_capacities": [
         {"id": 1, "truck_type_id": 1, "packaging_type_id": 1, "max_quantity": 20, "created_at": "2026-01-01"},
@@ -136,11 +136,12 @@ _store = {
         {"id": 2, "name": "XYZ Transport", "contact_person": "Luis Garcia", "phone": "+639172222222", "email": "luis@xyz.com", "address": "Cebu", "is_active": True, "created_at": "2026-01-01 08:00:00"},
     ],
     "truck_request_history": [],
+    "capacity_conversion": {"base_packaging_type_id": 1, "factors": {"1": 1.0, "2": 1.0, "3": 1.0}},
     "role_visibility": {
         "viewer": ["dashboard", "masterlist"],
         "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
-        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"],
-        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"]
+        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"],
+        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"]
     },
     "_cnt": {"users": 1, "ports": 3, "accounts": 1, "departments": 4, "packaging_types": 3,
              "truck_statuses": 7, "truck_types": 3, "truck_type_capacities": 6, "trucks": 4,
@@ -1046,8 +1047,8 @@ async def remove_user(uid: int, request: Request):
 DEFAULT_ROLE_VISIBILITY = {
     "viewer": ["dashboard", "masterlist"],
     "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
-    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "library", "users", "role-visibility", "vendor-trucks"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"],
     "new_user": [],
 }
 
@@ -1434,7 +1435,7 @@ async def create_tt(request: Request):
         for t in _store["truck_types"]:
             if t["code"] == code: raise HTTPException(400, "Code exists")
         tid = nid("truck_types")
-        tt = {"id": tid, "name": name, "code": code, "max_capacity_kg": body.get("max_capacity_kg", 0), "max_capacity_cbm": body.get("max_capacity_cbm", 0), "is_active": True, "created_at": nows()}
+        tt = {"id": tid, "name": name, "code": code, "max_capacity_kg": body.get("max_capacity_kg", 0), "max_capacity_cbm": body.get("max_capacity_cbm", 0), "max_capacity_units": body.get("max_capacity_units"), "is_active": True, "created_at": nows()}
         _store["truck_types"].append(tt)
         for c in caps:
             cid = nid("truck_type_capacities")
@@ -1443,7 +1444,7 @@ async def create_tt(request: Request):
     existing_tt = db_1("SELECT id FROM truck_types WHERE code=%s AND is_active=1", (code,))
     if existing_tt: raise HTTPException(400, "Code exists")
     db_x("DELETE FROM truck_types WHERE code=%s AND is_active=0", (code,))
-    tid = db_i("INSERT INTO truck_types (name,code,max_capacity_kg,max_capacity_cbm) VALUES (%s,%s,%s,%s)", (name, code, body.get("max_capacity_kg", 0), body.get("max_capacity_cbm", 0)))
+    tid = db_i("INSERT INTO truck_types (name,code,max_capacity_kg,max_capacity_cbm,max_capacity_units) VALUES (%s,%s,%s,%s,%s)", (name, code, body.get("max_capacity_kg", 0), body.get("max_capacity_cbm", 0), body.get("max_capacity_units")))
     for c in caps:
         db_x("INSERT INTO truck_type_capacities (truck_type_id,packaging_type_id,max_quantity) VALUES (%s,%s,%s)", (tid, c["packaging_type_id"], c.get("max_quantity", 0)))
     return db_1("SELECT * FROM truck_types WHERE id=%s", (tid,))
@@ -1462,6 +1463,9 @@ async def update_tt(tt_id: int, request: Request):
                 if code: t["code"] = code
                 if "max_capacity_kg" in body: t["max_capacity_kg"] = body["max_capacity_kg"]
                 if "max_capacity_cbm" in body: t["max_capacity_cbm"] = body["max_capacity_cbm"]
+                if "max_capacity_units" in body:
+                    mu = body["max_capacity_units"]
+                    t["max_capacity_units"] = None if mu in ("", None) else mu
                 if caps is not None:
                     _store["truck_type_capacities"] = [c for c in _store["truck_type_capacities"] if c["truck_type_id"] != tt_id]
                     for c in caps:
@@ -1470,10 +1474,15 @@ async def update_tt(tt_id: int, request: Request):
                 return row2d(t)
         raise HTTPException(404, "Not found")
     sets, params = [], []
-    for f in ("name", "code", "max_capacity_kg", "max_capacity_cbm"):
+    for f in ("name", "code", "max_capacity_kg", "max_capacity_cbm", "max_capacity_units"):
         if f in body:
+            val = body[f]
+            if f == "max_capacity_units" and val in ("", None):
+                val = None
+            elif isinstance(val, str):
+                val = val.strip()
             sets.append(f"{f}=%s")
-            params.append(body[f].strip() if isinstance(body[f], str) else body[f])
+            params.append(val)
     if sets:
         params.append(tt_id)
         db_x(f"UPDATE truck_types SET {','.join(sets)} WHERE id=%s", tuple(params))
@@ -1838,6 +1847,183 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
     return {**(stats or {}), **(ts or {}), "recent_requests": recent}
 
 # ---------------------------------------------------------------------------
+# Capacity Conversion: one base packaging unit, per-type factors, utilisation
+# ---------------------------------------------------------------------------
+
+CAPACITY_CONVERSION_DEFAULT = {"base_packaging_type_id": None, "factors": {}}
+
+def load_capacity_conversion():
+    """Stored conversion config: base packaging unit + factors (base units per 1 unit of that type)."""
+    if LOCAL_MODE:
+        cfg = _store.get("capacity_conversion")
+        if not cfg: return dict(CAPACITY_CONVERSION_DEFAULT)
+        return {"base_packaging_type_id": cfg.get("base_packaging_type_id"),
+                "factors": dict(cfg.get("factors") or {})}
+    row = db_1("SELECT config FROM capacity_conversion WHERE id=1")
+    cfg = row.get("config") if row else None
+    if not cfg: return dict(CAPACITY_CONVERSION_DEFAULT)
+    if isinstance(cfg, str):
+        import json as _json
+        try: cfg = _json.loads(cfg)
+        except Exception: cfg = None
+    if not isinstance(cfg, dict): return dict(CAPACITY_CONVERSION_DEFAULT)
+    return {"base_packaging_type_id": cfg.get("base_packaging_type_id"),
+            "factors": {str(k): v for k, v in (cfg.get("factors") or {}).items()}}
+
+def save_capacity_conversion(cfg):
+    import json as _json
+    clean = {"base_packaging_type_id": cfg.get("base_packaging_type_id"),
+             "factors": {str(k): v for k, v in (cfg.get("factors") or {}).items()}}
+    if LOCAL_MODE:
+        _store["capacity_conversion"] = clean
+        return clean
+    db_x("REPLACE INTO capacity_conversion (id, config) VALUES (1, %s)", (_json.dumps(clean),))
+    return clean
+
+def conversion_factor(cfg, pkg_id):
+    if not pkg_id: return 1.0
+    try: return float((cfg.get("factors") or {}).get(str(pkg_id), 1.0))
+    except (TypeError, ValueError): return 1.0
+
+def to_base_units(qty, pkg_id, cfg=None):
+    """Quantity expressed in the base packaging unit, using the conversion factors."""
+    if cfg is None: cfg = load_capacity_conversion()
+    try: q = float(qty or 0)
+    except (TypeError, ValueError): q = 0.0
+    return q * conversion_factor(cfg, pkg_id)
+
+def utilisation_pct(units, capacity):
+    try: cap = float(capacity or 0)
+    except (TypeError, ValueError): cap = 0.0
+    if cap <= 0: return None
+    return round(units / cap * 100, 1)
+
+def utilisation_tier(pct):
+    if pct is None: return None
+    if pct < 70: return "red"
+    if pct <= 85: return "yellow"
+    return "green"
+
+@app.get("/api/capacity-conversion")
+def get_capacity_conversion(request: Request):
+    return load_capacity_conversion()
+
+@app.put("/api/capacity-conversion")
+async def put_capacity_conversion(request: Request):
+    require_admin(request)
+    body = await request.json()
+    base = body.get("base_packaging_type_id")
+    if base in ("", 0, "0"): base = None
+    if base is not None:
+        try: base = int(base)
+        except (TypeError, ValueError): raise HTTPException(400, "base_packaging_type_id must be an integer")
+        if LOCAL_MODE:
+            if not any(p["id"] == base for p in _store["packaging_types"]): raise HTTPException(400, "Unknown packaging type")
+        elif not db_1("SELECT id FROM packaging_types WHERE id=%s", (base,)):
+            raise HTTPException(400, "Unknown packaging type")
+    raw = body.get("factors") or {}
+    if not isinstance(raw, dict): raise HTTPException(400, "factors must be an object")
+    factors = {}
+    for k, v in raw.items():
+        try: fid = int(k)
+        except (TypeError, ValueError): raise HTTPException(400, "Factor keys must be packaging type ids")
+        try: fv = float(v)
+        except (TypeError, ValueError): raise HTTPException(400, "Factor values must be numbers")
+        if fv < 0: raise HTTPException(400, "Factors cannot be negative")
+        factors[fid] = fv
+    if base is not None:
+        factors[base] = 1.0
+    return save_capacity_conversion({"base_packaging_type_id": base, "factors": factors})
+
+@app.get("/api/trip-utilisation")
+def trip_utilisation(request: Request, final_from: Optional[str] = None, final_to: Optional[str] = None,
+    department_id: Optional[int] = None, origin_port_id: Optional[int] = None,
+    vendor_id: Optional[int] = None, truck_type_id: Optional[int] = None):
+    require_admin(request)
+    cfg = load_capacity_conversion()
+    if LOCAL_MODE:
+        rows = []
+        for r in _store["truck_requests"]:
+            if not r.get("trip_id") or not r.get("final_call_datetime"): continue
+            rows.append({**row2d(r)})
+    else:
+        wh = ["tr.trip_id IS NOT NULL", "tr.final_call_datetime IS NOT NULL"]
+        pa = []
+        if final_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(final_from)
+        if final_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(final_to)
+        if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
+        if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
+        if truck_type_id: wh.append("tr.truck_type_id=%s"); pa.append(truck_type_id)
+        if vendor_id: wh.append("COALESCE(tr.vendor_id, tk.vendor_id)=%s"); pa.append(vendor_id)
+        rows = db_q(f"""SELECT tr.id, tr.request_number, tr.trip_id, tr.quantity, tr.initial_quantity,
+            tr.packaging_type_id, tr.truck_type_id, tr.origin_port_id, tr.department_id, tr.status_id,
+            COALESCE(tr.vendor_id, tk.vendor_id) as vendor_id, tr.final_call_datetime,
+            po.name as origin_port_name, d.name as department_name,
+            tt.name as truck_type_name, tt.max_capacity_units, v.name as vendor_name
+            FROM truck_requests tr
+            LEFT JOIN trucks tk ON tr.assigned_truck_id=tk.id
+            LEFT JOIN ports po ON tr.origin_port_id=po.id
+            LEFT JOIN departments d ON tr.department_id=d.id
+            LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
+            LEFT JOIN vendors v ON COALESCE(tr.vendor_id, tk.vendor_id)=v.id
+            WHERE {' AND '.join(wh)}""", tuple(pa))
+    if LOCAL_MODE:
+        kept = []
+        for r in rows:
+            if final_from and (str(r.get("final_call_datetime") or "")[:10]) < final_from: continue
+            if final_to and (str(r.get("final_call_datetime") or "")[:10]) > final_to: continue
+            if department_id and r.get("department_id") != department_id: continue
+            if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
+            if truck_type_id and r.get("truck_type_id") != truck_type_id: continue
+            truck = next((t for t in _store["trucks"] if t["id"] == r.get("assigned_truck_id")), None)
+            vid = r.get("vendor_id") or (truck.get("vendor_id") if truck else None)
+            if vendor_id and vid != vendor_id: continue
+            r["vendor_id"] = vid
+            r["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == vid), "")
+            r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
+            r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
+            tt = next((t for t in _store["truck_types"] if t["id"] == r.get("truck_type_id")), None)
+            r["truck_type_name"] = tt["name"] if tt else ""
+            r["max_capacity_units"] = tt.get("max_capacity_units") if tt else None
+            kept.append(r)
+        rows = kept
+    groups = {}
+    for r in rows:
+        base = trip_base(r.get("trip_id") or "")
+        if not base: continue
+        g = groups.setdefault(base, {"base": base, "members": []})
+        g["members"].append(r)
+    trips = []
+    for base, g in groups.items():
+        members = g["members"]
+        tt_name = next((m.get("truck_type_name") for m in members if m.get("truck_type_name")), "")
+        cap = next((m.get("max_capacity_units") for m in members if m.get("max_capacity_units") is not None), None)
+        initial_units = sum(to_base_units(m.get("initial_quantity") if m.get("initial_quantity") is not None else m.get("quantity"),
+                                          m.get("packaging_type_id"), cfg) for m in members)
+        revised_units = sum(to_base_units(m.get("quantity"), m.get("packaging_type_id"), cfg) for m in members)
+        init_pct = utilisation_pct(initial_units, cap)
+        rev_pct = utilisation_pct(revised_units, cap)
+        trips.append({
+            "trip_id": base,
+            "trip_ids": sorted({m.get("trip_id") for m in members if m.get("trip_id")}),
+            "final_call_datetime": max((str(m.get("final_call_datetime") or "") for m in members), default=""),
+            "request_count": len(members),
+            "vendor_name": next((m.get("vendor_name") for m in members if m.get("vendor_name")), ""),
+            "origin_port_name": next((m.get("origin_port_name") for m in members if m.get("origin_port_name")), ""),
+            "department_name": next((m.get("department_name") for m in members if m.get("department_name")), ""),
+            "truck_type_name": tt_name,
+            "max_capacity_units": cap,
+            "initial_units": round(initial_units, 3),
+            "revised_units": round(revised_units, 3),
+            "initial_utilisation": init_pct,
+            "revised_utilisation": rev_pct,
+            "initial_tier": utilisation_tier(init_pct),
+            "revised_tier": utilisation_tier(rev_pct),
+        })
+    trips.sort(key=lambda t: t["final_call_datetime"], reverse=True)
+    return trips
+
+# ---------------------------------------------------------------------------
 # Truck Requests
 # ---------------------------------------------------------------------------
 
@@ -1973,7 +2159,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if trip: wh.append("tr.trip_id LIKE %s"); pa.append(f"%{trip}%")
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date"):
         sort_by = "created_at"
     sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "COALESCE(v.name, vv.name)", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name", "delivered_date": "tr.end_unloading_datetime"}
     if sort_by == "trip_id":
@@ -2086,7 +2272,7 @@ async def create_request(request: Request):
                 "call_datetime": body.get("call_datetime"), "customs_cleared_datetime": body.get("customs_cleared_datetime"),
                 "booking_date": booking_date,
                 "truck_type_id": body.get("truck_type_id"), "packaging_type_id": body.get("packaging_type_id"),
-                "quantity": body.get("quantity", 0), "weight_kg": body.get("weight_kg", 0), "volume_cbm": body.get("volume_cbm", 0),
+                "quantity": body.get("quantity", 0), "initial_quantity": body.get("quantity", 0), "weight_kg": body.get("weight_kg", 0), "volume_cbm": body.get("volume_cbm", 0),
                 "special_instructions": body.get("special_instructions", ""), "status_id": body.get("status_id", 1),
                 "international_mawb": body.get("international_mawb") or "",
                 "domestic_mawb": body.get("domestic_mawb") or "",
@@ -2103,13 +2289,14 @@ async def create_request(request: Request):
             return row2d(req)
         rid = db_i("""INSERT INTO truck_requests (request_number,requestor_email,requestor_name,account_id,department_id,
             origin_port_id,destination_port_id,pickup_datetime,delivery_datetime,call_datetime,customs_cleared_datetime,booking_date,
-            truck_type_id,packaging_type_id,quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost,
+            truck_type_id,packaging_type_id,quantity,initial_quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost,
             international_mawb,domestic_mawb)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (rn, user["email"], user["name"], body["account_id"], body["department_id"],
              body["origin_port_id"], body["destination_port_id"], body.get("pickup_datetime"), body.get("delivery_datetime"),
              body.get("call_datetime"), body.get("customs_cleared_datetime"), booking_date,
-             body.get("truck_type_id"), body.get("packaging_type_id"), body.get("quantity", 0), body.get("weight_kg", 0),
+             body.get("truck_type_id"), body.get("packaging_type_id"), body.get("quantity", 0), body.get("quantity", 0),
+             body.get("weight_kg", 0),
              body.get("volume_cbm", 0), body.get("special_instructions", ""), body.get("status_id", 1), body.get("estimated_cost", 0),
              body.get("international_mawb") or None, body.get("domestic_mawb") or None))
         db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'New request')", (rid,))
