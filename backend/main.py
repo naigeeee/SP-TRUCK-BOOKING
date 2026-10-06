@@ -138,10 +138,10 @@ _store = {
     "truck_request_history": [],
     "capacity_conversion": {"base_packaging_type_id": 1, "factors": {"1": 1.0, "2": 1.0, "3": 1.0}},
     "role_visibility": {
-        "viewer": ["dashboard", "masterlist"],
-        "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
-        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"],
-        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"]
+        "viewer": ["dashboard", "masterlist", "user-guide"],
+        "normal_user": ["dashboard", "new-request", "masterlist", "pending", "user-guide"],
+        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "user-guide"],
+        "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "user-guide"]
     },
     "_cnt": {"users": 1, "ports": 3, "accounts": 1, "departments": 4, "packaging_types": 3,
              "truck_statuses": 7, "truck_types": 3, "truck_type_capacities": 6, "trucks": 4,
@@ -842,7 +842,9 @@ def require_master(request):
 
 VENDOR_ROLE_PREFIX = "Vendor - "
 BASE_ROLES = ("viewer", "normal_user", "admin", "master_admin", "new_user")
-DEFAULT_VENDOR_PAGES = ["dashboard", "masterlist", "vendor-trucks", "fleet"]
+DEFAULT_VENDOR_PAGES = ["dashboard", "masterlist", "vendor-trucks", "fleet", "user-guide"]
+# Simplified step-by-step user guide: shown to every role except New User.
+GUIDE_PAGE = "user-guide"
 ROLE_LABELS_BASE = {
     "viewer": "Viewer", "normal_user": "Normal User", "admin": "Admin",
     "master_admin": "Master Admin", "new_user": "New User (no access)",
@@ -1047,10 +1049,10 @@ async def remove_user(uid: int, request: Request):
     return {"ok": True}
 
 DEFAULT_ROLE_VISIBILITY = {
-    "viewer": ["dashboard", "masterlist"],
-    "normal_user": ["dashboard", "new-request", "masterlist", "pending"],
-    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks"],
+    "viewer": ["dashboard", "masterlist", "user-guide"],
+    "normal_user": ["dashboard", "new-request", "masterlist", "pending", "user-guide"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "user-guide"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "user-guide"],
     "new_user": [],
 }
 
@@ -1081,6 +1083,14 @@ def _merge_role_visibility(cfg):
             out.pop(k)  # vendor deleted or renamed -> drop the stale role key
     for vr in live_vendors:
         out.setdefault(vr, list(DEFAULT_VENDOR_PAGES))
+    # The User Guide is available to every role except New User, including
+    # vendor keys that were written before it existed.
+    for k in list(out):
+        if k == "new_user" or k == ROLE_LABELS_KEY:
+            continue
+        v = out.get(k)
+        if isinstance(v, list) and GUIDE_PAGE not in v:
+            out[k] = list(v) + [GUIDE_PAGE]
     valid = set(BASE_ROLES) | {"vendor"} | live_vendors
     out[ROLE_LABELS_KEY] = {k: v for k, v in labels.items() if k in valid}
     return out

@@ -124,6 +124,8 @@ tr:hover td{background:#F8FAFC}
 <a class="nav-item adm" onclick="showPage('library')" data-page="library" style="display:none"><i class="fas fa-book"></i> Master Library</a>
 <a class="nav-item adm" onclick="showPage('users')" data-page="users" style="display:none"><i class="fas fa-users-cog"></i> User Roles</a>
 <a class="nav-item madm" onclick="showPage('role-visibility')" data-page="role-visibility" style="display:none"><i class="fas fa-eye"></i> Role Visibility</a>
+<div class="nav-div"></div><div class="nav-lbl">Help</div>
+<a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide</a>
 </nav>
 <div class="sidebar-footer">
 <div class="user-row"><div class="u-av" id="uAv">N</div><div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole">...</div></div></div>
@@ -269,6 +271,247 @@ tr:hover td{background:#F8FAFC}
 <div class="card"><div class="card-h"><h3><i class="fas fa-route"></i> Trips awaiting a truck</h3></div><div class="card-b" id="vtBody"><p>Loading...</p></div></div>
 </section>
 
+<!-- User Guide -->
+<section class="pg" id="pg-user-guide">
+<div class="pg-hdr"><h1><i class="fas fa-book-open" style="color:var(--pri)"></i> User Guide</h1><div class="acts"><button class="btn btn-o" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div></div>
+<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> A simplified, step-by-step guide to the SP PH Truck Booking Centralised Operations template, written for user testing. It covers every feature currently in the app. Every role except New User can open this page. Click a topic below to jump straight to it.</div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-topics">
+<div class="card-h"><h3><i class="fas fa-list"></i> What is inside this guide</h3></div>
+<div class="card-b">
+<div style="columns:2;column-gap:30px;font-size:13.5px;line-height:2.1">
+<a href="#g-start">1. Getting started</a><br>
+<a href="#g-dash">2. Dashboard</a><br>
+<a href="#g-new">3. Creating a truck request</a><br>
+<a href="#g-ml">4. Masterlist</a><br>
+<a href="#g-pending">5. Allocating requests to vendors</a><br>
+<a href="#g-fleet">6. Fleet Management</a><br>
+<a href="#g-vt">7. Vendor Truck Assignment</a><br>
+<a href="#g-rates">8. Rate Management</a><br>
+<a href="#g-eval">9. Vendor Speed Performance</a><br>
+<a href="#g-cost">10. Cost Analysis</a><br>
+<a href="#g-foul">11. Foul Trip Review</a><br>
+<a href="#g-tu">12. Trip Utilisation Review</a><br>
+<a href="#g-lib">13. Master Library</a><br>
+<a href="#g-users">14. User Roles</a><br>
+<a href="#g-rv">15. Role Visibility</a><br>
+<a href="#g-ref">16. Quick reference (colours, statuses, Trip IDs)</a><br>
+<a href="#g-faq">17. Testing tips and troubleshooting</a><br>
+</div>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-start">
+<div class="card-h"><h3><i class="fas fa-door-open"></i> 1. Getting started</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open the app URL in your browser and sign in with your company Google account &mdash; there is no separate password.</li>
+<li>Look at the menu on the left. It shows only the pages your role is allowed to use, grouped under Main, Operations, Vendor Operations, Master Data and Administration. The <strong>User Guide</strong> page (this page) is available to every role except New User.</li>
+<li>Your name, avatar and current role appear at the top right. Click the avatar to open <strong>Account</strong> or <strong>Sign out</strong>.</li>
+<li>Click any menu item to open that page. The Dashboard opens first.</li>
+<li>If you see an orange <strong>Local Mode &mdash; Data not saved</strong> badge, you are running the app on a computer with no database: everything works, but records disappear when the server restarts. On the deployed site, data is kept permanently.</li>
+<li>If a page you expect is missing, your role has not been granted it yet &mdash; a Master Admin can add it (see topic 15).</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-dash">
+<div class="card-h"><h3><i class="fas fa-chart-line"></i> 2. Dashboard</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Use the <strong>Filters</strong> card: Final Call From / To, Account, Department, Status, Origin Port, Destination Port and MAWB.</li>
+<li>Click <strong>Apply Filters</strong> (or <strong>Refresh</strong> in the header) to refresh the figures and the list.</li>
+<li>Read the summary <strong>stat cards</strong> on top for request counts at a glance.</li>
+<li>Scroll down to <strong>Recent Requests</strong> for the latest activity; click the <strong>Delivered Date</strong> header to sort it.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-new">
+<div class="card-h"><h3><i class="fas fa-plus-circle"></i> 3. Creating a truck request</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>New Request</strong> in the menu. The Booking Date is set automatically to today.</li>
+<li>Fill the <strong>common fields</strong> (they apply to every request you submit in one go): Department (required), and optionally Origin Port, International MAWB and Domestic MAWB. Filling a MAWB or Origin Port here auto-applies it to every request below.</li>
+<li>Each request block needs: <strong>Account</strong>, <strong>Origin Port</strong> and <strong>Destination Port</strong> (they must be different), Packaging, Qty (at least 1), plus the dates and weights you want to track: Initial Call datetime (TBC), Customs Cleared, Pickup, Delivery, weight/volume and special instructions.</li>
+<li>Click <strong>Add Request</strong> to include more requests in the same submission (up to 10). Use <strong>Reset</strong> to start over.</li>
+<li>Click <strong>Submit N Request(s)</strong>. Any missing required field is pointed out in a message.</li>
+<li>After saving, find the new requests on the <strong>Masterlist</strong> with status <strong>Pending</strong> and on <strong>Pending Allocation to Vendors</strong>.</li>
+<li>To attach documents (e.g. proof of delivery): open the request from Masterlist, use <strong>Edit</strong> (pencil icon) and add files in the attachments section &mdash; up to 8 files, 25&nbsp;MB in total.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ml">
+<div class="card-h"><h3><i class="fas fa-list-alt"></i> 4. Masterlist &mdash; find, check and organise requests</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Use the <strong>search box</strong> to find a request number or name, and the filters below it: Status, Account, Dept, Origin, Destination, Truck Type, Vendor, Truck Plate, <strong>Trip ID</strong>, MAWB, Booking From/To, Final Call From/To and Initial Call From/To.</li>
+<li><strong>Sort</strong> by clicking any column header with a sort arrow (Request #, Account, Qty, Trip ID, dates, ...).</li>
+<li><strong>Arrange the columns</strong>: drag a column header left or right to reorder the table. Your order is remembered &mdash; click <strong>Reset Columns</strong> in the header to restore the default layout.</li>
+<li>Compare <strong>Initial Qty</strong> (what the trip was created with) against <strong>Revised Qty</strong> (the current value). Initial Qty never changes after creation.</li>
+<li>For allocated requests you also see the <strong>Trip ID</strong>, the <strong>Drop #</strong> (use the up/down arrows to renumber drops within a trip) and the <strong>Distance (KM)</strong> in red.</li>
+<li>Use the <strong>Actions</strong> column: <strong>View</strong> for full details and attachments, <strong>Edit</strong> (pencil) to update fields, status, quantity, truck plate and attachments, and <strong>Delete</strong> (trash) when permitted.</li>
+<li>Click <strong>Export CSV</strong> to download the current list, use your browser's Print (Ctrl+P) for a PDF, and page through results with the buttons at the bottom. Master Admins additionally see <strong>Clear All</strong>.</li>
+</ol>
+<p style="font-size:12.5px;color:var(--mut);margin-top:8px"><i class="fas fa-info-circle"></i> Statuses: Pending &rarr; Allocated &rarr; In Transit &rarr; Delivered. You can also set On Hold, Cancelled or Foul Trip from Edit.</p>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-pending">
+<div class="card-h"><h3><i class="fas fa-clock"></i> 5. Allocating requests to vendors (Pending Allocation)</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Pending Allocation to Vendors</strong>. Waiting requests are grouped by origin port and time window. Use the <strong>MAWB</strong> box at the top to narrow the list.</li>
+<li>Tick the requests you want to send together. <strong>Select All</strong> selects everything with the same origin port &mdash; only requests sharing an origin can go on one trip (a notice appears if you mix origins).</li>
+<li>Watch the green <strong>Consolidation suggestion</strong> banner: it proposes a combination and truck type that reaches a good utilisation percentage. Click <strong>Select these</strong> to take the suggestion.</li>
+<li><strong>Step 1 &mdash; Drop order</strong> (appears when destinations differ): drops are suggested automatically by shortest distance; the distance between stops is shown in red. Change any number manually or click <strong>Re-suggest order</strong>.</li>
+<li><strong>Step 2 &mdash; Truck type</strong>: pick the truck. The <strong>Trip Utilisation</strong> box shows the load against the truck's max capacity: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>. Overload and weight/volume warnings appear in red above the panel.</li>
+<li><strong>Step 3 &mdash; Vendor</strong>: vendors are pre-sorted with the cheapest matching rate first. If a truck type has no max capacity set, add it in Master Library &rarr; Truck Types.</li>
+<li><strong>Step 4 &mdash; Final Call datetime</strong>: required. Pick the date/time.</li>
+<li>Click <strong>Allocate to Vendor</strong>. You get a confirmation with the new Trip ID, the requests get drop numbers, and they leave this page.</li>
+<li>Changed your mind? Edit a request on Masterlist and set its status back to <strong>Pending</strong> &mdash; it returns here and the remaining drops renumber automatically.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-fleet">
+<div class="card-h"><h3><i class="fas fa-truck-moving"></i> 6. Fleet Management</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Fleet</strong>. Admins and vendors see the <strong>Add Truck</strong> button; vendors see only their own trucks.</li>
+<li>Click <strong>Add Truck</strong> and fill plate number, truck type, driver, phone and vendor (when choosing for them).</li>
+<li>Filter the list by Availability, Vendor or Truck Type, and sort by clicking the headers.</li>
+<li>Use the Actions column to edit a truck or flip its <strong>Availability</strong> (Available / Not Available). Allocated trucks can be released by setting them available again after their requests are done.</li>
+<li>The <strong>Current Requests</strong> column shows how many open requests each truck is carrying.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-vt">
+<div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 7. Vendor Truck Assignment</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Vendor Truck Assignment</strong> (available to Admin, Master Admin and vendor roles).</li>
+<li>The table lists <strong>trips awaiting a truck</strong> with their trip ID, drops and origin.</li>
+<li>Click the truck dropdown on a row and pick an available truck of a suitable type, then confirm the assignment.</li>
+<li>Click <strong>Refresh</strong> to update the list; a notice appears when a trip is assigned, cancelled or already taken.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rates">
+<div class="card-h"><h3><i class="fas fa-dollar-sign"></i> 8. Rate Management</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Rates</strong> and click <strong>Add Rate</strong>.</li>
+<li>Choose the Vendor, Truck Type, Origin Port and (optionally) Destination Port, then enter Rate/Trip, the Foul Trip %, fuel surcharge and the Effective and Expiry dates.</li>
+<li>Use the search box and the Origin / Dest filters to find a rate; edit or delete it from the Actions column.</li>
+<li>Rates feed the vendor sorting on Pending Allocation (cheapest first), the cost estimates in Cost Analysis and the Foul Trip % shown on Foul Trip Review.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-eval">
+<div class="card-h"><h3><i class="fas fa-star"></i> 9. Vendor Speed Performance</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Evaluation</strong>. Filters: search by request #, Vendor, Truck Type, Plate, Origin, Destination, Account, Department, MAWB and Final Call From/To.</li>
+<li>The table shows every trip with its timing columns highlighted in blue &mdash; Customs to Arrival, and the other leg-to-leg lead times &mdash; next to request, trip and drop details.</li>
+<li>Click any sortable header to rank the vendors, and use <strong>Export CSV</strong> to download the current view.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-cost">
+<div class="card-h"><h3><i class="fas fa-chart-pie"></i> 10. Cost Analysis</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Cost</strong> and choose the <strong>Final Call From / To</strong> range (required), plus Account, Department, Origin, Destination, Vendor, Status or MAWB if needed.</li>
+<li>Click <strong>Generate Report</strong>. You get summary stat cards, a <strong>Vendor Share</strong> card showing each vendor's share of Delivered + Foul Trip requests, and the <strong>Detailed Breakdown</strong> table with every cost column (Actual Cost, Toll Fee, Management Fee, Fuel, Foul Trip Cost, Fuel Surcharge, Total Cost, ...).</li>
+<li>Only Delivered and approved Foul Trip requests count towards the figures &mdash; approve foul trips on Foul Trip Review first.</li>
+<li>Sort by clicking headers, drag column headers to reorder (remember &mdash; <strong>Reset Columns</strong> restores them), and click <strong>Export CSV</strong> to download. Admins also get <strong>Bulk Cost Update</strong> to fill cost fields for many requests at once.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-foul">
+<div class="card-h"><h3><i class="fas fa-flag"></i> 11. Foul Trip Review</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Set a request's status to <strong>Foul Trip</strong> from Edit on the Masterlist. You must fill <strong>Foul Trip Count Confirmation (1 or 2)</strong> &mdash; the save is refused without it.</li>
+<li>Open <strong>Foul Trip Review</strong>. The list shows all foul trips with the count confirmation, rate, foul trip %, date and reason.</li>
+<li>Check the row, then press the <strong>green tick</strong> in the Approve column to approve it. Approved trips are the ones counted in Cost Analysis.</li>
+<li>Sort by any sortable column, use <strong>Refresh</strong> for the latest, and <strong>Reset Columns</strong> if you have dragged columns around.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-tu">
+<div class="card-h"><h3><i class="fas fa-gauge-high"></i> 12. Trip Utilisation Review</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Trip Utilisation Review</strong>. One row per trip with its Requests, Origin, Department, Vendor, Truck Type and <strong>Capacity (units)</strong>.</li>
+<li>Compare <strong>Initial Utilisation %</strong> (quantities when the trip was created) with <strong>Revised Utilisation %</strong> (current quantities). Both convert packaging to a single base unit using <strong>Master Library &rarr; Capacity Conversion</strong> and divide by the truck's max capacity.</li>
+<li>Colours: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>.</li>
+<li>Filter by Final Call From/To, Department, Origin Port, Vendor and Truck Type; the summary cards on top show the averages. Click headers to sort and <strong>Refresh</strong> to reload.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-lib">
+<div class="card-h"><h3><i class="fas fa-book"></i> 13. Master Library &mdash; the reference data</h3></div>
+<div class="card-b">
+<p style="font-size:13.5px;margin-bottom:8px">Open <strong>Master Library</strong> and use the tabs. Add / edit / delete entries with the buttons on each tab.</p>
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li><strong>Ports</strong> &mdash; origin/destination ports. The map preview shows where a port is; click the map to set its coordinates (used for the distance and drop-order suggestions).</li>
+<li><strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong> &mdash; the dropdown values used across the app.</li>
+<li><strong>Truck Types</strong> &mdash; name plus Max KG, Max CBM and <strong>Max Capacity (base units)</strong>. The Max Capacity drives the Trip Utilisation %; if it is missing you get a warning on Pending Allocation.</li>
+<li><strong>Vendors</strong> &mdash; vendor companies; each vendor also gets a login role named <em>Vendor - &lt;name&gt;</em>.</li>
+<li><strong>Capacity Conversion</strong> &mdash; pick the <strong>base packaging unit</strong> (everything is measured in it, e.g. Pallet) and a <strong>factor</strong> for every other packaging type: how much of the base unit <strong>one</strong> unit of that type is worth (Carton 0.02 = 50 Cartons make 1 Pallet). The base unit is always factor 1.0. Utilisation on Pending Allocation and Trip Utilisation Review uses these factors &mdash; click <strong>Save</strong> after changing them.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-users">
+<div class="card-h"><h3><i class="fas fa-users-cog"></i> 14. User Roles</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>User Roles</strong> (Admin and Master Admin). Every signed-in user is listed with name, email and role.</li>
+<li>Change a user's access with the <strong>Role</strong> dropdown: Viewer, Normal User, Admin, Master Admin, New User (no access) or a Vendor role. The change takes effect on their next page load.</li>
+<li>A Master Admin can also change <strong>their own</strong> role from the dropdown on their own row &mdash; the page reloads with the new permissions straight away. Note: once you switch away from Master Admin, only another Master Admin can switch you back.</li>
+<li>Admins cannot change their own role, and only Master Admins can assign the Master Admin role.</li>
+<li>Click a user's <strong>name</strong> to rename it (Admin+), or the red minus to remove the user.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rv">
+<div class="card-h"><h3><i class="fas fa-eye"></i> 15. Role Visibility (Master Admin only)</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Role Visibility</strong>. Each card is one role with a checkbox for every page in the app.</li>
+<li>Tick the pages that role should see, then click <strong>Save Changes</strong>. Users pick up the change on their next page load.</li>
+<li>Click a role heading to rename how the role is displayed everywhere (e.g. rename "Normal User" to "Dispatcher").</li>
+<li><strong>New User</strong> always starts with no pages &mdash; that is the "waiting for access" state. The <strong>User Guide</strong> page is granted to every role automatically and cannot be switched off.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ref">
+<div class="card-h"><h3><i class="fas fa-palette"></i> 16. Quick reference</h3></div>
+<div class="card-b">
+<div style="font-size:13.5px;line-height:1.9">
+<p style="margin:0 0 6px"><strong>Utilisation colours</strong> (Pending Allocation and Trip Utilisation Review): <span class="badge" style="background:#DC2626;color:#fff">&lt;70% red</span> under-filled &nbsp; <span class="badge" style="background:#D97706;color:#fff">70&ndash;85% yellow</span> OK &nbsp; <span class="badge" style="background:#16A34A;color:#fff">&gt;85% green</span> well loaded.</p>
+<p style="margin:0 0 6px"><strong>Status flow</strong>: Pending (waiting for allocation) &rarr; Allocated (on a trip) &rarr; In Transit &rarr; Delivered. Other statuses: On Hold, Cancelled, Foul Trip (needs the 1 or 2 count confirmation).</p>
+<p style="margin:0 0 6px"><strong>Trip IDs</strong> look like <em>TNP-0001</em> (TNW, TCW, TSH follow the truck type). The number is frozen once assigned &mdash; requests may leave and rejoin a trip, but numbers are only renumbered for the remaining drops.</p>
+<p style="margin:0 0 6px"><strong>Consolidation badge</strong>: requests that were grouped onto one trip show it on Masterlist.</p>
+<p style="margin:0"><strong>Distance (KM)</strong> is calculated and shown in red once a request is part of a trip.</p>
+</div>
+</div></div>
+
+<div class="card" style="margin-bottom:24px;scroll-margin-top:100px" id="g-faq">
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 17. Testing tips and troubleshooting</h3></div>
+<div class="card-b">
+<ul style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li><strong>A page is missing from the menu</strong> &mdash; your role does not have it. A Master Admin grants it under Role Visibility (topic 15).</li>
+<li><strong>"No pages available"</strong> &mdash; your account is New User; ask an admin to change your role.</li>
+<li><strong>Orange Local Mode badge</strong> &mdash; the app is running on a test computer with no database; data resets on restart. On the live site this badge does not appear.</li>
+<li><strong>Attachments fail</strong> &mdash; limit is 8 files and 25&nbsp;MB per request.</li>
+<li><strong>No utilisation % on Pending</strong> &mdash; the truck type has no Max Capacity (Master Library &rarr; Truck Types) or a packaging type has no factor (Capacity Conversion tab).</li>
+<li><strong>No distance between drops</strong> &mdash; port coordinates are missing (Master Library &rarr; Ports &mdash; click the map to set them).</li>
+<li><strong>Cost Analysis shows no figures</strong> &mdash; check the required Final Call date range and remember only Delivered and approved Foul Trip requests count.</li>
+<li><strong>Testing an error</strong> &mdash; if something fails, the page shows the exact error message; tell the administrators what it said and on which page.</li>
+</ul>
+<p style="font-size:13px;margin-top:10px"><a href="#g-topics">&uarr; Back to contents</a></p>
+</div></div>
+
+</section>
+
 <!-- No access -->
 <div id="noAccess" style="display:none;padding:60px 20px;text-align:center;color:var(--mut)">
 <i class="fas fa-lock" style="font-size:42px;color:var(--pri);margin-bottom:14px"></i>
@@ -288,7 +531,7 @@ let mlPg=1,mlSort='created_at',mlDir='desc',mlTotal=0;
 let editCtx=null;
 let isAdmin=false,isMaster=false,isViewer=false,isNormal=false,isVendor=false;
 let userPages=[];
-const DEFAULT_VENDOR_PAGES=['dashboard','masterlist','vendor-trucks','fleet'];
+const DEFAULT_VENDOR_PAGES=['dashboard','masterlist','vendor-trucks','fleet','user-guide'];
 
 async function init(){
   try{
@@ -313,7 +556,7 @@ async function init(){
     }else if(isVendor){
       userPages=[...DEFAULT_VENDOR_PAGES];
     }else{
-      userPages=['dashboard','masterlist'];
+      userPages=['dashboard','masterlist','user-guide'];
       if(!isViewer&&!isNormal)userPages.push('new-request','pending','fleet');
       if(isAdmin)userPages.push('rates','evaluation','cost','foul-trip-review','trip-utilisation','library','users','vendor-trucks');
       if(isMaster)userPages.push('role-visibility');
@@ -2530,7 +2773,8 @@ const ALL_PAGES=[
   {key:'trip-utilisation',label:'Trip Utilisation Review'},
   {key:'library',label:'Master Library'},
   {key:'users',label:'User Roles'},
-  {key:'role-visibility',label:'Role Visibility'}
+  {key:'role-visibility',label:'Role Visibility'},
+  {key:'user-guide',label:'User Guide'}
 ];
 const ROLE_LABELS={viewer:'Viewer',normal_user:'Normal User',admin:'Admin',master_admin:'Master Admin',new_user:'New User',vendor:'Vendor'};
 const ROLE_ORDER=['viewer','normal_user','admin','master_admin','new_user','vendor'];
