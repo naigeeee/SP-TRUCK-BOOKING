@@ -168,45 +168,34 @@ def nid(t):
     _store["_cnt"][t] = _store["_cnt"].get(t, 0) + 1
     return _store["_cnt"][t]
 
+_GMT8 = timezone(timedelta(hours=8))
+
 def nows():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    """Current time as 'YYYY-MM-DD HH:MM:SS' in GMT+8.
 
-# Timestamps are stored in UTC (local mode writes UTC; the database session runs
-# in UTC). The Masterlist "Updated At" column must display GMT+8, so every stored
-# value is shifted by 8h minus whatever zone the storage clock is on.
-_STORE_OFFSET_MIN = None
-
-def _store_offset_minutes():
-    global _STORE_OFFSET_MIN
-    if _STORE_OFFSET_MIN is None:
-        if LOCAL_MODE:
-            _STORE_OFFSET_MIN = 0
-        else:
-            try:
-                row = db_1("SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW()) AS m")
-                _STORE_OFFSET_MIN = int((row or {}).get("m") or 0)
-            except Exception:
-                _STORE_OFFSET_MIN = 0
-    return _STORE_OFFSET_MIN
+    Every timestamp the app writes (and every NOW()/ON UPDATE the database
+    session writes, which also runs in +08:00) lands in GMT+8, so the stored
+    value is displayed as-is.
+    """
+    return datetime.now(_GMT8).strftime("%Y-%m-%d %H:%M:%S")
 
 def to_gmt8(v):
-    """Stored timestamp -> 'YYYY-MM-DD HH:MM:SS' rendered in GMT+8."""
+    """Stored timestamp -> 'YYYY-MM-DD HH:MM:SS'.
+
+    Storage is already GMT+8, so this only normalises format (ISO 'T'/'Z' and
+    fractional seconds) and never shifts the value.
+    """
     if not v:
         return v
-    d = v if isinstance(v, datetime) else None
-    if d is None:
-        s = str(v).strip().replace("T", " ").replace("Z", "")
-        d = None
-        for fmt, n in (("%Y-%m-%d %H:%M:%S", 19), ("%Y-%m-%d %H:%M", 16), ("%Y-%m-%d", 10)):
-            try:
-                d = datetime.strptime(s[:n], fmt)
-                break
-            except ValueError:
-                continue
-        if d is None:
-            return v
-    out = d + timedelta(minutes=8 * 60 - _store_offset_minutes())
-    return out.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(v, datetime):
+        return v.strftime("%Y-%m-%d %H:%M:%S")
+    s = str(v).strip().replace("T", " ").replace("Z", "")
+    for fmt, n in (("%Y-%m-%d %H:%M:%S", 19), ("%Y-%m-%d %H:%M", 16), ("%Y-%m-%d", 10)):
+        try:
+            return datetime.strptime(s[:n], fmt).strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+    return v
 
 def parse_dt(dt_str):
     if not dt_str: return None
