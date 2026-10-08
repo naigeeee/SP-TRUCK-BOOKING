@@ -3796,65 +3796,8 @@ def _assign_truck_core(u, vid, trip_id, truck_id, keep_status=False):
                     if t["id"] == ot: t["status"] = "available"; break
         freeze_trip_ids_on_truck(truck_id)
         recalculate_trip_rates(truck_id)
-    return {"ok": True, "truck_id": truck_id, "assigned": len(ordered),
-            "status_id": 2 if keep_status else 3}
-
-def _free_truck_assignment(rids, email):
-    """Take the truck back off the given requests so the trip can be assigned
-    again, and put the truck's own bookkeeping straight."""
-    if not rids:
-        return []
-    marks = ",".join(["%s"] * len(rids))
-    if LOCAL_MODE:
-        gone = {}
-        for x in _store["truck_requests"]:
-            if x["id"] in rids:
-                tid = x.get("assigned_truck_id")
-                if tid:
-                    gone.setdefault(tid, []).append(x.get("drop_sequence"))
-                x["assigned_truck_id"] = None
-                x["drop_sequence"] = None
-                x["updated_by"] = email
-                x["updated_at"] = nows()
-        for tid, seqs in gone.items():
-            rem = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid]
-            for seq in seqs:
-                if seq is None:
-                    continue
-                for x in rem:
-                    if x.get("drop_sequence") is not None and x["drop_sequence"] > seq:
-                        x["drop_sequence"] -= 1
-            actives = [x for x in rem if x.get("status_id") in (2, 3)]
-            if not actives:
-                for t in _store["trucks"]:
-                    if t["id"] == tid:
-                        t["status"] = "available"
-                        break
-            else:
-                recalculate_trip_rates(tid)
-        return list(gone)
-    found = db_q(f"SELECT id, assigned_truck_id, drop_sequence FROM truck_requests WHERE id IN ({marks})",
-                 tuple(rids))
-    gone = {}
-    for r in found:
-        tid = r.get("assigned_truck_id")
-        if tid:
-            gone.setdefault(tid, []).append(r.get("drop_sequence"))
-    db_x(f"""UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL,
-        updated_by=%s, updated_at=NOW() WHERE id IN ({marks})""",
-         (email,) + tuple(rids))
-    for tid, seqs in gone.items():
-        for seq in seqs:
-            if seq is None:
-                continue
-            db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s",
-                 (tid, seq))
-        cnt = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3)", (tid,))
-        if not (cnt and cnt.get("c")):
-            db_x("UPDATE trucks SET status='available' WHERE id=%s", (tid,))
-        else:
-            recalculate_trip_rates(tid)
-    return list(gone)
+        return {"ok": True, "truck_id": truck_id, "assigned": len(ordered),
+                "status_id": 2 if keep_status else 3}
 
     truck = db_1("SELECT id, vendor_id, is_available, truck_type_id FROM trucks WHERE id=%s AND is_active=1", (truck_id,))
     if not truck:
@@ -3914,6 +3857,63 @@ def _free_truck_assignment(rids, email):
     recalculate_trip_rates(truck_id)
     return {"ok": True, "truck_id": truck_id, "assigned": len(ordered),
             "status_id": 2 if keep_status else 3}
+
+def _free_truck_assignment(rids, email):
+    """Take the truck back off the given requests so the trip can be assigned
+    again, and put the truck's own bookkeeping straight."""
+    if not rids:
+        return []
+    marks = ",".join(["%s"] * len(rids))
+    if LOCAL_MODE:
+        gone = {}
+        for x in _store["truck_requests"]:
+            if x["id"] in rids:
+                tid = x.get("assigned_truck_id")
+                if tid:
+                    gone.setdefault(tid, []).append(x.get("drop_sequence"))
+                x["assigned_truck_id"] = None
+                x["drop_sequence"] = None
+                x["updated_by"] = email
+                x["updated_at"] = nows()
+        for tid, seqs in gone.items():
+            rem = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid]
+            for seq in seqs:
+                if seq is None:
+                    continue
+                for x in rem:
+                    if x.get("drop_sequence") is not None and x["drop_sequence"] > seq:
+                        x["drop_sequence"] -= 1
+            actives = [x for x in rem if x.get("status_id") in (2, 3)]
+            if not actives:
+                for t in _store["trucks"]:
+                    if t["id"] == tid:
+                        t["status"] = "available"
+                        break
+            else:
+                recalculate_trip_rates(tid)
+        return list(gone)
+    found = db_q(f"SELECT id, assigned_truck_id, drop_sequence FROM truck_requests WHERE id IN ({marks})",
+                 tuple(rids))
+    gone = {}
+    for r in found:
+        tid = r.get("assigned_truck_id")
+        if tid:
+            gone.setdefault(tid, []).append(r.get("drop_sequence"))
+    db_x(f"""UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL,
+        updated_by=%s, updated_at=NOW() WHERE id IN ({marks})""",
+         (email,) + tuple(rids))
+    for tid, seqs in gone.items():
+        for seq in seqs:
+            if seq is None:
+                continue
+            db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s",
+                 (tid, seq))
+        cnt = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3)", (tid,))
+        if not (cnt and cnt.get("c")):
+            db_x("UPDATE trucks SET status='available' WHERE id=%s", (tid,))
+        else:
+            recalculate_trip_rates(tid)
+    return list(gone)
 
 @app.post("/api/pending-allocations/{pid}/reject")
 async def reject_alloc(pid: int, request: Request):

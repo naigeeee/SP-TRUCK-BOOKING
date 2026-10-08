@@ -53,6 +53,9 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .btn-o{background:transparent;color:var(--txt);border:1px solid var(--bdr)}.btn-o:hover{background:var(--bg)}
 .btn-sm{padding:5px 10px;font-size:12px}
 .fg{margin-bottom:16px}
+.peek-wrap{position:relative}
+.peek-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:#8a94ab;cursor:pointer;padding:6px;font-size:14px;line-height:1}
+.peek-btn:hover{color:var(--brand,#3b82f6)}
 .fl{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em}
 .fi,.fs,.ft{width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-family:inherit;transition:border-color .2s;background:#fff}
 .fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
@@ -1990,7 +1993,7 @@ function showDAModal(d){
   }
   document.getElementById('mBody').innerHTML=
     '<div class="fr"><div class="fg"><label class="fl">Username * (letters, numbers, . _ - @)</label><input class="fi" id="daUser" maxlength="100" value="'+esc(d.username||'')+'"></div>'+
-    '<div class="fg"><label class="fl">Password '+(d.id?'(leave blank to keep)':'* (min 4 characters)')+'</label><input class="fi" id="daPass" type="password" maxlength="128" autocomplete="new-password"></div></div>'+
+    '<div class="fg"><label class="fl">Password '+(d.id?'(leave blank to keep)':'* (min 4 characters)')+'</label><div class="peek-wrap"><input class="fi" id="daPass" type="password" maxlength="128" autocomplete="new-password" style="padding-right:40px"><button type="button" class="peek-btn" title="Show password" aria-label="Show password" onclick="peekPass(\'daPass\',this)"><i class="fas fa-eye"></i></button></div></div></div>'+
     '<div class="fr"><div class="fg"><label class="fl">Driver Name</label><input class="fi" id="daName" maxlength="255" value="'+esc(d.driver_name||'')+'"></div>'+
     '<div class="fg"><label class="fl">Driver Phone</label><input class="fi" id="daPhone" maxlength="50" value="'+esc(d.driver_phone||'')+'"></div></div>'+
     ven+
@@ -2003,6 +2006,13 @@ function showDAModal(d){
   }
   document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveDA('+(d.id||'null')+')"><i class="fas fa-save"></i> Save</button>';
   document.getElementById('overlay').classList.add('on');
+}
+function peekPass(id,btn){
+  const i=document.getElementById(id);if(!i)return;
+  const show=i.type==='password';
+  i.type=show?'text':'password';
+  const ic=btn.querySelector('i');if(ic)ic.className=show?'fas fa-eye-slash':'fas fa-eye';
+  btn.title=show?'Hide password':'Show password';btn.setAttribute('aria-label',btn.title);
 }
 async function saveDA(id){
   const body={
@@ -3255,7 +3265,7 @@ function renderScanLogin(msg){
     '<div class="sc-card"><h5><i class="fas fa-user-shield"></i> Scanning app</h5>'+
     '<div class="sc-hint" style="margin-bottom:12px">Sign in with the driver / fleet account made for you. Your session is kept for 30 days on this device.</div>'+
     '<label class="sc-hint">Username</label><input class="sc-in" id="scUser" autocomplete="username" autocapitalize="none" autocorrect="off">'+
-    '<label class="sc-hint" style="display:block;margin-top:10px">Password</label><input class="sc-in" id="scPass" type="password" autocomplete="current-password">'+
+    '<label class="sc-hint" style="display:block;margin-top:10px">Password</label><div class="peek-wrap"><input class="sc-in" id="scPass" type="password" autocomplete="current-password" style="padding-right:46px"><button type="button" class="peek-btn" title="Show password" aria-label="Show password" onclick="peekPass(\'scPass\',this)"><i class="fas fa-eye"></i></button></div>'+
     '<button class="sc-btn" onclick="doScanLogin()"><i class="fas fa-sign-in-alt"></i> Sign in</button></div>',
     scanBack('Back to app',"location.hash='#/dashboard'"));
   const u=document.getElementById('scUser');if(u)u.focus();
