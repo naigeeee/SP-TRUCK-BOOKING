@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 :root{--pri:#2563EB;--pri-l:#3B82F6;--pri-d:#1D4ED8;--ok:#10B981;--warn:#F59E0B;--err:#EF4444;--info:#8B5CF6;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--muted:#64748B;--bdr:#E2E8F0;--side:#0F172A;--side-t:#CBD5E1;--sh:0 1px 3px rgba(0,0,0,.1);--sh2:0 4px 15px rgba(0,0,0,.1)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -99,6 +101,53 @@ tr:hover td{background:#F8FAFC}
 .port-map-wrap-sm{width:100%;height:180px;border-radius:8px;overflow:hidden;border:1px solid var(--bdr);margin-top:8px;position:relative;z-index:1}
 .port-map-wrap-sm .leaflet-container,.port-map-wrap-sm .leaflet-pane,.port-map-wrap-sm .leaflet-tile-pane{z-index:1!important}
 .lib-map-section{margin-bottom:20px}
+
+/* ---- Scanning app (Pickup Sort + Unloading) ---- */
+body.scan-mode .m-toggle{display:none!important}
+body.scan-mode .layout{display:none}
+#scanApp{display:none;min-height:100vh;background:#0B1220;color:#E2E8F0}
+.sc-top{position:sticky;top:0;z-index:60;background:#0F172A;border-bottom:1px solid rgba(255,255,255,.08);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sc-top h4{font-size:15px;color:#fff;display:flex;align-items:center;gap:8px}
+.sc-wrap{max-width:660px;margin:0 auto;padding:14px}
+.sc-card{background:#111C33;border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:14px;margin-bottom:12px}
+.sc-card h5{font-size:13px;color:#93C5FD;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.sc-hint{font-size:12.5px;color:#94A3B8;line-height:1.65}
+.sc-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:10px;border:0;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:var(--pri);color:#fff;margin-top:10px}
+.sc-btn.sec{background:#1E293B;color:#E2E8F0;border:1px solid #334155}
+.sc-btn.ok{background:#10B981}
+.sc-btn.warn{background:#F59E0B;color:#1E1B04}
+.sc-btn.danger{background:#DC2626}
+.sc-btn[disabled]{opacity:.45;cursor:not-allowed}
+.sc-in{width:100%;padding:14px;font-size:17px;border-radius:10px;border:1px solid #334155;background:#0B1220;color:#fff;font-family:inherit}
+.sc-in:focus{outline:2px solid var(--pri-l);border-color:var(--pri-l)}
+.sc-cnt{display:flex;gap:10px;flex-wrap:wrap}
+.sc-pill{flex:1;min-width:104px;background:#0B1220;border:1px solid #24324A;border-radius:10px;padding:10px 8px;text-align:center}
+.sc-pill b{display:block;font-size:22px;color:#fff}
+.sc-pill span{font-size:10.5px;color:#94A3B8;text-transform:uppercase;letter-spacing:.4px}
+.sc-flash{position:fixed;inset:0;pointer-events:none;z-index:200;opacity:0;transition:opacity .3s}
+.sc-flash.on{opacity:.85}
+.sc-row{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:13.5px}
+.sc-row:last-child{border-bottom:0}
+.sc-bag{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#fff}
+.sc-badge{font-size:11px;padding:3px 8px;border-radius:999px;background:#1E293B;color:#CBD5E1;white-space:nowrap}
+.sc-badge.g{background:#064E3B;color:#6EE7B7}
+.sc-badge.y{background:#451A03;color:#FCD34D}
+.sc-badge.r{background:#450A0A;color:#FCA5A5}
+.sc-badge.b{background:#1E3A8A;color:#BFDBFE}
+.sc-step{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.sc-step:last-child{border-bottom:0}
+.sc-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex:none;background:#1E293B;color:#94A3B8;border:1px solid #334155;font-weight:700}
+.sc-dot.done{background:#064E3B;color:#34D399;border-color:#065F46}
+.sc-dot.now{background:#1D4ED8;color:#fff;border-color:#3B82F6}
+.sc-body{flex:1;min-width:0}
+.sc-body .t{font-size:14px;font-weight:700;color:#fff}
+.sc-body .s{font-size:12px;color:#94A3B8;margin-top:2px}
+.sc-qr{background:#fff;padding:10px;border-radius:10px;display:inline-block;line-height:0}
+.sc-err{background:#450A0A;border:1px solid #7F1D1D;color:#FCA5A5;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+.sc-ok{background:#052E16;border:1px solid #14532D;color:#86EFAC;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+.sc-warn{background:#451A0A;border:1px solid #78350F;color:#FCD34D;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+#qrReader{width:100%;border-radius:10px;overflow:hidden;background:#000;margin-top:10px}
+#qrReader video{width:100%!important}
 </style>
 </head>
 <body>
@@ -115,6 +164,7 @@ tr:hover td{background:#F8FAFC}
 <div class="nav-div"></div><div class="nav-lbl">Operations</div>
 <a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet Management</a>
 <a class="nav-item nrm" onclick="showPage('vendor-trucks')" data-page="vendor-trucks" style="display:none"><i class="fas fa-truck-pickup"></i> Vendor Truck Assignment</a>
+<a class="nav-item nrm" onclick="showPage('driver-accounts')" data-page="driver-accounts" style="display:none"><i class="fas fa-id-card"></i> Driver / Fleet Accounts</a>
 <a class="nav-item adm" onclick="showPage('rates')" data-page="rates" style="display:none"><i class="fas fa-dollar-sign"></i> Rate Management</a>
 <a class="nav-item adm" onclick="showPage('evaluation')" data-page="evaluation" style="display:none"><i class="fas fa-star"></i> Vendor Speed Performance</a>
 <a class="nav-item adm" onclick="showPage('cost')" data-page="cost" style="display:none"><i class="fas fa-chart-pie"></i> Cost Analysis</a>
@@ -126,6 +176,7 @@ tr:hover td{background:#F8FAFC}
 <a class="nav-item madm" onclick="showPage('role-visibility')" data-page="role-visibility" style="display:none"><i class="fas fa-eye"></i> Role Visibility</a>
 <div class="nav-div"></div><div class="nav-lbl">Help</div>
 <a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide</a>
+<a class="nav-item" onclick="location.hash='#/scan'"><i class="fas fa-barcode"></i> Scanning App</a>
 </nav>
 <div class="sidebar-footer">
 <div class="user-row"><div class="u-av" id="uAv">N</div><div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole">...</div></div></div>
@@ -181,7 +232,7 @@ tr:hover td{background:#F8FAFC}
 <div class="pg-hdr"><h1><i class="fas fa-list-alt" style="color:var(--info)"></i> Masterlist</h1><div class="acts"><button class="btn btn-o" onclick="resetMLCols()" title="Restore default column order"><i class="fas fa-columns"></i> Reset Columns</button> <button class="btn btn-o" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button> <button class="btn btn-d" id="mlClearAll" style="display:none" onclick="clearAllRequests()"><i class="fas fa-trash-alt"></i> Clear All</button></div></div>
 <div class="card"><div class="card-b">
 <div class="fb" style="flex-wrap:wrap;gap:8px"><input type="text" class="s-input" id="mlSrch" placeholder="Search request #, name..." oninput="loadML()" style="width:180px"><div class="fg2"><label>Status</label><select class="f-input" id="mlSt" onchange="loadML()"></select></div><div class="fg2"><label>Account</label><select class="f-input" id="mlAcct" onchange="loadML()"></select></div><div class="fg2"><label>Dept</label><select class="f-input" id="mlDept" onchange="loadML()"></select></div><div class="fg2"><label>Origin</label><select class="f-input" id="mlOrg" onchange="loadML()"></select></div><div class="fg2"><label>Destination</label><select class="f-input" id="mlDst" onchange="loadML()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="mlTT" onchange="loadML()"></select></div><div class="fg2"><label>Vendor</label><select class="f-input" id="mlVendor" onchange="loadML()"></select></div><div class="fg2"><label>Truck Plate</label><input type="text" class="f-input" id="mlPlate" placeholder="Plate #..." oninput="loadML()"></div><div class="fg2"><label>Trip ID</label><input type="text" class="f-input" id="mlTrip" placeholder="Trip ID #..." oninput="loadML()"></div><div class="fg2"><label>MAWB</label><input type="text" class="f-input" id="mlMawb" placeholder="Int / Dom MAWB..." oninput="loadML()"></div><div class="fg2"><label>Manifest</label><select class="f-input" id="mlMan" onchange="loadML()"><option value="">All</option><option value="missing">Missing Manifest</option><option value="uploaded">Uploaded</option></select></div><div class="fg2"><label>Booking From</label><input type="date" class="f-input" id="mlBookFrom" onchange="loadML()"></div><div class="fg2"><label>Booking To</label><input type="date" class="f-input" id="mlBookTo" onchange="loadML()"></div><div class="fg2"><label>Final Call From</label><input type="date" class="f-input" id="mlCallFrom" onchange="loadML()"></div><div class="fg2"><label>Final Call To</label><input type="date" class="f-input" id="mlCallTo" onchange="loadML()"></div><div class="fg2"><label>Initial Call From</label><input type="date" class="f-input" id="mlInitFrom" onchange="loadML()"></div><div class="fg2"><label>Initial Call To</label><input type="date" class="f-input" id="mlInitTo" onchange="loadML()"></div><div class="fg2"><label>Foul Trip From</label><input type="date" class="f-input" id="mlFoulFrom" onchange="loadML()"></div><div class="fg2"><label>Foul Trip To</label><input type="date" class="f-input" id="mlFoulTo" onchange="loadML()"></div><div class="fg2"><label>Cancelled From</label><input type="date" class="f-input" id="mlCancelFrom" onchange="loadML()"></div><div class="fg2"><label>Cancelled To</label><input type="date" class="f-input" id="mlCancelTo" onchange="loadML()"></div><div class="fg2"><label>Customs From</label><input type="date" class="f-input" id="mlCustomsFrom" onchange="loadML()"></div><div class="fg2"><label>Customs To</label><input type="date" class="f-input" id="mlCustomsTo" onchange="loadML()"></div></div>
-<div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortML('request_number')">Request # <i class="fas fa-sort"></i></th><th>Actions</th><th>Requestor</th><th style="cursor:pointer" onclick="sortML('manifest_status')">Manifest <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('status_name')">Status <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('department_name')">Dept <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('plate_number')">Truck Plate # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('packaging_type_name')">Packaging <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('initial_quantity')">Initial Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('quantity')">Revised Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th>Drop #</th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortML('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('customs_cleared_datetime')">Customs Cleared <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('special_instructions')">Instructions <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('arrived_pickup_datetime')">Arrived Pickup <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('start_loading_datetime')">Start Loading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('end_loading_datetime')">End Loading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('arrived_dest_datetime')">Arrived Destination <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('start_unloading_datetime')">Start Unloading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('end_unloading_datetime')">End Unloading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('foul_trip_reason')">Foul Trip Reason <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('foul_trip_date')">Foul Trip Date <i class="fas fa-sort"></i></th><th>Foul Trip Count Confirmation</th><th>Foul Trip Approval</th><th style="cursor:pointer" onclick="sortML('cancellation_date')">Cancellation Date <i class="fas fa-sort"></i></th><th>Consol</th><th>Attachments</th><th>Updated By</th><th style="cursor:pointer" onclick="sortML('updated_at')">Updated At <i class="fas fa-sort"></i></th></tr></thead><tbody id="mlTbl"></tbody></table></div>
+<div class="tw"><table><thead><tr><th style="cursor:pointer" onclick="sortML('request_number')">Request # <i class="fas fa-sort"></i></th><th>Actions</th><th>Requestor</th><th style="cursor:pointer" onclick="sortML('manifest_status')">Manifest <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('status_name')">Status <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('department_name')">Dept <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('plate_number')">Truck Plate # <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('packaging_type_name')">Packaging <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('initial_quantity')">Initial Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('quantity')">Revised Qty <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('driver_username')">Driver <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('driver_name')">Driver Name <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('driver_phone')">Driver Phone <i class="fas fa-sort"></i></th><th>Drop #</th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortML('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('customs_cleared_datetime')">Customs Cleared <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('special_instructions')">Instructions <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('arrived_pickup_datetime')">Arrived Pickup <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('late_reason')">Late Reason <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('start_loading_datetime')">Start Loading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('end_loading_datetime')">End Loading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('arrived_dest_datetime')">Arrived Destination <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('start_unloading_datetime')">Start Unloading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('end_unloading_datetime')">End Unloading <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('foul_trip_reason')">Foul Trip Reason <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortML('foul_trip_date')">Foul Trip Date <i class="fas fa-sort"></i></th><th>Foul Trip Count Confirmation</th><th>Foul Trip Approval</th><th style="cursor:pointer" onclick="sortML('cancellation_date')">Cancellation Date <i class="fas fa-sort"></i></th><th>Consol</th><th>Attachments</th><th>Updated By</th><th style="cursor:pointer" onclick="sortML('updated_at')">Updated At <i class="fas fa-sort"></i></th></tr></thead><tbody id="mlTbl"></tbody></table></div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><span id="mlCnt" style="font-size:13px;color:var(--muted)"></span><div style="display:flex;gap:8px"><button class="btn btn-sm btn-o" id="mlPrev" onclick="mlPage(-1)"><i class="fas fa-chevron-left"></i></button><span id="mlPg" style="font-size:13px;padding:4px 10px"></span><button class="btn btn-sm btn-o" id="mlNxt" onclick="mlPage(1)"><i class="fas fa-chevron-right"></i></button></div></div>
 </div></div>
 </section>
@@ -278,7 +329,14 @@ tr:hover td{background:#F8FAFC}
 <section class="pg" id="pg-vendor-trucks">
 <div class="pg-hdr"><h1><i class="fas fa-truck-pickup" style="color:var(--pri)"></i> Vendor Truck Assignment</h1><div class="acts"><button class="btn btn-o" onclick="loadVT()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
 <div id="vtNotice" style="display:none;margin-bottom:14px"></div>
-<div class="card"><div class="card-h"><h3><i class="fas fa-route"></i> Trips awaiting a truck</h3></div><div class="card-b" id="vtBody"><p>Loading...</p></div></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-route"></i> Trips awaiting a driver</h3></div><div class="card-b" id="vtBody"><p>Loading...</p></div></div>
+</section>
+
+<!-- Driver / Fleet Accounts -->
+<section class="pg" id="pg-driver-accounts">
+<div class="pg-hdr"><h1><i class="fas fa-id-card" style="color:var(--pri)"></i> Driver / Fleet Accounts</h1><div class="acts"><button class="btn btn-o" onclick="loadDA()"><i class="fas fa-sync-alt"></i> Refresh</button> <button class="btn btn-p" onclick="showDAModal(null)"><i class="fas fa-plus"></i> Add Account</button></div></div>
+<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> These are the logins used by the scanning app (Pickup Sort and Unloading) and by drivers to see their trips. Each account can be tied to one truck — on the Vendor Truck Assignment page, picking this account assigns the trip to both the driver and that truck.</div>
+<div class="card"><div class="card-b" id="daBody"><p>Loading...</p></div></div>
 </section>
 
 <!-- User Guide -->
@@ -297,16 +355,18 @@ tr:hover td{background:#F8FAFC}
 <a href="#g-pending">5. Allocating requests to vendors</a><br>
 <a href="#g-fleet">6. Fleet Management</a><br>
 <a href="#g-vt">7. Vendor Truck Assignment</a><br>
-<a href="#g-rates">8. Rate Management</a><br>
-<a href="#g-eval">9. Vendor Speed Performance</a><br>
-<a href="#g-cost">10. Cost Analysis</a><br>
-<a href="#g-foul">11. Foul Trip Review</a><br>
-<a href="#g-tu">12. Trip Utilisation Review</a><br>
-<a href="#g-lib">13. Master Library</a><br>
-<a href="#g-users">14. User Roles</a><br>
-<a href="#g-rv">15. Role Visibility</a><br>
-<a href="#g-ref">16. Quick reference (colours, statuses, Trip IDs)</a><br>
-<a href="#g-faq">17. Testing tips and troubleshooting</a><br>
+<a href="#g-da">8. Driver / Fleet Accounts</a><br>
+<a href="#g-scan">9. Scanning app (Pickup Sort and Unloading)</a><br>
+<a href="#g-rates">10. Rate Management</a><br>
+<a href="#g-eval">11. Vendor Speed Performance</a><br>
+<a href="#g-cost">12. Cost Analysis</a><br>
+<a href="#g-foul">13. Foul Trip Review</a><br>
+<a href="#g-tu">14. Trip Utilisation Review</a><br>
+<a href="#g-lib">15. Master Library</a><br>
+<a href="#g-users">16. User Roles</a><br>
+<a href="#g-rv">17. Role Visibility</a><br>
+<a href="#g-ref">18. Quick reference (colours, statuses, Trip IDs)</a><br>
+<a href="#g-faq">19. Testing tips and troubleshooting</a><br>
 </div>
 </div></div>
 
@@ -402,14 +462,45 @@ tr:hover td{background:#F8FAFC}
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Vendor Truck Assignment</strong> (available to Admin, Master Admin and vendor roles).</li>
-<li>The table lists <strong>trips awaiting a truck</strong> with their trip ID, drops and origin.</li>
-<li>Click the truck dropdown on a row and pick an available truck of a suitable type, then confirm the assignment.</li>
-<li>Click <strong>Refresh</strong> to update the list; a notice appears when a trip is assigned, cancelled or already taken.</li>
+<li>The list shows <strong>trips waiting for a driver</strong> - trip ID, status, final call, truck type, origin and every drop on the trip.</li>
+<li>Each card has a <strong>Select driver / fleet account</strong> dropdown. It contains the active accounts for your vendor; the plate in brackets is the truck that account drives.</li>
+<li>Pick the account and click <strong>Assign Driver</strong>. The trip takes both the driver and that account's truck, leaves this list, and the plate appears on the <strong>Masterlist</strong>. The status stays <strong>Allocated</strong> - it only becomes <strong>In Transit</strong> when the driver scans <strong>Depart</strong> in the scanning app.</li>
+<li>If an account has no truck yet, the assignment is refused with a message. Set the truck on the <strong>Driver / Fleet Accounts</strong> page and try again.</li>
+<li>Accounts are managed on <strong>Driver / Fleet Accounts</strong> - see topic 8.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-da">
+<div class="card-h"><h3><i class="fas fa-id-card"></i> 8. Driver / Fleet Accounts</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>Open <strong>Driver / Fleet Accounts</strong> (Admin, Master Admin and vendor roles). These are the logins used by the scanning app and by drivers to see their trips.</li>
+<li>Click <strong>Add Account</strong>. Enter a username (3-100 characters: letters, numbers, dot, underscore, dash or @), a password of at least 4 characters, the driver name and phone.</li>
+<li>Admins also choose the <strong>Vendor</strong>. Vendors always create accounts for themselves.</li>
+<li>Choose the <strong>Truck</strong> this account drives. This is what gets assigned on the Vendor Truck Assignment page - one account, one truck.</li>
+<li>Untick <strong>Account is active</strong> to switch an account off without deleting it; existing scanning sessions stop working straight away.</li>
+<li>Use the pencil to edit (leave the password blank to keep the current one) and the bin to delete. Deleting clears the driver from any trip that still points at it.</li>
+</ol>
+</div></div>
+
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-scan">
+<div class="card-h"><h3><i class="fas fa-barcode"></i> 9. Scanning app (Pickup Sort and Unloading)</h3></div>
+<div class="card-b">
+<p style="font-size:13.5px;line-height:1.9;margin-bottom:10px">A phone-first screen for drivers and warehouse staff. Open it from <strong>Scanning App</strong> in the menu, or go straight to <strong>#/scan</strong> in the address bar. Sign in with a driver / fleet account - the session lasts 30 days on that device.</p>
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li><strong>My trips</strong> lists every trip assigned to the account, with its status, final call and pickup sort progress.</li>
+<li><strong>Step 1 - Arrived at pickup.</strong> If the final call time has already passed, the app refuses and asks for a <strong>late reason</strong> (up to 1000 characters). Save it and the step completes; the reason is stored on the request and shown on the Masterlist.</li>
+<li><strong>Step 2 - Pickup sort.</strong> Open the pickup scan and enter or scan bag IDs. When a manifest is uploaded the list is checked against it: a bag that is not on the manifest returns <strong>unknown</strong> and needs the override code to be forced through; a bag already scanned returns <strong>duplicate</strong>. Success, duplicate and unknown each have their own sound and screen colour. The first accepted bag records <strong>Start Loading</strong>. You can also share the QR code on screen with the person actually scanning.</li>
+<li><strong>Step 3 - End loading</strong>, then <strong>Step 4 - Depart</strong>. Depart requires End Loading and flips the trip to <strong>In Transit</strong>.</li>
+<li><strong>Each drop:</strong> Arrived at destination, Start unloading, open the unloading scan (one bag list per drop, same rules and sounds), then <strong>Finish this drop</strong>. Finishing records End Unloading and marks the request Delivered.</li>
+<li><strong>Photos:</strong> the camera button on a drop attaches up to 8 files (25MB total) as proof of delivery.</li>
+<li><strong>Close scanning</strong> ends a session. It needs the override code shown on the scan screen (or a signed-in scanning session); after that no more bags are accepted.</li>
+<li>When a session is closed, a barcode icon appears next to the manifest on the <strong>Masterlist</strong> - that downloads the scan CSV (Bag ID, Account, Destination, Drop #, Remark).</li>
 </ol>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rates">
-<div class="card-h"><h3><i class="fas fa-dollar-sign"></i> 8. Rate Management</h3></div>
+<div class="card-h"><h3><i class="fas fa-dollar-sign"></i> 10. Rate Management</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Rates</strong> and click <strong>Add Rate</strong>.</li>
@@ -420,7 +511,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-eval">
-<div class="card-h"><h3><i class="fas fa-star"></i> 9. Vendor Speed Performance</h3></div>
+<div class="card-h"><h3><i class="fas fa-star"></i> 11. Vendor Speed Performance</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Evaluation</strong>. Filters: search by request #, Vendor, Truck Type, Plate, Origin, Destination, Account, Department, MAWB and Final Call From/To.</li>
@@ -430,7 +521,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-cost">
-<div class="card-h"><h3><i class="fas fa-chart-pie"></i> 10. Cost Analysis</h3></div>
+<div class="card-h"><h3><i class="fas fa-chart-pie"></i> 12. Cost Analysis</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Cost</strong> and choose the <strong>Final Call From / To</strong> range (required), plus Account, Department, Origin, Destination, Vendor, Status or MAWB if needed.</li>
@@ -441,7 +532,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-foul">
-<div class="card-h"><h3><i class="fas fa-flag"></i> 11. Foul Trip Review</h3></div>
+<div class="card-h"><h3><i class="fas fa-flag"></i> 13. Foul Trip Review</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Set a request's status to <strong>Foul Trip</strong> from Edit on the Masterlist. You must fill <strong>Foul Trip Count Confirmation (1 or 2)</strong> &mdash; the save is refused without it.</li>
@@ -452,7 +543,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-tu">
-<div class="card-h"><h3><i class="fas fa-gauge-high"></i> 12. Trip Utilisation Review</h3></div>
+<div class="card-h"><h3><i class="fas fa-gauge-high"></i> 14. Trip Utilisation Review</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Trip Utilisation Review</strong>. One row per trip with its Requests, Origin, Department, Vendor, Truck Type and <strong>Capacity (units)</strong>.</li>
@@ -463,7 +554,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-lib">
-<div class="card-h"><h3><i class="fas fa-book"></i> 13. Master Library &mdash; the reference data</h3></div>
+<div class="card-h"><h3><i class="fas fa-book"></i> 15. Master Library &mdash; the reference data</h3></div>
 <div class="card-b">
 <p style="font-size:13.5px;margin-bottom:8px">Open <strong>Master Library</strong> and use the tabs. Add / edit / delete entries with the buttons on each tab.</p>
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
@@ -476,7 +567,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-users">
-<div class="card-h"><h3><i class="fas fa-users-cog"></i> 14. User Roles</h3></div>
+<div class="card-h"><h3><i class="fas fa-users-cog"></i> 16. User Roles</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>User Roles</strong> (Admin and Master Admin). Every signed-in user is listed with name, email and role.</li>
@@ -488,7 +579,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rv">
-<div class="card-h"><h3><i class="fas fa-eye"></i> 15. Role Visibility (Master Admin only)</h3></div>
+<div class="card-h"><h3><i class="fas fa-eye"></i> 17. Role Visibility (Master Admin only)</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Role Visibility</strong>. Each card is one role with a checkbox for every page in the app.</li>
@@ -499,7 +590,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ref">
-<div class="card-h"><h3><i class="fas fa-palette"></i> 16. Quick reference</h3></div>
+<div class="card-h"><h3><i class="fas fa-palette"></i> 18. Quick reference</h3></div>
 <div class="card-b">
 <div style="font-size:13.5px;line-height:1.9">
 <p style="margin:0 0 6px"><strong>Utilisation colours</strong> (Pending Allocation and Trip Utilisation Review): <span class="badge" style="background:#DC2626;color:#fff">&lt;70% red</span> under-filled &nbsp; <span class="badge" style="background:#D97706;color:#fff">70&ndash;85% yellow</span> OK &nbsp; <span class="badge" style="background:#16A34A;color:#fff">&gt;85% green</span> well loaded.</p>
@@ -511,7 +602,7 @@ tr:hover td{background:#F8FAFC}
 </div></div>
 
 <div class="card" style="margin-bottom:24px;scroll-margin-top:100px" id="g-faq">
-<div class="card-h"><h3><i class="fas fa-life-ring"></i> 17. Testing tips and troubleshooting</h3></div>
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 19. Testing tips and troubleshooting</h3></div>
 <div class="card-b">
 <ul style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li><strong>A page is missing from the menu</strong> &mdash; your role does not have it. A Master Admin grants it under Role Visibility (topic 15).</li>
@@ -538,6 +629,8 @@ tr:hover td{background:#F8FAFC}
 </main>
 </div>
 
+<div id="scanApp"></div>
+
 <div class="toast-c" id="toasts"></div>
 <div class="mo" id="overlay"><div class="modal"><div class="modal-h"><h3 id="mTitle">Modal</h3><button class="mc-x" onclick="closeM()"><i class="fas fa-times"></i></button></div><div class="modal-b" id="mBody"></div><div class="modal-f" id="mFoot"></div></div></div>
 
@@ -547,7 +640,7 @@ let mlPg=1,mlSort='created_at',mlDir='desc',mlTotal=0;
 let editCtx=null;
 let isAdmin=false,isMaster=false,isViewer=false,isNormal=false,isVendor=false;
 let userPages=[];
-const DEFAULT_VENDOR_PAGES=['dashboard','masterlist','vendor-trucks','fleet','user-guide'];
+const DEFAULT_VENDOR_PAGES=['dashboard','masterlist','vendor-trucks','driver-accounts','fleet','user-guide'];
 
 async function init(){
   try{
@@ -574,7 +667,7 @@ async function init(){
     }else{
       userPages=['dashboard','masterlist','user-guide'];
       if(!isViewer&&!isNormal)userPages.push('new-request','pending','fleet');
-      if(isAdmin)userPages.push('rates','evaluation','cost','foul-trip-review','trip-utilisation','library','users','vendor-trucks');
+      if(isAdmin)userPages.push('rates','evaluation','cost','foul-trip-review','trip-utilisation','library','users','vendor-trucks','driver-accounts');
       if(isMaster)userPages.push('role-visibility');
     }
     document.querySelectorAll('.nav-item[data-page]').forEach(n=>{
@@ -662,7 +755,7 @@ function showPage(pg){
   const nav=document.querySelector('.nav-item[data-page="'+pg+'"]');
   if(nav)nav.classList.add('active');
   document.querySelector('.sidebar').classList.remove('open');
-  const loaders={dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,'vendor-trucks':loadVT,rates:loadRates,evaluation:loadEvals,cost:()=>{},'foul-trip-review':loadFT,'trip-utilisation':loadTU,library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers,'role-visibility':loadRoleVisibility};
+  const loaders={dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,'vendor-trucks':loadVT,'driver-accounts':loadDA,rates:loadRates,evaluation:loadEvals,cost:()=>{},'foul-trip-review':loadFT,'trip-utilisation':loadTU,library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers,'role-visibility':loadRoleVisibility};
   if(loaders[pg])loaders[pg]();
 }
 
@@ -993,9 +1086,13 @@ async function loadML(){
       tb.innerHTML=data.items.map(r=>{
         const consolTag=!!r.is_consolidated;
         const attInd=(r.attachments&&r.attachments.length)?'<i class="fas fa-paperclip" style="color:var(--pri)" title="'+r.attachments.length+' attachment(s)"></i> '+r.attachments.length:'-';
-        const mfCell=r.manifest
+        let mfCell=r.manifest
           ?'<span style="color:#16A34A;font-weight:700;white-space:nowrap"><i class="fas fa-file-csv"></i> Uploaded</span><br><a href="/api/requests/'+r.id+'/manifest/download" style="font-size:11.5px" title="Download manifest CSV ('+r.manifest.id_count+' IDs)">Download CSV</a>'
           :'<strong style="color:#DC2626;cursor:pointer;white-space:nowrap" onclick="editReq('+r.id+')" title="Upload the manifest Excel file for this request">Missing Manifest</strong>';
+        const scanLinks=[];
+        if(r.pickup_scan_closed&&r.trip_id)scanLinks.push(' <a href="/api/trips/'+tripBase(r.trip_id)+'/pickup-scan/download" title="Download the pickup scan CSV" style="color:var(--pri)"><i class="fas fa-barcode"></i></a>');
+        if(r.unload_scan_closed)scanLinks.push(' <a href="/api/requests/'+r.id+'/unload-scan/download" title="Download the unloading scan CSV" style="color:var(--pri)"><i class="fas fa-box-open"></i></a>');
+        if(scanLinks.length)mfCell+=''+scanLinks.join('');
         let dropCell='-';
         const ftCnt=(r.foul_trip_count===1||r.foul_trip_count===2)?String(r.foul_trip_count):'-';
         const ftEmail=r.foul_trip_approved_by_email||r.foul_trip_approved_by||'';
@@ -1013,19 +1110,19 @@ async function loadML(){
         }else if(r.drop_sequence&&(multiDrop||r.status_id===7||r.status_id===4||r.status_id===5)){
           dropCell='<strong>'+r.drop_sequence+'</strong>';
         }
-        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
+        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&r.driver_account_id&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
       }).join('');
-    }else{tb.innerHTML='<tr><td colspan="41" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
+    }else{tb.innerHTML='<tr><td colspan="45" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
     [...tb.rows].forEach(row=>{if(row.children.length===ML_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=ML_KEYS[i]})});
     applyMLOrder();
   }catch(e){console.error(e)}
 }
 function sortML(f){if(mlSort===f)mlDir=mlDir==='desc'?'asc':'desc';else{mlSort=f;mlDir='desc'}loadML()}
 function mlPage(d){mlPg+=d;if(mlPg<1)mlPg=1;loadML()}
-const ML_KEYS=['request_number','actions','requestor','manifest_status','status_name','account_name','department_name','origin_port_name','destination_port_name','international_mawb','domestic_mawb','truck_type_name','plate_number','packaging_type_name','initial_quantity','quantity','vendor_name','final_call_datetime','trip_id','drop','distance_km','booking_date','call_datetime','customs_cleared_datetime','special_instructions','arrived_pickup_datetime','start_loading_datetime','end_loading_datetime','arrived_dest_datetime','start_unloading_datetime','end_unloading_datetime','delivered_date','foul_trip_reason','foul_trip_date','foul_trip_count','foul_trip_approval','cancellation_date','consol','attachments','updated_by','updated_at'];
+const ML_KEYS=['request_number','actions','requestor','manifest_status','status_name','account_name','department_name','origin_port_name','destination_port_name','international_mawb','domestic_mawb','truck_type_name','plate_number','packaging_type_name','initial_quantity','quantity','vendor_name','final_call_datetime','trip_id','driver_username','driver_name','driver_phone','drop','distance_km','booking_date','call_datetime','customs_cleared_datetime','special_instructions','arrived_pickup_datetime','late_reason','start_loading_datetime','end_loading_datetime','arrived_dest_datetime','start_unloading_datetime','end_unloading_datetime','delivered_date','foul_trip_reason','foul_trip_date','foul_trip_count','foul_trip_approval','cancellation_date','consol','attachments','updated_by','updated_at'];
 let mlDragTh=null, mlDragBound=false, mlHeaderOrdered=false;
 function mlHeadTr(){return document.querySelector('#pg-masterlist table thead tr')}
-function mlStoredOrder(){try{const o=JSON.parse(localStorage.getItem('mlColOrder3')||'null');if(Array.isArray(o)&&o.length===ML_KEYS.length&&o.every(i=>Number.isInteger(i)&&i>=0&&i<ML_KEYS.length)&&new Set(o).size===ML_KEYS.length)return o}catch(e){}return ML_KEYS.map((_,i)=>i)}
+function mlStoredOrder(){try{const o=JSON.parse(localStorage.getItem('mlColOrder4')||'null');if(Array.isArray(o)&&o.length===ML_KEYS.length&&o.every(i=>Number.isInteger(i)&&i>=0&&i<ML_KEYS.length)&&new Set(o).size===ML_KEYS.length)return o}catch(e){}return ML_KEYS.map((_,i)=>i)}
 function mlReorderBody(order){
   document.querySelectorAll('#mlTbl tr').forEach(row=>{
     if(row.children.length!==order.length)return;
@@ -1078,11 +1175,11 @@ function commitMLOrder(){
   const tr=mlHeadTr();if(!tr)return;
   const order=[...tr.children].map(th=>ML_KEYS.indexOf(th.dataset.k));
   if(order.length===ML_KEYS.length&&order.every(i=>i>=0)&&new Set(order).size===order.length){
-    localStorage.setItem('mlColOrder3',JSON.stringify(order));
+    localStorage.setItem('mlColOrder4',JSON.stringify(order));
     mlReorderBody(order);applyMLFreeze();
   }
 }
-function resetMLCols(){localStorage.removeItem('mlColOrder3');localStorage.removeItem('mlColOrder2');localStorage.removeItem('mlColOrder');location.reload()}
+function resetMLCols(){localStorage.removeItem('mlColOrder4');localStorage.removeItem('mlColOrder2');localStorage.removeItem('mlColOrder');location.reload()}
 async function reorderDrop(rid,oldSeq,newSeq){
   if(newSeq<1)return;
   try{await fetch('/api/requests/'+rid+'/drop-sequence',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({drop_sequence:newSeq})});toast('Drop # updated');loadML()}catch(e){toast('Failed','error')}
@@ -1805,20 +1902,23 @@ async function loadVT(){
       html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">';
       html+='<div><strong style="color:var(--pri);font-size:15px">'+(g.trip_id||'-')+'</strong> '+stBadge(g.status_id===3?'In Transit':'Allocated',g.status_id===3?'#8B5CF6':'#3B82F6')+' <span style="color:var(--mut);font-size:12px">| '+(g.requests?g.requests.length:0)+' request(s)</span></div>';
       html+='<div style="font-size:13px;color:var(--mut)">'+(g.final_call_datetime?'<i class="fas fa-phone"></i> Final call: <strong>'+fmtD(g.final_call_datetime)+'</strong>':'')+'</div></div>';
-      html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Total Drops</label><p style="font-size:13px">'+((g.requests||[]).length||0)+'</p></div><div><label class="fl">Assigned Truck</label><p style="font-size:13px">'+(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>')+'</p></div></div>';
+      const ad=g.assigned_driver;
+      const who=ad?(ad.driver_name||ad.username)+(ad.plate_number?' ('+ad.plate_number+')':''):(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>');
+      html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Total Drops</label><p style="font-size:13px">'+((g.requests||[]).length||0)+'</p></div><div><label class="fl">'+(ad?'Assigned Driver':'Assigned Truck')+'</label><p style="font-size:13px">'+(ad?esc(who):who)+'</p></div></div>';
       html+='<table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase"><th style="padding:4px 6px">Drop</th><th>Request #</th><th>Requestor</th><th>Account</th><th>Origin</th><th>Destination</th><th>Qty</th><th>Weight / Volume</th></tr></thead><tbody>';
       (g.requests||[]).forEach(r=>{
         html+='<tr style="border-top:1px solid var(--bdr)"><td style="padding:5px 6px"><b>'+(r.drop_sequence||'-')+'</b></td><td>'+(r.request_number||'')+'</td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.origin_port_name||'-')+'</td><td>'+(r.destination_port_name||'-')+'</td><td>'+(r.quantity||0)+' '+(r.packaging_type_name||'')+'</td><td>'+(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM</td></tr>';
       });
       html+='</tbody></table>';
-      if(isVendor&&!tc){
-        const vtList=g.available_trucks||[];
-        const vtMsg=vtList.length?'Select available truck...':'No '+(g.truck_type_name||'matching')+' trucks available';
-        html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select truck *</label><select class="fs" id="vtTruck-'+i+'"><option value="">'+vtMsg+'</option>';
-        vtList.forEach(t=>{
-          html+='<option value="'+t.id+'">'+t.plate_number+' ('+(t.truck_type_name||'')+')'+(t.driver_name?' - '+t.driver_name:'')+(t.active_requests?' | '+t.active_requests+' active drop(s)':'')+'</option>';
+      if(isVendor){
+        const vtList=(g.drivers||[]).filter(d=>d&&d.is_active!==false);
+        const vtMsg=vtList.length?'Select driver / fleet account...':'No driver accounts yet - create one on the Driver / Fleet Accounts page';
+        html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select driver / fleet account *</label><select class="fs" id="vtDriver-'+i+'"><option value="">'+vtMsg+'</option>';
+        vtList.forEach(d=>{
+          html+='<option value="'+d.id+'">'+esc(d.username)+(d.driver_name?' - '+esc(d.driver_name):'')+(d.plate_number?' ('+esc(d.plate_number)+')':'')+'</option>';
         });
-        html+='</select></div><button class="btn btn-p" onclick="assignVT('+i+')"><i class="fas fa-check"></i> Assign Truck</button></div>';
+        html+='</select></div><button class="btn btn-p" onclick="assignVT('+i+')"><i class="fas fa-check"></i> Assign Driver</button></div>';
+        html+='<div style="margin-top:8px;font-size:12px;color:var(--mut)"><i class="fas fa-info-circle"></i> The account\'s truck (plate above) is assigned with the driver, and the trip stays <strong>Allocated</strong> until the driver scans <strong>Depart</strong> in the scanning app.</div>';
       }
       html+='</div></div>';
       });
@@ -1832,14 +1932,118 @@ async function loadVT(){
 async function assignVT(i){
   const g=vtData[i];
   if(!g)return;
-  const sel=document.getElementById('vtTruck-'+i);
-  if(!sel||!sel.value){toast('Select a truck','error');return}
+  const sel=document.getElementById('vtDriver-'+i);
+  if(!sel||!sel.value){toast('Select a driver / fleet account','error');return}
   try{
-    const res=await fetch('/api/trips/'+encodeURIComponent(g.trip_id)+'/assign-truck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({truck_id:+sel.value})});
+    const res=await fetch('/api/trips/'+encodeURIComponent(g.trip_id)+'/assign-driver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({driver_account_id:+sel.value})});
     if(!res.ok){throw new Error(await apiErr(res))}
-    toast('Truck assigned to '+g.trip_id+'!');
+    const d=(g.drivers||[]).find(x=>+x.id===+sel.value);
+    toast(g.trip_id+' assigned to '+(d&&d.driver_name?d.driver_name:d&&d.username?d.username:'the driver')+(d&&d.plate_number?' ('+d.plate_number+')':'')+'!');
     loadVT();loadFleet();loadML();loadDash();
   }catch(e){toast(e.message,'error')}
+}
+
+// --- Driver / Fleet Accounts ---------------------------------------------
+let daRows=[],daTrucks=[];
+async function loadDA(){
+  const body=document.getElementById('daBody');
+  if(!body)return;
+  try{
+    const [a,b]=await Promise.all([
+      fetch('/api/driver-accounts').then(r=>{if(!r.ok)throw new Error('Cannot load driver accounts');return r.json()}),
+      fetch('/api/trucks').then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    daRows=Array.isArray(a)?a:[];daTrucks=Array.isArray(b)?b:[];
+    if(!daRows.length){body.innerHTML='<div class="empty" style="padding:30px"><i class="fas fa-id-card"></i><p>No driver accounts yet</p><p style="font-size:12.5px;color:var(--muted)">Click <strong>Add Account</strong> to create the first login for your drivers.</p></div>';return}
+    let html='<div class="tw"><table><thead><tr><th>Username</th><th>Driver Name</th><th>Phone</th><th>Vendor</th><th>Truck</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+    daRows.forEach((d,i)=>{
+      const badge=d.is_active?'<span class="badge" style="background:#DCFCE7;color:#166534"><i class="fas fa-check"></i> Active</span>':'<span class="badge" style="background:#FEE2E2;color:#991B1B"><i class="fas fa-ban"></i> Disabled</span>';
+      html+='<tr><td><strong style="color:var(--pri)">'+esc(d.username)+'</strong></td><td>'+esc(d.driver_name||'-')+'</td><td>'+esc(d.driver_phone||'-')+'</td><td>'+esc(d.vendor_name||'-')+'</td>';
+      html+='<td>'+(d.plate_number?'<span class="badge b-bl">'+esc(d.plate_number)+'</span>':'<span style="color:var(--muted);font-size:12.5px">No truck</span>')+'</td><td>'+badge+'</td>';
+      html+='<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm btn-o" onclick="showDAModal(daRows['+i+'])" title="Edit"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delDA('+d.id+')" title="Delete"><i class="fas fa-trash"></i></button></td></tr>';
+    });
+    html+='</tbody></table></div>';
+    body.innerHTML=html;
+  }catch(e){body.innerHTML='<div class="empty" style="padding:30px"><i class="fas fa-exclamation-circle"></i><p>'+esc(e.message||'Failed to load driver accounts')+'</p></div>'}
+}
+function daTruckOptions(vid,sel){
+  const list=daTrucks.filter(t=>!vid||+t.vendor_id===+vid);
+  let o='<option value="">No truck yet</option>';
+  list.forEach(t=>{o+='<option value="'+t.id+'"'+(+t.id===+sel?' selected':'')+'>'+esc(t.plate_number)+(t.truck_type_name?' ('+esc(t.truck_type_name)+')':'')+'</option>'});
+  if(!list.length)o='<option value="">No trucks for this vendor yet</option>';
+  return o;
+}
+function daSyncTrucks(){
+  const vs=document.getElementById('daVendor'),ts=document.getElementById('daTruck');
+  if(!ts)return;
+  const vid=vs&&vs.value?+vs.value:0;
+  const cur=ts.getAttribute('data-cur')||'';
+  ts.innerHTML=daTruckOptions(vid,cur);
+}
+function showDAModal(d){
+  d=d||{};
+  const vid=isVendor?myVendorId():(d.vendor_id||0);
+  document.getElementById('mTitle').textContent=d.id?'Edit driver / fleet account':'Add driver / fleet account';
+  let ven='';
+  if(!isVendor){
+    ven='<div class="fr"><div class="fg" style="grid-column:1/-1"><label class="fl">Vendor *</label><select class="fs" id="daVendor" onchange="daSyncTrucks()"></select></div></div>';
+  }
+  document.getElementById('mBody').innerHTML=
+    '<div class="fr"><div class="fg"><label class="fl">Username * (letters, numbers, . _ - @)</label><input class="fi" id="daUser" maxlength="100" value="'+esc(d.username||'')+'"></div>'+
+    '<div class="fg"><label class="fl">Password '+(d.id?'(leave blank to keep)':'* (min 4 characters)')+'</label><input class="fi" id="daPass" type="password" maxlength="128" autocomplete="new-password"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Driver Name</label><input class="fi" id="daName" maxlength="255" value="'+esc(d.driver_name||'')+'"></div>'+
+    '<div class="fg"><label class="fl">Driver Phone</label><input class="fi" id="daPhone" maxlength="50" value="'+esc(d.driver_phone||'')+'"></div></div>'+
+    ven+
+    '<div class="fr"><div class="fg"><label class="fl">Truck (driven by this account)</label><select class="fs" id="daTruck" data-cur="'+(d.truck_id||'')+'">'+daTruckOptions(vid,d.truck_id)+'</select></div>'+
+    '<div class="fg" style="display:flex;align-items:flex-end"><label class="fl"><input type="checkbox" id="daActive" '+(d.id?(d.is_active?'checked':''):'checked')+'> Account is active</label></div></div>';
+  if(!isVendor){
+    const vs=document.getElementById('daVendor');
+    vs.innerHTML='<option value="">-- Select Vendor --</option>'+vendors.map(v=>'<option value="'+v.id+'"'+(+v.id===+vid?' selected':'')+'>'+esc(v.name)+'</option>').join('');
+    if(vid)vs.value=vid;
+  }
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveDA('+(d.id||'null')+')"><i class="fas fa-save"></i> Save</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+async function saveDA(id){
+  const body={
+    username:document.getElementById('daUser').value.trim(),
+    driver_name:document.getElementById('daName').value.trim(),
+    driver_phone:document.getElementById('daPhone').value.trim(),
+    truck_id:document.getElementById('daTruck').value?+document.getElementById('daTruck').value:null,
+    is_active:document.getElementById('daActive').checked
+  };
+  const pass=document.getElementById('daPass').value;
+  if(!body.username){toast('Username is required','error');return}
+  if(pass)body.password=pass;
+  else if(!id){toast('Password is required','error');return}
+  if(!isVendor){
+    const vs=document.getElementById('daVendor');
+    if(vs){if(!vs.value){toast('Vendor is required','error');return}body.vendor_id=+vs.value}
+  }
+  try{
+    const res=await fetch(id?'/api/driver-accounts/'+id:'/api/driver-accounts',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to save','error');return}
+    toast(id?'Account updated':'Account created');
+    closeM();loadDA();
+  }catch(e){toast(e.message||'Failed','error')}
+}
+async function delDA(id){
+  const d=daRows.find(x=>x.id===id);
+  if(!confirm('Delete driver account "'+(d?d.username:id)+'"? Their scanning sessions will stop working immediately.'))return;
+  try{
+    const res=await fetch('/api/driver-accounts/'+id,{method:'DELETE'});
+    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}
+    toast('Account deleted');loadDA();
+  }catch(e){toast(e.message||'Failed','error')}
+}
+async function unassignDriver(rid){
+  if(!confirm('Remove the driver from this request? The trip is released back to the Vendor Truck Assignment list and its scan keys are reset.'))return;
+  try{
+    const res=await fetch('/api/requests/'+rid+'/unassign-driver',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to unassign','error');return}
+    toast('Driver removed - the trip is back on the assignment list');
+    loadML();loadVT();loadDash();
+  }catch(e){toast(e.message||'Failed','error')}
 }
 
 async function viewTruckHistory(tid,plate){
@@ -2865,6 +3069,7 @@ const ALL_PAGES=[
   {key:'masterlist',label:'Masterlist'},
   {key:'pending',label:'Pending Allocation to Vendors'},
   {key:'vendor-trucks',label:'Vendor Truck Assignment'},
+  {key:'driver-accounts',label:'Driver / Fleet Accounts'},
   {key:'fleet',label:'Fleet Management'},
   {key:'rates',label:'Rate Management'},
   {key:'evaluation',label:'Vendor Speed Performance'},
@@ -2961,6 +3166,440 @@ async function saveRoleVisibility(){
 
 function closeM(){document.getElementById('overlay').classList.remove('on')}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)e.stopPropagation()});
+
+/* ===================== Scanning app (mobile) ===================== */
+let scanTimer=null,scanDriver=null,scanCam=null,scanTrips=[],scanCur=null,scanSum=null,scanOv='',scanBusy=false;
+
+function scanStopCam(){
+  if(scanTimer){clearInterval(scanTimer);scanTimer=null}
+  if(scanCam){const c=scanCam;scanCam=null;try{c.stop()}catch(e){};try{c.clear()}catch(e){}}
+}
+function scanShell(title,body,back){
+  const app=document.getElementById('scanApp');
+  if(!app)return;
+  app.innerHTML='<div class="sc-top"><h4><i class="fas fa-barcode"></i> '+title+'</h4><div>'+(back||'')+'</div></div><div class="sc-wrap">'+body+'</div><div class="sc-flash" id="scFlash"></div>';
+}
+function scanBack(label,fn){
+  return '<button class="btn btn-sm btn-o" style="background:#1E293B;color:#E2E8F0;border-color:#334155" onclick="'+fn+'"><i class="fas fa-arrow-left"></i> '+label+'</button>';
+}
+function scanShellErr(title,msg,back){
+  scanShell(title,'<div class="sc-err"><i class="fas fa-exclamation-triangle"></i> '+esc(msg)+'</div>',back);
+}
+async function scanApi(path,opts){
+  opts=opts||{};
+  const h=Object.assign({},opts.headers||{});
+  if(scanTok())h['X-Scan-Token']=scanTok();
+  if(opts.json!==undefined){h['Content-Type']='application/json';opts.body=JSON.stringify(opts.json)}
+  const res=await fetch(path,{method:opts.method||'GET',body:opts.body,headers:h});
+  let data=null;try{data=await res.json()}catch(e){}
+  if(!res.ok){
+    if(res.status===401){scanSetTok('');scanDriver=null}
+    const d=data?data.detail:null;
+    const msg=typeof d==='string'?d:(d&&d.detail?d.detail:null)||(res.status+' '+res.statusText);
+    const err=new Error(msg);err.status=res.status;err.detail=d;err.data=data;
+    throw err;
+  }
+  return data;
+}
+function scanTok(){return localStorage.getItem('scan_token')||''}
+function scanSetTok(t){if(t)localStorage.setItem('scan_token',t);else localStorage.removeItem('scan_token')}
+function scanBeep(kind){
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    if(!window.__scanAC)window.__scanAC=new C();
+    const ac=window.__scanAC;if(ac.state==='suspended')ac.resume();
+    const f=kind==='err'?220:kind==='warn'?440:880;
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sine';o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+    const t=ac.currentTime;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.22,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+(kind==='err'?0.5:0.24));
+    o.start(t);o.stop(t+(kind==='err'?0.55:0.3));
+  }catch(e){}
+}
+function scanFlash(color){
+  const el=document.getElementById('scFlash');if(!el)return;
+  el.style.background=color;el.classList.add('on');
+  setTimeout(()=>{el.classList.remove('on')},420);
+}
+function scanRoute(){
+  const h=(location.hash||'').replace(/^#\/?/,'');
+  const m=h.match(/^s\/(pickup|unload)\/([^?]+)(\?.*)?$/);
+  const app=document.getElementById('scanApp');
+  if(!app)return;
+  scanStopCam();
+  if(h==='scan'||m){
+    document.body.classList.add('scan-mode');
+    app.style.display='block';
+    if(h==='scan'){scanOv='';scanHome()}
+    else{
+      const q=(m[3]||'').replace(/^\?/,'');
+      const qs=new URLSearchParams(q);
+      scanOv=qs.get('ov')||'';
+      scanKey(m[1],decodeURIComponent(m[2]));
+    }
+  }else{
+    document.body.classList.remove('scan-mode');
+    app.style.display='none';
+    app.innerHTML='';
+    scanSum=null;scanCur=null;
+  }
+}
+function scanRouteGo(h){location.hash=h}
+
+/* ---- login + trip list ---- */
+function renderScanLogin(msg){
+  scanShell('Driver sign in',
+    (msg?'<div class="sc-err"><i class="fas fa-exclamation-circle"></i> '+esc(msg)+'</div>':'')+
+    '<div class="sc-card"><h5><i class="fas fa-user-shield"></i> Scanning app</h5>'+
+    '<div class="sc-hint" style="margin-bottom:12px">Sign in with the driver / fleet account made for you. Your session is kept for 30 days on this device.</div>'+
+    '<label class="sc-hint">Username</label><input class="sc-in" id="scUser" autocomplete="username" autocapitalize="none" autocorrect="off">'+
+    '<label class="sc-hint" style="display:block;margin-top:10px">Password</label><input class="sc-in" id="scPass" type="password" autocomplete="current-password">'+
+    '<button class="sc-btn" onclick="doScanLogin()"><i class="fas fa-sign-in-alt"></i> Sign in</button></div>',
+    scanBack('Back to app',"location.hash='#/dashboard'"));
+  const u=document.getElementById('scUser');if(u)u.focus();
+}
+async function doScanLogin(){
+  const u=document.getElementById('scUser'),p=document.getElementById('scPass');
+  if(!u.value.trim()||!p.value){renderScanLogin('Username and password are required');return}
+  try{
+    const r=await scanApi('/api/scan/login',{method:'POST',json:{username:u.value.trim(),password:p.value}});
+    scanSetTok(r.token);scanDriver=r.driver;
+    scanBeep('ok');scanHome();
+  }catch(e){renderScanLogin(e.message)}
+}
+async function doScanLogout(){
+  try{await scanApi('/api/scan/logout',{method:'POST',json:{}})}catch(e){}
+  scanSetTok('');scanDriver=null;scanTrips=[];renderScanLogin();
+}
+function scanHome(){
+  scanStopCam();
+  if(!scanTok()){renderScanLogin();return}
+  renderScanTrips();
+}
+async function renderScanTrips(){
+  scanShell('My trips','<div class="sc-card"><div class="sc-hint"><i class="fas fa-spinner fa-spin"></i> Loading your trips...</div></div>',
+    scanBack('Sign out','doScanLogout()'));
+  try{
+    scanTrips=await scanApi('/api/scan/trips');
+    scanDriver=await scanApi('/api/scan/me');
+  }catch(e){
+    if(e.status===401){renderScanLogin('Your session expired - sign in again');return}
+    scanShellErr('My trips',e.message,scanBack('Sign out','doScanLogout()'));return;
+  }
+  if(!scanTrips.length){
+    scanShell('My trips',
+      '<div class="sc-card"><div class="sc-hint"><i class="fas fa-inbox" style="font-size:26px;color:#334155"></i><br><br>No trips are assigned to <strong>'+esc(scanDriver&&scanDriver.username||'you')+'</strong> right now.<br><br>Ask your dispatcher to assign a trip on the <strong>Vendor Truck Assignment</strong> page.</div></div>',
+      scanBack('Sign out','doScanLogout()'));
+    return;
+  }
+  let body='<div class="sc-card"><h5><i class="fas fa-user"></i> '+esc(scanDriver.driver_name||scanDriver.username)+
+    (scanDriver.plate_number?' <span class="sc-badge b">'+esc(scanDriver.plate_number)+'</span>':'')+'</h5>'+
+    '<div class="sc-hint">Tap a trip to work through the steps: arrive, pickup sort, loading, departure, then each drop.</div></div>';
+  scanTrips.forEach((t,i)=>{
+    const done=t.pickup&&t.pickup.closed;
+    body+='<div class="sc-card"><div class="sc-step" style="border:0;padding:0">'+
+      '<div class="sc-dot '+(t.status_id===3?'done':'now')+'">'+(t.status_id===3?'2':'1')+'</div>'+
+      '<div class="sc-body"><div class="t">'+esc(t.trip_id)+' <span class="sc-badge '+(t.status_id===3?'b':'y')+'">'+(t.status_id===3?'In Transit':'Allocated')+'</span></div>'+
+      '<div class="s">'+(t.requests||[]).length+' drop(s)'+(t.final_call_datetime?' &middot; Final call '+esc(t.final_call_datetime):'')+'</div>'+
+      '<div class="s">'+(t.pickup?(t.pickup.closed?'Pickup sort closed':'Pickup sort: '+t.pickup.scanned_count+' of '+(t.pickup.expected_count==null?'free':t.pickup.expected_count)+' scanned'):'')+'</div></div></div>'+
+      '<button class="sc-btn" onclick="scanOpenTrip('+i+')"><i class="fas fa-route"></i> Open trip</button>'+
+      '</div>';
+  });
+  scanShell('My trips',body,scanBack('Sign out','doScanLogout()'));
+}
+function scanOpenTrip(i){
+  scanCur=scanTrips[i];if(!scanCur)return;
+  renderScanTrip();
+}
+
+/* ---- trip detail ---- */
+function scTs(v){return v?'<span class="sc-badge g">'+esc(v)+'</span>':'<span class="sc-badge">not yet</span>'}
+function scDropCard(t,r,i){
+  const closed=r.unload_scan_closed;
+  let acts='';
+  if(!r.arrived_dest_datetime)acts+='<button class="sc-btn" onclick="scAct(\'drop-arrival\','+r.id+')"><i class="fas fa-map-marker-alt"></i> Arrived at destination (drop '+(r.drop_sequence||i+1)+')</button>';
+  else if(!r.start_unloading_datetime)acts+='<button class="sc-btn" onclick="scAct(\'start-unload\','+r.id+')"><i class="fas fa-box-open"></i> Start unloading</button>';
+  else if(!closed&&r.unload_scan_key)acts+='<button class="sc-btn" onclick="scanRouteGo(\'#/s/unload/\'+\''+encodeURIComponent(r.unload_scan_key)+'\')"><i class="fas fa-barcode"></i> Open unloading scan ('+r.unload_scan_count+' done)</button>';
+  if(r.arrived_dest_datetime&&r.start_unloading_datetime&&!r.end_unloading_datetime)
+    acts+='<button class="sc-btn ok" onclick="scAct(\'finish\','+r.id+')"><i class="fas fa-check-double"></i> Finish this drop</button>';
+  if(closed)acts+='<div class="sc-ok" style="margin-top:10px"><i class="fas fa-check-circle"></i> Unloading complete for this drop.</div>';
+  acts+='<button class="sc-btn sec" onclick="scPhoto('+r.id+')"><i class="fas fa-camera"></i> Add photo'+((r.attachments||[]).length?' ('+r.attachments.length+')':'')+'</button>'+
+        '<input type="file" id="scFile'+r.id+'" accept="image/*,application/pdf" capture="environment" multiple style="display:none" onchange="scPhotoSend('+r.id+',this)">';
+  return '<div class="sc-card"><div class="sc-step" style="border:0;padding:0 0 8px">'+
+    '<div class="sc-dot '+(r.end_unloading_datetime?'done':r.arrived_dest_datetime?'now':'')+'">'+(r.drop_sequence||i+1)+'</div>'+
+    '<div class="sc-body"><div class="t">'+esc(r.request_number||'')+'</div>'+
+    '<div class="s">'+esc(r.account_name||'')+' &rarr; '+esc(r.destination_port_name||'')+'</div>'+
+    '<div class="s" style="margin-top:5px">Arrive '+scTs(fmtD(r.arrived_dest_datetime))+' &nbsp; Unload '+scTs(fmtD(r.start_unloading_datetime))+' &nbsp; Done '+scTs(fmtD(r.end_unloading_datetime))+'</div>'+
+    (r.late_reason?'<div class="s" style="color:#FCD34D">Late reason: '+esc(r.late_reason)+'</div>':'')+
+    '</div></div>'+acts+'</div>';
+}
+function renderScanTrip(){
+  const t=scanCur;if(!t){scanHome();return}
+  const rs=t.requests||[];
+  const f=rs[0]||{};
+  let steps='';
+  const canPre=t.status_id===2;
+  if(!f.arrived_pickup_datetime&&canPre)
+    steps+='<div class="sc-step"><div class="sc-dot now">1</div><div class="sc-body"><div class="t">Arrived at pickup</div><div class="s">Tap when the truck reaches the pickup point.</div><button class="sc-btn" onclick="scAct(\'pickup-arrival\')"><i class="fas fa-flag"></i> I have arrived</button></div></div>';
+  else
+    steps+='<div class="sc-step"><div class="sc-dot '+(f.arrived_pickup_datetime?'done':'')+'">1</div><div class="sc-body"><div class="t">Arrived at pickup</div><div class="s">'+scTs(fmtD(f.arrived_pickup_datetime))+'</div></div></div>';
+  const pk=t.pickup&&t.pickup.key;
+  steps+='<div class="sc-step"><div class="sc-dot '+(t.pickup&&t.pickup.closed?'done':pk?'now':'')+'">2</div><div class="sc-body"><div class="t">Pickup sort (scan bags)</div>'+
+    '<div class="s">'+(t.pickup?(t.pickup.closed?'Closed '+fmtD(t.pickup.closed_at):'Scanned '+t.pickup.scanned_count+(t.pickup.expected_count==null?'':' of '+t.pickup.expected_count)):'Waiting for a driver to be assigned')+'</div>'+
+    (pk?'<button class="sc-btn" onclick="scanRouteGo(\'#/s/pickup/\'+\''+encodeURIComponent(pk)+'\')"><i class="fas fa-barcode"></i> Open pickup scan</button>':'')+
+    '</div></div>';
+  if(!f.end_loading_datetime&&canPre)
+    steps+='<div class="sc-step"><div class="sc-dot now">3</div><div class="sc-body"><div class="t">End loading</div><div class="s">Tap once every bag is on the truck.</div><button class="sc-btn" onclick="scAct(\'end-loading\')"><i class="fas fa-box"></i> End loading</button></div></div>';
+  else
+    steps+='<div class="sc-step"><div class="sc-dot '+(f.end_loading_datetime?'done':'')+'">3</div><div class="sc-body"><div class="t">End loading</div><div class="s">'+scTs(fmtD(f.end_loading_datetime))+'</div></div></div>';
+  if(canPre)
+    steps+='<div class="sc-step"><div class="sc-dot '+(t.status_id===3?'done':'')+'">4</div><div class="sc-body"><div class="t">Set off</div><div class="s">'+(t.status_id===3?'On the road':'Requires End Loading first')+'</div>'+
+      (t.status_id===2?'<button class="sc-btn warn" onclick="scAct(\'depart\')"><i class="fas fa-truck"></i> Depart</button>':'')+'</div></div>';
+  else
+    steps+='<div class="sc-step"><div class="sc-dot done">4</div><div class="sc-body"><div class="t">Set off</div><div class="s">Departed &middot; In Transit</div></div></div>';
+
+  let body='<div class="sc-card"><h5><i class="fas fa-route"></i> '+esc(t.trip_id)+'</h5>'+
+    '<div class="sc-hint">Final call: <strong>'+esc(t.final_call_datetime||'-')+'</strong><br>Driver: <strong>'+esc((t.driver&&t.driver.driver_name)|| (t.driver&&t.driver.username)||'-')+'</strong>'+
+    (t.driver&&t.driver.plate_number?' &middot; Truck <strong>'+esc(t.driver.plate_number)+'</strong>':'')+'</div></div>';
+  body+='<div class="sc-card"><h5><i class="fas fa-list-ol"></i> Trip steps</h5>'+steps+'</div>';
+  body+='<div class="sc-card"><h5><i class="fas fa-boxes-stacked"></i> Drops ('+rs.length+')</h5><div id="scLateWrap"></div></div>';
+  rs.forEach((r,i)=>{body+=scDropCard(t,r,i)});
+  scanShell(esc(t.trip_id),body,scanBack('Trips','scanHome()'));
+}
+async function scAct(kind,rid){
+  if(scanBusy)return;
+  scanBusy=true;
+  const t=scanCur;
+  try{
+    let path,opts={method:'POST',json:{}};
+    if(kind==='pickup-arrival'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/pickup-arrival'}
+    else if(kind==='end-loading'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/end-loading'}
+    else if(kind==='depart'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/depart'}
+    else{path='/api/scan/requests/'+rid+'/'+kind}
+    await scanApi(path,opts);
+    await scanReloadTrip();
+    scanBeep('ok');scanFlash('#10B981');
+  }catch(e){
+    if(e.detail&&e.detail.code==='late_required'){scanBeep('warn');scLateForm(kind,rid,e.detail)}
+    else{scanBeep('err');scanAlert(e.message)}
+  }
+  scanBusy=false;
+}
+function scanAlert(msg){
+  const w=document.getElementById('scLateWrap');
+  if(w){w.innerHTML='<div class="sc-err">'+esc(msg)+'</div>';w.scrollIntoView({block:'center'});return}
+  const b=document.querySelector('#scanApp .sc-wrap');
+  if(b)b.insertAdjacentHTML('afterbegin','<div class="sc-err">'+esc(msg)+'</div>');
+}
+function scLateForm(kind,rid,d){
+  const w=document.getElementById('scLateWrap');if(!w)return;
+  w.innerHTML='<div class="sc-warn"><i class="fas fa-clock"></i> '+esc(d.detail||'This trip is past its Final Call time.')+
+    '<div class="sc-hint" style="color:#FCD34D;margin-top:4px">Final call was '+esc(d.final_call||'')+'. Record why the arrival is late.</div>'+
+    '<textarea class="sc-in" id="scLateTxt" rows="3" maxlength="1000" style="margin-top:10px;font-size:15px" placeholder="Reason for arriving after Final Call..."></textarea>'+
+    '<button class="sc-btn warn" onclick="scLateSend(\''+kind+'\','+rid+')"><i class="fas fa-save"></i> Save reason and continue</button>'+
+    '<button class="sc-btn sec" onclick="scLateCancel()">Cancel</button></div>';
+  w.scrollIntoView({block:'center'});
+  const ta=document.getElementById('scLateTxt');if(ta)ta.focus();
+}
+function scLateCancel(){const w=document.getElementById('scLateWrap');if(w)w.innerHTML=''}
+async function scLateSend(kind,rid){
+  const ta=document.getElementById('scLateTxt');
+  const v=ta?ta.value.trim():'';
+  if(!v){ta.focus();return}
+  const t=scanCur;
+  try{
+    let path;
+    if(kind==='pickup-arrival')path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/pickup-arrival';
+    else path='/api/scan/requests/'+rid+'/'+kind;
+    await scanApi(path,{method:'POST',json:{late_reason:v}});
+    await scanReloadTrip();
+    scanBeep('ok');scanFlash('#10B981');
+  }catch(e){scanBeep('err');scanAlert(e.message)}
+}
+async function scanReloadTrip(){
+  const trips=await scanApi('/api/scan/trips');
+  scanTrips=trips;
+  const t=trips.find(x=>x.trip_id===scanCur.trip_id);
+  if(t)scanCur=t;
+  renderScanTrip();
+}
+function scPhoto(rid){const i=document.getElementById('scFile'+rid);if(i)i.click()}
+async function scPhotoSend(rid,input){
+  const files=input.files;
+  if(!files||!files.length)return;
+  if(scanBusy)return;scanBusy=true;
+  try{
+    for(let i=0;i<files.length;i++){
+      const fd=new FormData();
+      fd.append('file',files[i]);
+      await scanApi('/api/scan/requests/'+rid+'/photo',{method:'POST',body:fd});
+    }
+    input.value='';
+    await scanReloadTrip();
+    scanBeep('ok');scanFlash('#10B981');
+  }catch(e){scanBeep('err');scanAlert(e.message)}
+  scanBusy=false;
+}
+
+/* ---- the public scan screens (pickup / unload) ---- */
+async function scanKey(kind,key){
+  const title=kind==='pickup'?'Pickup sort scan':'Unloading scan';
+  scanShell(title,'<div class="sc-card"><div class="sc-hint"><i class="fas fa-spinner fa-spin"></i> Loading scan session...</div></div>',
+    scanBack('Back',"location.hash='#/scan'"));
+  try{
+    scanSum=await scanApi('/api/scan/'+kind+'/'+key+(scanOv?'?ov='+encodeURIComponent(scanOv):''));
+    renderScanKey(kind,key);
+    scanStartPoll(kind,key);
+  }catch(e){scanShellErr(title,e.message,scanBack('Back',"location.hash='#/scan'"))}
+}
+function scanStartPoll(kind,key){
+  if(scanTimer)clearInterval(scanTimer);
+  scanTimer=setInterval(async ()=>{
+    try{
+      const s=await scanApi('/api/scan/'+kind+'/'+key+(scanOv?'?ov='+encodeURIComponent(scanOv):''));
+      const was=scanSum?scanSum.scanned_count:0;
+      scanSum=s;
+      if(s.closed){scanStopCam();renderScanKey(kind,key);return}
+      const list=document.getElementById('scList');
+      if(list)list.innerHTML=scList(s);
+      const pills=document.querySelectorAll('#scanApp .sc-pill b');
+      if(pills.length>=2){
+        pills[0].textContent=s.scanned_count;
+        pills[1].textContent=s.expected_count==null?'-':s.expected_count;
+      }
+      if(s.scanned_count>was)scanBeep('ok');
+    }catch(e){}
+  },4000);
+}
+function renderScanKey(kind,key){
+  const s=scanSum;
+  const title=kind==='pickup'?'Pickup sort scan':'Unloading scan';
+  const exp=s.expected_count==null?null:s.expected_count;
+  let body='';
+  if(s.closed)body+='<div class="sc-ok"><i class="fas fa-lock"></i> Scanning closed'+(s.closed_at?' at '+esc(s.closed_at):'')+'. Nothing more can be scanned.</div>';
+  const drop=(s.requests||[]).map(r=>'<div class="sc-row"><span class="sc-badge b">Drop '+(r.drop_sequence||'-')+'</span><span>'+esc(r.request_number||'')+'</span><span style="color:#94A3B8">'+esc(r.destination_port_name||'')+'</span></div>').join('');
+  body+='<div class="sc-card"><h5><i class="fas fa-list-ol"></i> '+esc(s.trip_id)+'</h5>'+
+    '<div class="sc-cnt"><div class="sc-pill"><b>'+s.scanned_count+'</b><span>Scanned</span></div>'+
+    '<div class="sc-pill"><b>'+(exp==null?'-':exp)+'</b><span>Expected</span></div>'+
+    '<div class="sc-pill"><b>'+(s.requests||[]).length+'</b><span>'+(kind==='pickup'?'Drops':'Drop')+'</span></div></div>'+
+    (s.mode==='manifest'?'<div class="sc-hint" style="margin-top:10px">Bag IDs are checked against the manifest. Unknown IDs are refused unless you use Override.</div>':'<div class="sc-hint" style="margin-top:10px">No manifest on this trip, so any bag ID is accepted.</div>')+
+    '</div>';
+  if(!s.closed){
+    body+='<div class="sc-card"><h5><i class="fas fa-barcode"></i> Scan a bag</h5>'+
+      '<input class="sc-in" id="scBag" placeholder="Type or scan a bag ID" autocapitalize="none" autocorrect="off" autocomplete="off" onkeydown="if(event.key===\'Enter\')scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',this.value)">'+
+      '<button class="sc-btn" onclick="scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',document.getElementById(\'scBag\').value)"><i class="fas fa-plus"></i> Record bag</button>'+
+      '<button class="sc-btn sec" onclick="scCam()"><i class="fas fa-camera"></i> Scan with camera</button>'+
+      '<div id="qrReader"></div>'+
+      '<div id="scMsg"></div>'+
+      '</div>';
+  }
+  body+='<div class="sc-card"><h5><i class="fas fa-qrcode"></i> Scan link (share with the scanner)</h5>'+
+    '<div class="sc-hint">Anyone with this link can scan for this session.</div>'+
+    '<div id="scQR" class="sc-qr" style="margin-top:10px"></div>'+
+    '<div class="sc-hint" style="margin-top:8px;word-break:break-all" id="scUrl"></div>'+
+    '<div class="sc-hint" style="margin-top:8px">Override code: <strong>'+esc(s.override_code||'')+'</strong></div>'+
+    '</div>';
+  body+='<div class="sc-card"><h5><i class="fas fa-history"></i> Last scans ('+s.scanned_count+')</h5><div id="scList">'+scList(s)+'</div></div>';
+  if(!s.closed){
+    body+='<button class="sc-btn danger" onclick="scEnd(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-lock"></i> Close scanning</button>';
+  }
+  body+='<div id="scOvWrap"></div>';
+  scanShell(title,body,scanBack('Back',"location.hash='#/scan'"));
+  const url=location.origin+location.pathname+'#/s/'+kind+'/'+key;
+  const u=document.getElementById('scUrl');if(u)u.textContent=url;
+  const q=document.getElementById('scQR');
+  if(q&&window.QRCode){
+    q.innerHTML='';
+    try{new QRCode(q,{text:url,width:180,height:180})}catch(e){q.innerHTML=''}
+  }else if(q){q.innerHTML=''}
+  const inp=document.getElementById('scBag');if(inp&&!s.closed)inp.focus();
+}
+function scList(s){
+  const arr=s.scanned||[];
+  if(!arr.length)return '<div class="sc-hint">Nothing scanned yet.</div>';
+  return arr.slice().reverse().map(x=>{
+    const k=x.known===false?'<span class="sc-badge y">override</span>':(x.scan_kind==='override'?'<span class="sc-badge y">override</span>':'<span class="sc-badge g">ok</span>');
+    return '<div class="sc-row"><span class="sc-bag">'+esc(x.bag_id)+'</span>'+k+'</div>';
+  }).join('');
+}
+async function scSend(kind,key,bag){
+  bag=String(bag||'').trim();
+  if(!bag)return;
+  const el=document.getElementById('scBag');
+  try{
+    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:scanOv||undefined}});
+    scanSum=r;
+    if(r.result==='success'){scanBeep('ok');scanFlash('#10B981')}
+    else if(r.result==='duplicate'){scanBeep('warn');scanFlash('#F59E0B')}
+    else{scanBeep('err');scanFlash('#DC2626')}
+    renderScanKey(kind,key);
+    const m=document.getElementById('scMsg');
+    if(m&&r.result!=='success'){
+      let extra='';
+      if(r.result==='unknown')extra='<button class="sc-btn warn" onclick="scOverride(\''+kind+'\',\''+encodeURIComponent(key)+'\',\''+String(r.bag_id).replace(/'/g,'')+'\')"><i class="fas fa-unlock"></i> Scan it anyway (override)</button>';
+      m.innerHTML='<div class="sc-'+(r.result==='unknown'?'err':'warn')+'"><i class="fas fa-'+(r.result==='unknown'?'times-circle':'exclamation-circle')+'"></i> '+esc(r.detail||r.result)+'</div>'+extra;
+    }else if(el){el.value=''}
+  }catch(e){
+    scanBeep('err');
+    const m=document.getElementById('scMsg');
+    if(m)m.innerHTML='<div class="sc-err">'+esc(e.message)+'</div>';
+  }
+  const i=document.getElementById('scBag');if(i){i.value='';i.focus()}
+}
+async function scOverride(kind,key,bag){
+  scanOv=scanSum&&scanSum.override_code?scanSum.override_code:'';
+  await scSend(kind,key,bag);
+}
+async function scEnd(kind,key){
+  try{
+    const r=await scanApi('/api/scan/'+kind+'/'+key+'/end',{method:'POST',json:{ov:scanOv||undefined}});
+    scanSum=Object.assign({},scanSum,r);
+    scanBeep('ok');scanFlash('#10B981');
+    renderScanKey(kind,key);
+  }catch(e){
+    if(e.status===403){
+      const w=document.getElementById('scOvWrap');
+      if(w){
+        w.innerHTML='<div class="sc-card"><h5><i class="fas fa-unlock"></i> Override code needed</h5>'+
+          '<div class="sc-hint">Closing the session needs the override code from the trip, or a signed-in scanning session.</div>'+
+          '<input class="sc-in" id="scOvIn" placeholder="Override code" autocapitalize="none" style="margin-top:10px">'+
+          '<button class="sc-btn warn" onclick="scEndOv(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-lock-open"></i> Close now</button></div>';
+        w.scrollIntoView({block:'center'});
+      }
+    }else{scanBeep('err');const m=document.getElementById('scMsg');if(m)m.innerHTML='<div class="sc-err">'+esc(e.message)+'</div>'}
+  }
+}
+async function scEndOv(kind,key){
+  const el=document.getElementById('scOvIn');
+  scanOv=el?el.value.trim():'';
+  await scEnd(kind,key);
+}
+async function scCam(){
+  const box=document.getElementById('qrReader');
+  if(!box)return;
+  if(scanCam){scanStopCam();box.innerHTML='';return}
+  if(!window.Html5Qrcode){box.innerHTML='<div class="sc-err">Camera scanning is not available on this device - type the bag ID instead.</div>';return}
+  try{
+    scanCam=new Html5Qrcode('qrReader');
+    await scanCam.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},
+      txt=>{
+        const el=document.getElementById('scBag');
+        if(el)el.value=txt;
+        const cur=location.hash.match(/^#\/s\/(pickup|unload)\/([^?]+)/);
+        if(cur)scSend(cur[1],decodeURIComponent(cur[2]),txt);
+      },
+      ()=>{});
+    box.insertAdjacentHTML('beforeend','<div class="sc-hint" style="margin-top:8px">Point the camera at the bag label. Tap the button again to stop.</div>');
+  }catch(e){
+    scanCam=null;
+    box.innerHTML='<div class="sc-err">Camera could not be started: '+esc(String(e&&e.message||e))+' - type the bag ID instead.</div>';
+  }
+}
+
+window.addEventListener('hashchange',scanRoute);
+scanRoute();
 
 init();
 </script>
