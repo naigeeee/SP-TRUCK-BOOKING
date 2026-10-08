@@ -4044,6 +4044,74 @@ def _manifest_meta(m):
     return {"id": m.get("id"), "original_filename": m.get("original_filename"),
             "file_size": m.get("file_size", 0), "id_count": cnt, "created_at": m.get("created_at")}
 
+def _manifest_request_row(rid):
+    if LOCAL_MODE:
+        return next((r for r in _store["truck_requests"] if r["id"] == rid), None)
+    return db_1("SELECT id, request_number, international_mawb, domestic_mawb FROM truck_requests WHERE id=%s", (rid,))
+
+def _manifest_csv_bytes(req_row, ids) -> bytes:
+    """The manifest CSV: the request's MAWBs beside every unique bag/carton/gunny/sack ID."""
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["International MAWB", "Domestic MAWB", "Bag/Carton/Gunny/Sack ID"])
+    imawb = str((req_row or {}).get("international_mawb") or "")
+    dmawb = str((req_row or {}).get("domestic_mawb") or "")
+    for x in ids:
+        w.writerow([imawb, dmawb, x])
+    return buf.getvalue().encode("utf-8")
+
+def _csv_has_current_mawbs(data: bytes, req_row) -> bool:
+    try:
+        rows = csv.reader(io.StringIO(data.decode("utf-8", "replace")))
+        next(rows, None)
+        first = next(rows, None)
+        if not first:
+            return False
+        got = [str(first[0]), str(first[1]) if len(first) > 1 else ""]
+        want = [str((req_row or {}).get("international_mawb") or ""),
+                str((req_row or {}).get("domestic_mawb") or "")]
+        return got == want
+    except Exception:
+        return False
+
+def _read_att_file(path):
+    if not path:
+        return None
+    try:
+        if _is_object_key(path):
+            return obj_storage.get_bytes(path)
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                return f.read()
+    except Exception:
+        return None
+    return None
+
+def _store_manifest_csv(rid, req_row, ids, prev_path=""):
+    """Convert the extracted IDs into the manifest CSV and store that file.
+
+    The Excel file that was uploaded is never persisted: only this CSV (MAWBs +
+    unique IDs) is written to storage, and any previously stored file for the
+    request is removed once the new one is safely in place."""
+    csv_bytes = _manifest_csv_bytes(req_row, ids)
+    cfn = uuid.uuid4().hex + ".csv"
+    if _obj_storage_on():
+        try:
+            key = obj_storage.safe_key("attachments", str(rid), cfn)
+        except ValueError:
+            raise HTTPException(400, "Invalid filename")
+        obj_storage.put_bytes(key, csv_bytes, content_type="text/csv")
+        path = key
+    else:
+        path = os.path.join(_store["_upload"], cfn)
+        with open(path, "wb") as f:
+            f.write(csv_bytes)
+    if prev_path and prev_path != path:
+        _delete_att_file(prev_path)
+    name = str((req_row or {}).get("request_number") or f"request-{rid}") + "-manifest.csv"
+    return {"filename": cfn, "original_filename": name,
+            "file_size": len(csv_bytes), "storage_path": path}
+
 @app.post("/api/requests/{rid}/manifest")
 async def upload_manifest(rid: int, request: Request, file: UploadFile = File(...)):
     scope_vid, user = vendor_scope(request)
@@ -4067,18 +4135,18 @@ async def upload_manifest(rid: int, request: Request, file: UploadFile = File(..
     if len(content) > MANIFEST_MAX:
         raise HTTPException(400, "Manifest file must be 5MB or smaller")
     ids = await run_in_threadpool(_parse_manifest, content)
-    fn = uuid.uuid4().hex + ext
-    fp = await _save_att_bytes(rid, fn, content, "application/octet-stream")
+    req_row = await run_in_threadpool(_manifest_request_row, rid)
+    st = await run_in_threadpool(_store_manifest_csv, rid, req_row, ids)
     if LOCAL_MODE:
-        m = {"id": nid("manifests"), "truck_request_id": rid, "filename": fn,
-             "original_filename": file.filename or "manifest.xlsx", "file_size": len(content),
-             "storage_path": fp, "id_count": len(ids), "ids": ids, "uploaded_by": user["email"],
-             "created_at": nows()}
+        m = {"id": nid("manifests"), "truck_request_id": rid,
+             "id_count": len(ids), "ids": ids, "uploaded_by": user["email"],
+             "created_at": nows(), **st}
         _store["manifests"].append(m)
         return _manifest_meta(m)
     mid = db_i("""INSERT INTO request_manifests (truck_request_id,filename,original_filename,file_size,
         storage_path,id_count,ids_json,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-        (rid, fn, file.filename or "manifest.xlsx", len(content), fp, len(ids), json.dumps(ids), user["email"]))
+        (rid, st["filename"], st["original_filename"], st["file_size"], st["storage_path"],
+         len(ids), json.dumps(ids), user["email"]))
     return _manifest_meta(db_1("SELECT * FROM request_manifests WHERE id=%s", (mid,)))
 
 @app.delete("/api/requests/{rid}/manifest")
@@ -4107,7 +4175,7 @@ def download_manifest(rid: int, request: Request):
         ids = list(m.get("ids") or []) if m else []
     else:
         req_row = db_1("SELECT id, request_number, international_mawb, domestic_mawb FROM truck_requests WHERE id=%s", (rid,))
-        m = db_1("SELECT ids_json FROM request_manifests WHERE truck_request_id=%s", (rid,))
+        m = db_1("SELECT id, filename, storage_path, id_count, ids_json FROM request_manifests WHERE truck_request_id=%s", (rid,))
         try:
             ids = json.loads(m.get("ids_json") or "[]") if m else []
         except Exception:
@@ -4116,15 +4184,37 @@ def download_manifest(rid: int, request: Request):
         raise HTTPException(404, "Not found")
     if not m:
         raise HTTPException(404, "No manifest file uploaded for this request")
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["International MAWB", "Domestic MAWB", "Bag/Carton/Gunny/Sack ID"])
-    imawb = req_row.get("international_mawb") or ""
-    dmawb = req_row.get("domestic_mawb") or ""
-    for x in ids:
-        w.writerow([imawb, dmawb, x])
+    # The stored file is the manifest CSV itself — serve it as it is. Anything
+    # else (an Excel stored by an older release, a missing object, or a CSV whose
+    # MAWBs no longer match the request) is rebuilt from the extracted IDs and
+    # written back as the CSV, so storage only ever holds the small CSV.
+    data = None
+    if str(m.get("filename") or "").lower().endswith(".csv"):
+        data = _read_att_file(m.get("storage_path") or "")
+        if data is not None and not _csv_has_current_mawbs(data, req_row):
+            data = None
+    if data is None:
+        if not ids:
+            raw = _read_att_file(m.get("storage_path") or "")
+            if raw:
+                try:
+                    ids = _parse_manifest(raw)
+                except HTTPException:
+                    ids = []
+        if not ids:
+            raise HTTPException(404, "The stored manifest file is missing - delete the manifest and upload it again")
+        data = _manifest_csv_bytes(req_row, ids)
+        st = _store_manifest_csv(rid, req_row, ids, m.get("storage_path") or "")
+        if LOCAL_MODE:
+            m.update(st)
+            m["ids"] = ids
+        else:
+            db_x("""UPDATE request_manifests SET filename=%s, original_filename=%s, file_size=%s,
+                storage_path=%s, id_count=%s, ids_json=%s WHERE id=%s""",
+                (st["filename"], st["original_filename"], st["file_size"], st["storage_path"],
+                 len(ids), json.dumps(ids), m["id"]))
     fname = str(req_row.get("request_number") or f"request-{rid}") + "-manifest.csv"
-    return Response(buf.getvalue(), media_type="text/csv; charset=utf-8",
+    return Response(data, media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 # ---------------------------------------------------------------------------
