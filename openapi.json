@@ -1887,6 +1887,22 @@
             }
           },
           {
+            "name": "manifest",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Manifest"
+            }
+          },
+          {
             "name": "sort_by",
             "in": "query",
             "required": false,
@@ -1951,6 +1967,74 @@
       "post": {
         "summary": "Create Request",
         "operationId": "create_request_api_requests_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/bulk-template": {
+      "get": {
+        "summary": "Bulk Template",
+        "operationId": "bulk_template_api_requests_bulk_template_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/bulk/validate": {
+      "post": {
+        "summary": "Bulk Validate",
+        "operationId": "bulk_validate_api_requests_bulk_validate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_bulk_validate_api_requests_bulk_validate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/bulk": {
+      "post": {
+        "summary": "Bulk Create",
+        "operationId": "bulk_create_api_requests_bulk_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2416,6 +2500,125 @@
             "schema": {
               "type": "integer",
               "title": "Aid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/{rid}/manifest": {
+      "post": {
+        "summary": "Upload Manifest",
+        "operationId": "upload_manifest_api_requests__rid__manifest_post",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_manifest_api_requests__rid__manifest_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Manifest",
+        "operationId": "delete_manifest_api_requests__rid__manifest_delete",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/{rid}/manifest/download": {
+      "get": {
+        "summary": "Download Manifest",
+        "operationId": "download_manifest_api_requests__rid__manifest_download_get",
+        "parameters": [
+          {
+            "name": "rid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rid"
             }
           }
         ],
@@ -3227,6 +3430,20 @@
   },
   "components": {
     "schemas": {
+      "Body_bulk_validate_api_requests_bulk_validate_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_bulk_validate_api_requests_bulk_validate_post"
+      },
       "Body_upload_att_api_requests__rid__attachments_post": {
         "properties": {
           "file": {
@@ -3240,6 +3457,20 @@
           "file"
         ],
         "title": "Body_upload_att_api_requests__rid__attachments_post"
+      },
+      "Body_upload_manifest_api_requests__rid__manifest_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_manifest_api_requests__rid__manifest_post"
       },
       "HTTPValidationError": {
         "properties": {

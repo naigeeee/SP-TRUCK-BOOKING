@@ -3,10 +3,13 @@ SP PH Truck Booking Centralised Operation Request Database
 """
 
 import os
+import re
+import csv
+import io
 import json
 import uuid
 import math
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from urllib.parse import urlparse, unquote
 from typing import Optional
 from decimal import Decimal
@@ -130,7 +133,7 @@ _store = {
         {"id": 3, "plate_number": "DEF9012", "truck_type_id": 2, "vendor_id": 2, "driver_name": "Miguel Santos", "driver_phone": "+639191234567", "helper_name": "Luis Garcia", "status": "available", "is_active": True, "is_available": True, "created_at": "2026-03-10 08:00:00"},
         {"id": 4, "plate_number": "GHI3456", "truck_type_id": 3, "vendor_id": 2, "driver_name": "Carlos Reyes", "driver_phone": "+639201234567", "helper_name": "", "status": "available", "is_active": True, "is_available": True, "created_at": "2026-04-05 08:00:00"},
     ],
-    "truck_requests": [], "attachments": [], "vendor_rates": [],
+    "truck_requests": [], "attachments": [], "manifests": [], "vendor_rates": [],
     "vendor_evaluations": [], "pending_allocations": [], "vendors": [
         {"id": 1, "name": "ABC Logistics", "contact_person": "Pedro Santos", "phone": "+639171111111", "email": "pedro@abc.com", "address": "Manila", "is_active": True, "created_at": "2026-01-01 08:00:00"},
         {"id": 2, "name": "XYZ Transport", "contact_person": "Luis Garcia", "phone": "+639172222222", "email": "luis@xyz.com", "address": "Cebu", "is_active": True, "created_at": "2026-01-01 08:00:00"},
@@ -145,7 +148,7 @@ _store = {
     },
     "_cnt": {"users": 1, "ports": 3, "accounts": 1, "departments": 4, "packaging_types": 3,
              "truck_statuses": 7, "truck_types": 3, "truck_type_capacities": 6, "trucks": 4,
-             "truck_requests": 0, "attachments": 0, "vendor_rates": 0,
+             "truck_requests": 0, "attachments": 0, "manifests": 0, "vendor_rates": 0,
               "vendor_evaluations": 0, "pending_allocations": 0, "vendors": 2, "truck_request_history": 0},
     "_seq": {},
     "_upload": os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads"),
@@ -167,6 +170,43 @@ def nid(t):
 
 def nows():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+# Timestamps are stored in UTC (local mode writes UTC; the database session runs
+# in UTC). The Masterlist "Updated At" column must display GMT+8, so every stored
+# value is shifted by 8h minus whatever zone the storage clock is on.
+_STORE_OFFSET_MIN = None
+
+def _store_offset_minutes():
+    global _STORE_OFFSET_MIN
+    if _STORE_OFFSET_MIN is None:
+        if LOCAL_MODE:
+            _STORE_OFFSET_MIN = 0
+        else:
+            try:
+                row = db_1("SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW()) AS m")
+                _STORE_OFFSET_MIN = int((row or {}).get("m") or 0)
+            except Exception:
+                _STORE_OFFSET_MIN = 0
+    return _STORE_OFFSET_MIN
+
+def to_gmt8(v):
+    """Stored timestamp -> 'YYYY-MM-DD HH:MM:SS' rendered in GMT+8."""
+    if not v:
+        return v
+    d = v if isinstance(v, datetime) else None
+    if d is None:
+        s = str(v).strip().replace("T", " ").replace("Z", "")
+        d = None
+        for fmt, n in (("%Y-%m-%d %H:%M:%S", 19), ("%Y-%m-%d %H:%M", 16), ("%Y-%m-%d", 10)):
+            try:
+                d = datetime.strptime(s[:n], fmt)
+                break
+            except ValueError:
+                continue
+        if d is None:
+            return v
+    out = d + timedelta(minutes=8 * 60 - _store_offset_minutes())
+    return out.strftime("%Y-%m-%d %H:%M:%S")
 
 def parse_dt(dt_str):
     if not dt_str: return None
@@ -2052,6 +2092,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     cancel_from: Optional[str] = None, cancel_to: Optional[str] = None,
     customs_from: Optional[str] = None, customs_to: Optional[str] = None,
     mawb: Optional[str] = None, plate: Optional[str] = None, trip: Optional[str] = None,
+    manifest: Optional[str] = None,
     sort_by: str = "created_at", sort_dir: str = "desc", page: int = 1, per_page: int = 50):
     scope_vid, _ = vendor_scope(request)
     if LOCAL_MODE:
@@ -2079,8 +2120,13 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             approver = next((u for u in _store["users"] if u.get("email") == r.get("foul_trip_approved_by")), None)
             r["foul_trip_approved_by_name"] = approver.get("name", "") if approver else r["foul_trip_approved_by"]
             r["foul_trip_approved_by_email"] = r["foul_trip_approved_by"]
-            r["updated_at"] = r.get("updated_at", "")
+            r["updated_at"] = to_gmt8(r.get("updated_at", ""))
             r["attachments"] = [row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == r["id"]]
+            _mf = next((m for m in _store["manifests"] if m.get("truck_request_id") == r["id"]), None)
+            r["manifest"] = {"id": _mf.get("id"), "original_filename": _mf.get("original_filename"),
+                             "file_size": _mf.get("file_size", 0), "id_count": len(_mf.get("ids") or []),
+                             "created_at": _mf.get("created_at")} if _mf else None
+            r["manifest_status"] = 1 if _mf else 0
             r["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
@@ -2130,6 +2176,10 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if trip:
             tp = trip.lower()
             reqs = [r for r in reqs if tp in (r.get("trip_id") or "").lower()]
+        if manifest == "missing":
+            reqs = [r for r in reqs if not r.get("manifest")]
+        elif manifest == "uploaded":
+            reqs = [r for r in reqs if r.get("manifest")]
         if search:
             s = search.lower()
             reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "")).lower()]
@@ -2170,12 +2220,18 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if trip: wh.append("tr.trip_id LIKE %s"); pa.append(f"%{trip}%")
     if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
+    if manifest == "missing":
+        wh.append("NOT EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)")
+    elif manifest == "uploaded":
+        wh.append("EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)")
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime",               "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at"):
         sort_by = "created_at"
     sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": "tr.quantity", "vendor_name": "COALESCE(v.name, vv.name)", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name", "delivered_date": "tr.end_unloading_datetime"}
     if sort_by == "trip_id":
         order_col = "tr.created_at"
+    elif sort_by == "manifest_status":
+        order_col = "(CASE WHEN EXISTS (SELECT 1 FROM request_manifests ms WHERE ms.truck_request_id=tr.id) THEN 1 ELSE 0 END)"
     else:
         order_col = sort_map.get(sort_by, f"tr.{sort_by}")
     sd = "DESC" if sort_dir == "desc" else "ASC"
@@ -2200,6 +2256,15 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         {joins}
         WHERE {ws} ORDER BY {order_col} {sd} LIMIT %s OFFSET %s""", tuple(pa))
     for i in items: i["attachments"] = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (i["id"],))
+    _mids = [i["id"] for i in items]
+    _mans = db_q("SELECT * FROM request_manifests WHERE truck_request_id IN (%s)" % ",".join(["%s"] * len(_mids)), tuple(_mids)) if _mids else []
+    _mmap = {m["truck_request_id"]: m for m in _mans}
+    for i in items:
+        m = _mmap.get(i["id"])
+        i["manifest"] = {"id": m["id"], "original_filename": m["original_filename"], "file_size": m["file_size"],
+                         "id_count": m.get("id_count") or 0, "created_at": m.get("created_at")} if m else None
+        i["manifest_status"] = 1 if m else 0
+        i["updated_at"] = to_gmt8(i.get("updated_at"))
     trip_cache = {}
     for i in items:
         if i.get("assigned_truck_id") and i.get("status_id") in (2, 3, 4, 5, 7):
@@ -2222,6 +2287,265 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     add_distances_to_requests(items, coords)
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
+# ---------------------------------------------------------------------------
+# CSV bulk creation (New Request page)
+# ---------------------------------------------------------------------------
+
+BULK_HEADER_MAP = {
+    "department": "department", "dept": "department",
+    "originport": "origin_port", "origin": "origin_port",
+    "account": "account", "accountname": "account",
+    "destinationport": "destination_port", "destination": "destination_port", "destport": "destination_port", "dest": "destination_port",
+    "packagingtype": "packaging", "packaging": "packaging", "pkg": "packaging",
+    "quantity": "quantity", "qty": "quantity",
+    "internationalmawb": "international_mawb", "imawb": "international_mawb",
+    "domesticmawb": "domestic_mawb", "dmawb": "domestic_mawb",
+    "initialcalldatetimetbc": "call_datetime", "initialcalldatetime": "call_datetime", "calltbc": "call_datetime",
+    "customscleareddatetime": "customs_cleared_datetime", "customs": "customs_cleared_datetime", "customscleared": "customs_cleared_datetime",
+    "weightkg": "weight_kg", "weight": "weight_kg",
+    "volumecbm": "volume_cbm", "volume": "volume_cbm",
+    "specialinstructions": "special_instructions", "notes": "special_instructions", "remarks": "special_instructions",
+}
+BULK_REQUIRED = ("department", "origin_port", "account", "destination_port", "packaging", "quantity")
+BULK_LABELS = {
+    "department": "Department", "origin_port": "Origin Port", "account": "Account",
+    "destination_port": "Destination Port", "packaging": "Packaging Type", "quantity": "Quantity",
+    "international_mawb": "International MAWB", "domestic_mawb": "Domestic MAWB",
+    "call_datetime": "Initial Call datetime (TBC)", "customs_cleared_datetime": "Customs Cleared Date/Time",
+    "weight_kg": "Weight (KG)", "volume_cbm": "Volume (CBM)", "special_instructions": "Special Instructions",
+}
+BULK_COLUMNS = tuple(BULK_LABELS.keys())
+
+def _norm_hdr(h):
+    return re.sub(r"[^a-z0-9]", "", str(h or "").lower())
+
+def _bulk_txt(v):
+    return re.sub(r"\s+", " ", str(v or "")).strip()
+
+def _bulk_ctx():
+    def lc_map(rows):
+        out = {}
+        for x in rows:
+            k = str(x.get("name") or "").strip().lower()
+            if k and k not in out:
+                out[k] = x.get("id")
+        return out
+    if LOCAL_MODE:
+        return {"departments": lc_map(_store["departments"]), "ports": lc_map(_store["ports"]),
+                "accounts": lc_map(_store["accounts"]), "packaging": lc_map(_store["packaging_types"])}
+    return {"departments": lc_map(db_q("SELECT id, name FROM departments")),
+            "ports": lc_map(db_q("SELECT id, name FROM ports")),
+            "accounts": lc_map(db_q("SELECT id, name FROM accounts")),
+            "packaging": lc_map(db_q("SELECT id, name FROM packaging_types"))}
+
+def _bulk_parse_dt(v):
+    s = _bulk_txt(v).replace("T", " ")
+    if not s:
+        return None, None
+    m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ ](\d{1,2}):(\d{2})(?::(\d{2}))?)?$", s)
+    if not m:
+        return None, "not a valid date/time — use YYYY-MM-DD or YYYY-MM-DD HH:MM"
+    y, mo, dd, hh, mi, ss = m.groups()
+    try:
+        d = datetime(int(y), int(mo), int(dd), int(hh or 0), int(mi or 0), int(ss or 0))
+    except ValueError:
+        return None, "not a real calendar date"
+    if hh is not None:
+        return d.strftime("%Y-%m-%dT%H:%M"), None
+    return d.strftime("%Y-%m-%d"), None
+
+def _bulk_validate_row(data, ctx):
+    """Validate one CSV row against master data -> (issues, resolved ids/values)."""
+    issues = []
+
+    def txt(k):
+        return _bulk_txt(data.get(k))
+
+    # name -> id lookups
+    dep = None
+    if not txt("department"):
+        issues.append("Department is required")
+    else:
+        dep = ctx["departments"].get(txt("department").lower())
+        if dep is None:
+            issues.append(f'Department "{txt("department")}" not found in Master Library')
+    acc = None
+    if not txt("account"):
+        issues.append("Account is required")
+    else:
+        acc = ctx["accounts"].get(txt("account").lower())
+        if acc is None:
+            issues.append(f'Account "{txt("account")}" not found in Master Library')
+    org = None
+    if not txt("origin_port"):
+        issues.append("Origin Port is required")
+    else:
+        org = ctx["ports"].get(txt("origin_port").lower())
+        if org is None:
+            issues.append(f'Origin Port "{txt("origin_port")}" not found in Master Library')
+    dst = None
+    if not txt("destination_port"):
+        issues.append("Destination Port is required")
+    else:
+        dst = ctx["ports"].get(txt("destination_port").lower())
+        if dst is None:
+            issues.append(f'Destination Port "{txt("destination_port")}" not found in Master Library')
+    if org is not None and dst is not None and org == dst:
+        issues.append("Destination Port cannot be the same as Origin Port")
+    pkg = None
+    if not txt("packaging"):
+        issues.append("Packaging Type is required")
+    else:
+        pkg = ctx["packaging"].get(txt("packaging").lower())
+        if pkg is None:
+            issues.append(f'Packaging Type "{txt("packaging")}" not found in Master Library')
+    qty = None
+    q = txt("quantity")
+    if not q:
+        issues.append("Quantity is required")
+    else:
+        try:
+            fq = float(q)
+            if fq != int(fq) or int(fq) < 1:
+                raise ValueError
+            qty = int(fq)
+        except Exception:
+            issues.append(f'Quantity "{q}" must be a whole number of at least 1')
+    wt = 0.0
+    if txt("weight_kg"):
+        try:
+            wt = float(txt("weight_kg"))
+            if wt < 0:
+                raise ValueError
+        except Exception:
+            issues.append(f'Weight (KG) "{txt("weight_kg")}" must be a number')
+    vol = 0.0
+    if txt("volume_cbm"):
+        try:
+            vol = float(txt("volume_cbm"))
+            if vol < 0:
+                raise ValueError
+        except Exception:
+            issues.append(f'Volume (CBM) "{txt("volume_cbm")}" must be a number')
+    call_dt, call_err = _bulk_parse_dt(data.get("call_datetime"))
+    if call_err:
+        issues.append(f'Initial Call datetime (TBC) {call_err}')
+    cust_dt, cust_err = _bulk_parse_dt(data.get("customs_cleared_datetime"))
+    if cust_err:
+        issues.append(f'Customs Cleared Date/Time {cust_err}')
+    imawb = txt("international_mawb")
+    dmawb = txt("domestic_mawb")
+    if len(imawb) > 100:
+        issues.append("International MAWB is too long (max 100 characters)")
+    if len(dmawb) > 100:
+        issues.append("Domestic MAWB is too long (max 100 characters)")
+    resolved = {
+        "account_id": acc, "department_id": dep, "origin_port_id": org, "destination_port_id": dst,
+        "packaging_type_id": pkg, "quantity": qty, "international_mawb": imawb or None,
+        "domestic_mawb": dmawb or None, "call_datetime": call_dt, "customs_cleared_datetime": cust_dt,
+        "weight_kg": wt, "volume_cbm": vol, "special_instructions": txt("special_instructions"),
+    }
+    return issues, resolved
+
+def _bulk_parse_csv(content: bytes):
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1", errors="replace")
+    try:
+        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
+    except Exception:
+        dialect = csv.excel
+    rows = list(csv.reader(io.StringIO(text), dialect))
+    if not rows:
+        raise HTTPException(400, "The CSV file is empty")
+    colmap = {}
+    for i, h in enumerate(rows[0]):
+        key = BULK_HEADER_MAP.get(_norm_hdr(h))
+        if key and key not in colmap:
+            colmap[key] = i
+    missing = [BULK_LABELS[k] for k in BULK_REQUIRED if k not in colmap]
+    if missing:
+        raise HTTPException(400, "Missing required column(s): " + ", ".join(missing))
+    out = []
+    for ln, r in enumerate(rows[1:], start=2):
+        if not any(str(c).strip() for c in r):
+            continue
+        data = {key: (r[i] if i < len(r) else "") for key, i in colmap.items()}
+        out.append((ln, data))
+    return out
+
+@app.get("/api/requests/bulk-template")
+def bulk_template(request: Request):
+    get_user(request)
+    if LOCAL_MODE:
+        depts = [d["name"] for d in _store["departments"]]
+        accts = [a["name"] for a in _store["accounts"]]
+        pkgs = [p["name"] for p in _store["packaging_types"]]
+        pts = [p["name"] for p in _store["ports"]]
+    else:
+        depts = [r["name"] for r in db_q("SELECT name FROM departments ORDER BY id")]
+        accts = [r["name"] for r in db_q("SELECT name FROM accounts ORDER BY id")]
+        pkgs = [r["name"] for r in db_q("SELECT name FROM packaging_types ORDER BY id")]
+        pts = [r["name"] for r in db_q("SELECT name FROM ports ORDER BY id")]
+    ex_dept = depts[0] if depts else "PHCC"
+    ex_acct = accts[0] if accts else "Ninja Van PH"
+    ex_pkg = pkgs[0] if pkgs else "Pallet"
+    ex_org = pts[0] if pts else "Manila Port"
+    ex_dst = pts[1] if len(pts) > 1 else ("Cebu Port" if ex_org != "Cebu Port" else "Davao Port")
+    ex = [ex_dept, ex_org, ex_acct, ex_dst, ex_pkg, "10", "988-12345678", "DOM-00123",
+          "2026-10-15 09:00", "2026-10-15 10:00", "150.5", "1.25", "Handle with care"]
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([BULK_LABELS[k] for k in BULK_COLUMNS])
+    w.writerow(ex)
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="bulk_requests_template.csv"'})
+
+@app.post("/api/requests/bulk/validate")
+async def bulk_validate(request: Request, file: UploadFile = File(...)):
+    get_user(request)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(400, "CSV file is too large (max 10MB)")
+    ctx = await run_in_threadpool(_bulk_ctx)
+    parsed = await run_in_threadpool(_bulk_parse_csv, content)
+    out = []
+    for ln, data in parsed:
+        issues, _resolved = _bulk_validate_row(data, ctx)
+        out.append({"row": ln, "data": data, "issues": issues, "valid": not issues})
+    ready = sum(1 for r in out if r["valid"])
+    return {"total": len(out), "ready_count": ready, "issue_count": len(out) - ready, "rows": out}
+
+@app.post("/api/requests/bulk")
+async def bulk_create(request: Request):
+    user = get_user(request)
+    body = await request.json()
+    rows = body.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(400, "No rows to create - upload a CSV first")
+    ctx = await run_in_threadpool(_bulk_ctx)
+    results, created, failed = [], 0, 0
+    for i, data in enumerate(rows, start=1):
+        row_no = data.get("_row") if isinstance(data, dict) and isinstance(data.get("_row"), int) else i
+        if not isinstance(data, dict):
+            failed += 1
+            results.append({"row": row_no, "ok": False, "issues": ["Invalid row"]})
+            continue
+        issues, resolved = _bulk_validate_row(data, ctx)
+        if issues:
+            failed += 1
+            results.append({"row": row_no, "ok": False, "issues": issues})
+            continue
+        try:
+            inserted = _insert_request(user, resolved)
+            created += 1
+            results.append({"row": row_no, "ok": True, "request_number": (inserted or {}).get("request_number", "")})
+        except Exception as e:
+            failed += 1
+            results.append({"row": row_no, "ok": False, "issues": [str(e)[:200] or "Could not create this request"]})
+    return {"total": len(rows), "created": created, "failed": failed, "results": results}
+
 @app.get("/api/requests/{rid}")
 def get_request(rid: int, request: Request):
     scope_vid, _ = vendor_scope(request)
@@ -2239,6 +2563,10 @@ def get_request(rid: int, request: Request):
                 res["truck_type_name"] = next((t["name"] for t in _store["truck_types"] if t["id"] == r.get("truck_type_id")), "")
                 res["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
                 res["attachments"] = [row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == rid]
+                _mfm = next((m for m in _store["manifests"] if m.get("truck_request_id") == rid), None)
+                res["manifest"] = {"id": _mfm.get("id"), "original_filename": _mfm.get("original_filename"),
+                                   "file_size": _mfm.get("file_size", 0), "id_count": len(_mfm.get("ids") or []),
+                                   "created_at": _mfm.get("created_at")} if _mfm else None
                 if res.get("assigned_truck_id") and res.get("status_id") in (2, 3, 4, 5, 7):
                     peers = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == res["assigned_truck_id"]]
                     res["trip_id"] = resolve_trip_id(res, peers)
@@ -2256,6 +2584,8 @@ def get_request(rid: int, request: Request):
     if not item: raise HTTPException(404, "Not found")
     if not _owned_by_vendor(item, scope_vid): raise HTTPException(404, "Not found")
     item["attachments"] = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (rid,))
+    _mrow = db_1("SELECT id, original_filename, file_size, id_count, created_at FROM request_manifests WHERE truck_request_id=%s", (rid,))
+    item["manifest"] = _mrow
     if item.get("assigned_truck_id") and item.get("status_id") in (2, 3, 4, 5, 7) and not item.get("trip_id"):
         peers = db_q("""SELECT id, request_number, status_id, drop_sequence, trip_id,
             account_id, assigned_truck_id FROM truck_requests WHERE assigned_truck_id=%s""",
@@ -2263,56 +2593,60 @@ def get_request(rid: int, request: Request):
         item["trip_id"] = resolve_trip_id(item, peers)
     return item
 
+def _insert_request(user, body):
+    """Insert one validated truck request — shared by single create and CSV bulk."""
+    rn = gen_req_no()
+    booking_date = datetime.now().strftime("%Y-%m-%d")
+    if LOCAL_MODE:
+        rid = nid("truck_requests")
+        req = {"id": rid, "request_number": rn, "requestor_email": user["email"], "requestor_name": user["name"],
+            "account_id": body["account_id"], "department_id": body["department_id"],
+            "origin_port_id": body["origin_port_id"], "destination_port_id": body["destination_port_id"],
+            "pickup_datetime": body.get("pickup_datetime"), "delivery_datetime": body.get("delivery_datetime"),
+            "call_datetime": body.get("call_datetime"), "customs_cleared_datetime": body.get("customs_cleared_datetime"),
+            "booking_date": booking_date,
+            "truck_type_id": body.get("truck_type_id"), "packaging_type_id": body.get("packaging_type_id"),
+            "quantity": body.get("quantity", 0), "initial_quantity": body.get("quantity", 0), "weight_kg": body.get("weight_kg", 0), "volume_cbm": body.get("volume_cbm", 0),
+            "special_instructions": body.get("special_instructions", ""), "status_id": body.get("status_id", 1),
+            "international_mawb": body.get("international_mawb") or "",
+            "domestic_mawb": body.get("domestic_mawb") or "",
+            "assigned_truck_id": None, "estimated_cost": body.get("estimated_cost", 0), "actual_cost": 0,
+            "vendor_id": None, "final_call_datetime": None, "trip_id": None, "drop_sequence": None,
+            "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
+            "end_loading_datetime": None, "arrived_dest_datetime": None, "start_unloading_datetime": None,
+            "end_unloading_datetime": None, "foul_trip_reason": None, "foul_trip_count": None,
+            "foul_trip_approved_by": None, "foul_trip_approved_at": None,
+            "created_at": nows(), "updated_at": nows()}
+        _store["truck_requests"].append(req)
+        pid = nid("pending_allocations")
+        _store["pending_allocations"].append({"id": pid, "truck_request_id": rid, "suggested_truck_id": None, "suggestion_reason": "New request", "is_accepted": None, "allocated_by": None, "allocated_at": None, "created_at": nows()})
+        return row2d(req)
+    rid = db_i("""INSERT INTO truck_requests (request_number,requestor_email,requestor_name,account_id,department_id,
+        origin_port_id,destination_port_id,pickup_datetime,delivery_datetime,call_datetime,customs_cleared_datetime,booking_date,
+        truck_type_id,packaging_type_id,quantity,initial_quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost,
+        international_mawb,domestic_mawb)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        (rn, user["email"], user["name"], body["account_id"], body["department_id"],
+         body["origin_port_id"], body["destination_port_id"], body.get("pickup_datetime"), body.get("delivery_datetime"),
+         body.get("call_datetime"), body.get("customs_cleared_datetime"), booking_date,
+         body.get("truck_type_id"), body.get("packaging_type_id"), body.get("quantity", 0), body.get("quantity", 0),
+         body.get("weight_kg", 0),
+         body.get("volume_cbm", 0), body.get("special_instructions", ""), body.get("status_id", 1), body.get("estimated_cost", 0),
+         body.get("international_mawb") or None, body.get("domestic_mawb") or None))
+    db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'New request')", (rid,))
+    return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
+
 @app.post("/api/requests")
 async def create_request(request: Request):
     try:
         user = get_user(request)
         body = await request.json()
-        rn = gen_req_no()
         for f in ("account_id", "department_id", "origin_port_id", "destination_port_id", "packaging_type_id"):
             if not body.get(f): raise HTTPException(400, f"{f} required")
         if body.get("quantity", 0) <= 0: raise HTTPException(400, "Quantity must be greater than 0")
         if body.get("origin_port_id") == body.get("destination_port_id"):
             raise HTTPException(400, "Origin port cannot be the same as destination port")
-        booking_date = datetime.now().strftime("%Y-%m-%d")
-        if LOCAL_MODE:
-            rid = nid("truck_requests")
-            req = {"id": rid, "request_number": rn, "requestor_email": user["email"], "requestor_name": user["name"],
-                "account_id": body["account_id"], "department_id": body["department_id"],
-                "origin_port_id": body["origin_port_id"], "destination_port_id": body["destination_port_id"],
-                "pickup_datetime": body.get("pickup_datetime"), "delivery_datetime": body.get("delivery_datetime"),
-                "call_datetime": body.get("call_datetime"), "customs_cleared_datetime": body.get("customs_cleared_datetime"),
-                "booking_date": booking_date,
-                "truck_type_id": body.get("truck_type_id"), "packaging_type_id": body.get("packaging_type_id"),
-                "quantity": body.get("quantity", 0), "initial_quantity": body.get("quantity", 0), "weight_kg": body.get("weight_kg", 0), "volume_cbm": body.get("volume_cbm", 0),
-                "special_instructions": body.get("special_instructions", ""), "status_id": body.get("status_id", 1),
-                "international_mawb": body.get("international_mawb") or "",
-                "domestic_mawb": body.get("domestic_mawb") or "",
-                "assigned_truck_id": None, "estimated_cost": body.get("estimated_cost", 0), "actual_cost": 0,
-                "vendor_id": None, "final_call_datetime": None, "trip_id": None, "drop_sequence": None,
-                "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
-                "end_loading_datetime": None, "arrived_dest_datetime": None, "start_unloading_datetime": None,
-                "end_unloading_datetime": None, "foul_trip_reason": None, "foul_trip_count": None,
-                "foul_trip_approved_by": None, "foul_trip_approved_at": None,
-                "created_at": nows(), "updated_at": nows()}
-            _store["truck_requests"].append(req)
-            pid = nid("pending_allocations")
-            _store["pending_allocations"].append({"id": pid, "truck_request_id": rid, "suggested_truck_id": None, "suggestion_reason": "New request", "is_accepted": None, "allocated_by": None, "allocated_at": None, "created_at": nows()})
-            return row2d(req)
-        rid = db_i("""INSERT INTO truck_requests (request_number,requestor_email,requestor_name,account_id,department_id,
-            origin_port_id,destination_port_id,pickup_datetime,delivery_datetime,call_datetime,customs_cleared_datetime,booking_date,
-            truck_type_id,packaging_type_id,quantity,initial_quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost,
-            international_mawb,domestic_mawb)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (rn, user["email"], user["name"], body["account_id"], body["department_id"],
-             body["origin_port_id"], body["destination_port_id"], body.get("pickup_datetime"), body.get("delivery_datetime"),
-             body.get("call_datetime"), body.get("customs_cleared_datetime"), booking_date,
-             body.get("truck_type_id"), body.get("packaging_type_id"), body.get("quantity", 0), body.get("quantity", 0),
-             body.get("weight_kg", 0),
-             body.get("volume_cbm", 0), body.get("special_instructions", ""), body.get("status_id", 1), body.get("estimated_cost", 0),
-             body.get("international_mawb") or None, body.get("domestic_mawb") or None))
-        db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'New request')", (rid,))
-        return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
+        return _insert_request(user, body)
 
     except HTTPException:
         raise
@@ -3635,6 +3969,174 @@ def delete_att(aid: int, request: Request):
         _delete_att_file(att.get("storage_path", ""))
     db_x("DELETE FROM truck_request_attachments WHERE id=%s", (aid,))
     return {"ok": True}
+
+# ---------------------------------------------------------------------------
+# Manifest files — one Excel per truck request, IDs taken from its key column
+# ---------------------------------------------------------------------------
+
+MANIFEST_KEYWORDS = ("bag", "carton", "gunny", "sack")
+MANIFEST_ID_HEADERS = {"id", "code", "referenceno", "reference", "trackingno", "trackingnumber",
+                       "barcode", "manifestid", "itemno", "slipno"}
+MANIFEST_MAX = 5 * 1024 * 1024
+
+def _parse_manifest(content: bytes):
+    """Read an Excel manifest and return the unique IDs from its key column."""
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        raise HTTPException(500, "Excel support (openpyxl) is not installed on this server")
+    try:
+        wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception:
+        raise HTTPException(400, "Cannot read this file - please upload a valid Excel workbook (.xlsx)")
+    try:
+        ws = wb.active
+        if ws is None:
+            raise HTTPException(400, "The Excel file has no worksheet")
+        it = ws.iter_rows(values_only=True)
+        header = next(it, None)
+        if not header:
+            raise HTTPException(400, "The Excel file has no header row")
+        col = None
+        for i, h in enumerate(header):
+            if any(k in str(h or "").lower() for k in MANIFEST_KEYWORDS):
+                col = i
+                break
+        if col is None:
+            for i, h in enumerate(header):
+                if _norm_hdr(h) in MANIFEST_ID_HEADERS:
+                    col = i
+                    break
+        if col is None:
+            raise HTTPException(400, "Could not find a bag / carton / gunny / sack ID column in the Excel file - check the header row")
+        ids, seen = [], set()
+        for row in it:
+            if not row or col >= len(row):
+                continue
+            v = row[col]
+            if v is None:
+                continue
+            if isinstance(v, float) and v.is_integer():
+                v = int(v)
+            s = str(v).strip()
+            if not s:
+                continue
+            k = s.lower()
+            if k in seen:
+                continue
+            seen.add(k)
+            ids.append(s)
+            if len(ids) > 100000:
+                raise HTTPException(400, "Too many IDs in the file (max 100,000)")
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+    if not ids:
+        raise HTTPException(400, "No bag / carton / gunny / sack IDs were found in the key column")
+    return ids
+
+def _manifest_scope_check(rid, scope_vid):
+    if scope_vid is None:
+        return
+    req_row = next((r for r in _store["truck_requests"] if r["id"] == rid), None) if LOCAL_MODE \
+        else db_1("SELECT vendor_id, assigned_truck_id FROM truck_requests WHERE id=%s", (rid,))
+    if not req_row or not _owned_by_vendor(req_row, scope_vid):
+        raise HTTPException(404, "Not found")
+
+def _manifest_meta(m):
+    if not m:
+        return None
+    if m.get("ids") is not None:
+        cnt = len(m.get("ids") or [])
+    else:
+        cnt = int(m.get("id_count") or 0)
+    return {"id": m.get("id"), "original_filename": m.get("original_filename"),
+            "file_size": m.get("file_size", 0), "id_count": cnt, "created_at": m.get("created_at")}
+
+@app.post("/api/requests/{rid}/manifest")
+async def upload_manifest(rid: int, request: Request, file: UploadFile = File(...)):
+    scope_vid, user = vendor_scope(request)
+    _manifest_scope_check(rid, scope_vid)
+    if LOCAL_MODE:
+        if not any(r["id"] == rid for r in _store["truck_requests"]):
+            raise HTTPException(404, "Not found")
+        existing = next((m for m in _store["manifests"] if m.get("truck_request_id") == rid), None)
+    else:
+        if not db_1("SELECT id FROM truck_requests WHERE id=%s", (rid,)):
+            raise HTTPException(404, "Not found")
+        existing = db_1("SELECT id FROM request_manifests WHERE truck_request_id=%s", (rid,))
+    if existing:
+        raise HTTPException(400, "A manifest file is already uploaded for this request - delete it first")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in (".xlsx", ".xlsm"):
+        raise HTTPException(400, "Manifest must be an Excel file (.xlsx or .xlsm)")
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "The uploaded file is empty")
+    if len(content) > MANIFEST_MAX:
+        raise HTTPException(400, "Manifest file must be 5MB or smaller")
+    ids = await run_in_threadpool(_parse_manifest, content)
+    fn = uuid.uuid4().hex + ext
+    fp = await _save_att_bytes(rid, fn, content, "application/octet-stream")
+    if LOCAL_MODE:
+        m = {"id": nid("manifests"), "truck_request_id": rid, "filename": fn,
+             "original_filename": file.filename or "manifest.xlsx", "file_size": len(content),
+             "storage_path": fp, "id_count": len(ids), "ids": ids, "uploaded_by": user["email"],
+             "created_at": nows()}
+        _store["manifests"].append(m)
+        return _manifest_meta(m)
+    mid = db_i("""INSERT INTO request_manifests (truck_request_id,filename,original_filename,file_size,
+        storage_path,id_count,ids_json,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+        (rid, fn, file.filename or "manifest.xlsx", len(content), fp, len(ids), json.dumps(ids), user["email"]))
+    return _manifest_meta(db_1("SELECT * FROM request_manifests WHERE id=%s", (mid,)))
+
+@app.delete("/api/requests/{rid}/manifest")
+def delete_manifest(rid: int, request: Request):
+    scope_vid, _ = vendor_scope(request)
+    _manifest_scope_check(rid, scope_vid)
+    if LOCAL_MODE:
+        m = next((x for x in _store["manifests"] if x.get("truck_request_id") == rid), None)
+        if m:
+            _delete_att_file(m.get("storage_path", ""))
+            _store["manifests"] = [x for x in _store["manifests"] if x.get("truck_request_id") != rid]
+        return {"ok": True}
+    m = db_1("SELECT storage_path FROM request_manifests WHERE truck_request_id=%s", (rid,))
+    if m:
+        _delete_att_file(m.get("storage_path", ""))
+        db_x("DELETE FROM request_manifests WHERE truck_request_id=%s", (rid,))
+    return {"ok": True}
+
+@app.get("/api/requests/{rid}/manifest/download")
+def download_manifest(rid: int, request: Request):
+    scope_vid, _ = vendor_scope(request)
+    _manifest_scope_check(rid, scope_vid)
+    if LOCAL_MODE:
+        req_row = next((r for r in _store["truck_requests"] if r["id"] == rid), None)
+        m = next((x for x in _store["manifests"] if x.get("truck_request_id") == rid), None)
+        ids = list(m.get("ids") or []) if m else []
+    else:
+        req_row = db_1("SELECT id, request_number, international_mawb, domestic_mawb FROM truck_requests WHERE id=%s", (rid,))
+        m = db_1("SELECT ids_json FROM request_manifests WHERE truck_request_id=%s", (rid,))
+        try:
+            ids = json.loads(m.get("ids_json") or "[]") if m else []
+        except Exception:
+            ids = []
+    if not req_row:
+        raise HTTPException(404, "Not found")
+    if not m:
+        raise HTTPException(404, "No manifest file uploaded for this request")
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["International MAWB", "Domestic MAWB", "Bag/Carton/Gunny/Sack ID"])
+    imawb = req_row.get("international_mawb") or ""
+    dmawb = req_row.get("domestic_mawb") or ""
+    for x in ids:
+        w.writerow([imawb, dmawb, x])
+    fname = str(req_row.get("request_number") or f"request-{rid}") + "-manifest.csv"
+    return Response(buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 # ---------------------------------------------------------------------------
 # Vendor Rates
