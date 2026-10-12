@@ -679,43 +679,54 @@ def backfill_rate_estimated_costs(vendor_id, truck_type_id, origin_port_id):
             else:
                 db_x("UPDATE truck_requests SET actual_cost=0 WHERE id=%s", (mr["id"],))
 
+def _rate_groups(active):
+    """Split a truck's open requests into their trips; each trip is priced on its own."""
+    groups = {}
+    for r in active:
+        key = trip_base(r.get("trip_id")) or f"req-{r.get('id')}"
+        groups.setdefault(key, []).append(r)
+    out = []
+    for rs in groups.values():
+        primary = next((r for r in rs if r.get("drop_sequence") == 1), None)
+        if not primary:
+            primary = min((r for r in rs if r.get("drop_sequence") is not None),
+                          key=lambda x: x["drop_sequence"], default=None)
+        if primary:
+            out.append((primary, rs))
+    return out
+
 def recalculate_trip_rates(truck_id):
-    """Recalculate rates for all active requests on a truck based on the current primary destination."""
+    """Recalculate rates for all active requests on a truck, trip by trip: each trip's
+    drop 1 sets the primary destination, and its later drops are additional drops."""
     if not truck_id: return
     if LOCAL_MODE:
         truck = next((t for t in _store["trucks"] if t["id"] == truck_id), None)
         if not truck: return
         active = [r for r in _store["truck_requests"]
             if r.get("assigned_truck_id") == truck_id and r.get("status_id") not in (4, 5)]
-        if not active: return
-        primary = next((r for r in active if r.get("drop_sequence") == 1), None)
-        if not primary: primary = min((r for r in active if r.get("drop_sequence") is not None), key=lambda x: x["drop_sequence"], default=None)
-        if not primary: return
-        primary_dest = primary.get("destination_port_id")
-        rate_match = find_best_rate(truck.get("vendor_id"), truck.get("truck_type_id"), primary.get("origin_port_id"), primary_dest, booking_date=primary.get("booking_date"))
-        if not rate_match: return
-        for r in active:
-            r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
-            if r.get("status_id") == 7:
-                r["actual_cost"] = r["estimated_cost"]
-            elif r.get("status_id") not in (4, 5):
-                r["actual_cost"] = 0
-    else:
-        truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (truck_id,))
-        if not truck: return
-        active = db_q("SELECT id, origin_port_id, destination_port_id, drop_sequence, pickup_datetime, booking_date FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (truck_id,))
-        if not active: return
-        primary = next((r for r in active if r.get("drop_sequence") == 1), None)
-        if not primary: primary = min((r for r in active if r.get("drop_sequence") is not None), key=lambda x: x["drop_sequence"], default=None)
-        if not primary: return
+        for primary, rs in _rate_groups(active):
+            primary_dest = primary.get("destination_port_id")
+            rate_match = find_best_rate(truck.get("vendor_id"), truck.get("truck_type_id"), primary.get("origin_port_id"), primary_dest, booking_date=primary.get("booking_date"))
+            if not rate_match: continue
+            for r in rs:
+                r["estimated_cost"] = compute_rate(rate_match, r.get("destination_port_id"), r.get("drop_sequence"))
+                if r.get("status_id") == 7:
+                    r["actual_cost"] = r["estimated_cost"]
+                elif r.get("status_id") not in (4, 5):
+                    r["actual_cost"] = 0
+        return
+    truck = db_1("SELECT vendor_id, truck_type_id FROM trucks WHERE id=%s", (truck_id,))
+    if not truck: return
+    active = db_q("SELECT id, trip_id, origin_port_id, destination_port_id, drop_sequence, pickup_datetime, booking_date FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5)", (truck_id,))
+    for primary, rs in _rate_groups(active):
         primary_dest = primary.get("destination_port_id")
         rates = db_q("SELECT rate_per_trip, default_rate, destination_drops, destination_port_id, effective_date, expiry_date FROM vendor_rates WHERE vendor_id=%s AND truck_type_id=%s AND origin_port_id=%s AND is_active=1",
             (truck["vendor_id"], truck["truck_type_id"], primary["origin_port_id"]))
         rates = [r for r in rates if rate_in_range(r, primary.get("booking_date"))]
         exact = next((r for r in rates if r.get("destination_port_id") == primary_dest), None)
         rate = exact or (rates[0] if rates else None)
-        if not rate: return
-        for r in active:
+        if not rate: continue
+        for r in rs:
             est = compute_rate(rate, r.get("destination_port_id"), r.get("drop_sequence"))
             db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (est, r["id"]))
             db_x("UPDATE truck_requests SET actual_cost=%s WHERE id=%s AND status_id=7", (est, r["id"]))
@@ -959,6 +970,58 @@ def _owned_by_vendor(item, scope_vid):
             truck = db_1("SELECT vendor_id FROM trucks WHERE id=%s", (item["assigned_truck_id"],))
         return bool(truck and truck.get("vendor_id") == scope_vid)
     return False
+
+def normalise_trip_drop_numbers():
+    """Repair trips whose drop numbers carried on from another trip on the same truck
+    (e.g. a 1-drop trip numbered 5/E because the truck already had 4 drops). Every trip
+    is renumbered 1..n in its existing order and its letters follow. Idempotent: a trip
+    already numbered 1..n is left alone."""
+    if LOCAL_MODE:
+        rows = [x for x in _store["truck_requests"] if x.get("trip_id") and x.get("drop_sequence") is not None]
+    else:
+        rows = db_q("""SELECT id, trip_id, drop_sequence, status_id, assigned_truck_id, vendor_id,
+            truck_type_id, origin_port_id, destination_port_id, booking_date
+            FROM truck_requests WHERE trip_id IS NOT NULL AND drop_sequence IS NOT NULL""")
+    groups = {}
+    for r in rows:
+        b = trip_base(r.get("trip_id"))
+        if b and not b.startswith("req-"):
+            groups.setdefault(b, []).append(r)
+    fixed, trucks = 0, set()
+    for base, rs in groups.items():
+        rs.sort(key=lambda r: (r.get("drop_sequence") or 0, r.get("id") or 0))
+        want = [(i + 1, f"{base}-{_trip_letter(i + 1)}") for i in range(len(rs))]
+        if [(r.get("drop_sequence"), r.get("trip_id")) for r in rs] == want:
+            continue
+        fixed += 1
+        for r, (seq, tid) in zip(rs, want):
+            if r.get("drop_sequence") == seq and r.get("trip_id") == tid:
+                continue
+            if LOCAL_MODE:
+                r["drop_sequence"], r["trip_id"] = seq, tid
+            else:
+                db_x("UPDATE truck_requests SET drop_sequence=%s, trip_id=%s WHERE id=%s", (seq, tid, r["id"]))
+            if r.get("status_id") in (2, 3, 6, 7):
+                if r.get("assigned_truck_id"):
+                    trucks.add(r["assigned_truck_id"])
+                elif r.get("status_id") in (2, 3, 6):
+                    cost = _trip_estimated_cost(r, seq)
+                    if LOCAL_MODE:
+                        r["estimated_cost"] = cost
+                    else:
+                        db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (cost, r["id"]))
+    for tid in trucks:
+        recalculate_trip_rates(tid)
+    return fixed
+
+@app.on_event("startup")
+def _startup_normalise_drops():
+    try:
+        n = normalise_trip_drop_numbers()
+        if n:
+            print(f"[startup] renumbered drop # for {n} trip(s) to 1..n per trip")
+    except Exception as e:  # never block startup over a repair
+        print(f"[startup] drop # repair skipped: {e}")
 
 # ---------------------------------------------------------------------------
 # Health
@@ -2801,11 +2864,10 @@ async def update_request(rid: int, request: Request):
                     if not has_pa:
                         pid = nid("pending_allocations")
                         _store["pending_allocations"].append({"id": pid, "truck_request_id": rid, "suggested_truck_id": None, "suggestion_reason": "Reverted to pending", "is_accepted": None, "allocated_by": None, "allocated_at": None, "created_at": nows()})
+                    # Drop numbers belong to the trip, not the truck: only this trip closes up.
+                    if old_base:
+                        resequence_trip_if_freed(old_base)
                     if old_tid:
-                        if reverted_seq:
-                            for x in _store["truck_requests"]:
-                                if x.get("assigned_truck_id") == old_tid and x.get("drop_sequence") is not None and x["drop_sequence"] > reverted_seq:
-                                    x["drop_sequence"] -= 1
                         freeze_trip_ids_on_truck(old_tid)
                         remaining = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == old_tid and x.get("status_id") not in (4, 5, 7)]
                         if not remaining:
@@ -2813,8 +2875,6 @@ async def update_request(rid: int, request: Request):
                                 if t["id"] == old_tid: t["status"] = "available"; break
                         else:
                             recalculate_trip_rates(old_tid)
-                    if old_base:
-                        resequence_trip_if_freed(old_base)
                 if new_status == 4 and r.get("assigned_truck_id"):
                     if r.get("actual_cost", 0) == 0: r["actual_cost"] = r.get("estimated_cost", 0)
                     tid = r["assigned_truck_id"]
@@ -2887,17 +2947,16 @@ async def update_request(rid: int, request: Request):
         db_x("""UPDATE truck_requests SET assigned_truck_id=NULL, drop_sequence=NULL, trip_id=NULL,
             estimated_cost=0, actual_cost=0, truck_type_id=NULL, vendor_id=NULL, final_call_datetime=NULL
             WHERE id=%s""", (rid,))
+        # Drop numbers belong to the trip, not the truck: only this trip closes up.
+        if old_base:
+            resequence_trip_if_freed(old_base)
         if old_tid:
-            if reverted_seq:
-                db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s", (old_tid, reverted_seq))
             freeze_trip_ids_on_truck(old_tid)
             remaining = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (old_tid,))
             if remaining and remaining.get("c", 0) == 0:
                 db_x("UPDATE trucks SET status='available' WHERE id=%s", (old_tid,))
             else:
                 recalculate_trip_rates(old_tid)
-        if old_base:
-            resequence_trip_if_freed(old_base)
         existing = db_1("SELECT id FROM pending_allocations WHERE truck_request_id=%s AND is_accepted IS NULL", (rid,))
         if not existing:
             db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'Reverted to pending')", (rid,))
@@ -3160,48 +3219,20 @@ async def update_drop_sequence(rid: int, request: Request):
         req = db_1("SELECT assigned_truck_id, drop_sequence, status_id, trip_id FROM truck_requests WHERE id=%s", (rid,))
         if not req: raise HTTPException(404, "Request not found")
     if req.get("status_id") != 2: raise HTTPException(400, "Drop # can only be rearranged for Allocated requests")
-    if not req.get("assigned_truck_id"):
-        # Allocated to a vendor with no truck: the trip group itself carries the drop numbers.
-        base = trip_base(req.get("trip_id"))
-        if not base: raise HTTPException(400, "Request not allocated to a trip")
-        rows = trip_group_rows(base)
-        rows.sort(key=lambda r: (r.get("drop_sequence") or 0, r.get("id") or 0))
-        if len(rows) > 1:
-            others = [r for r in rows if r["id"] != rid]
-            pos = max(1, min(new_seq, len(rows)))
-            ordered = others[:pos - 1] + [r for r in rows if r["id"] == rid] + others[pos - 1:]
-            apply_trip_order(base, ordered)
-        return {"ok": True}
-    if LOCAL_MODE:
-        truck_id = req["assigned_truck_id"]
-        old_seq = req.get("drop_sequence")
-        if old_seq == new_seq: return {"ok": True}
-        existing_seqs = [x.get("drop_sequence") for x in _store["truck_requests"] if x.get("assigned_truck_id") == truck_id and x.get("drop_sequence") is not None and x.get("status_id") in (2, 3) and x["id"] != rid]
-        if new_seq in existing_seqs:
-            for x in _store["truck_requests"]:
-                if x.get("assigned_truck_id") == truck_id and x.get("drop_sequence") is not None and x.get("status_id") in (2, 3) and x["id"] != rid:
-                    if old_seq and old_seq < new_seq:
-                        if x["drop_sequence"] > old_seq and x["drop_sequence"] <= new_seq:
-                            x["drop_sequence"] -= 1
-                    elif old_seq and old_seq > new_seq:
-                        if x["drop_sequence"] >= new_seq and x["drop_sequence"] < old_seq:
-                            x["drop_sequence"] += 1
-        req["drop_sequence"] = new_seq
+    # Drop numbers run 1..n inside each trip, whether or not a truck is on it yet.
+    base = trip_base(req.get("trip_id"))
+    if not base: raise HTTPException(400, "Request not allocated to a trip")
+    rows = trip_group_rows(base)
+    rows.sort(key=lambda r: (r.get("drop_sequence") or 0, r.get("id") or 0))
+    if len(rows) > 1:
+        others = [r for r in rows if r["id"] != rid]
+        pos = max(1, min(int(new_seq), len(rows)))
+        ordered = others[:pos - 1] + [r for r in rows if r["id"] == rid] + others[pos - 1:]
+        apply_trip_order(base, ordered)
+    truck_id = req.get("assigned_truck_id")
+    if truck_id:
         freeze_trip_ids_on_truck(truck_id)
         recalculate_trip_rates(truck_id)
-        return {"ok": True}
-    truck_id = req["assigned_truck_id"]
-    old_seq = req.get("drop_sequence")
-    if old_seq == new_seq: return {"ok": True}
-    existing = db_q("SELECT id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s AND drop_sequence IS NOT NULL AND status_id IN (2,3) AND id!=%s", (truck_id, rid))
-    if new_seq in [e["drop_sequence"] for e in existing]:
-        if old_seq and old_seq < new_seq:
-            db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s AND drop_sequence<=%s AND status_id IN (2,3) AND id!=%s", (truck_id, old_seq, new_seq, rid))
-        elif old_seq and old_seq > new_seq:
-            db_x("UPDATE truck_requests SET drop_sequence=drop_sequence+1 WHERE assigned_truck_id=%s AND drop_sequence>=%s AND drop_sequence<%s AND status_id IN (2,3) AND id!=%s", (truck_id, new_seq, old_seq, rid))
-    db_x("UPDATE truck_requests SET drop_sequence=%s WHERE id=%s", (new_seq, rid))
-    freeze_trip_ids_on_truck(truck_id)
-    recalculate_trip_rates(truck_id)
     return {"ok": True}
 
 # ---------------------------------------------------------------------------
@@ -3581,6 +3612,9 @@ def _trip_payload(key, rs, truck, available_trucks, drivers=None, assigned_drive
     want_tt = first.get("truck_type_id")
     if trucks is not None and want_tt is not None:
         trucks = [t for t in trucks if t.get("truck_type_id") == want_tt]
+    if drivers is not None and want_tt is not None:
+        # Only accounts whose truck is the trip's truck type can take the trip.
+        drivers = [d for d in drivers if d.get("truck_type_id") == want_tt]
     return {
         "trip_id": key,
         "status_id": status,
@@ -3769,11 +3803,8 @@ def _assign_truck_core(u, vid, trip_id, truck_id, keep_status=False):
             raise HTTPException(403, "Trip belongs to a different vendor")
         old_tids = {r.get("assigned_truck_id") for r in reqs
                     if r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id}
-        our_ids = {r["id"] for r in reqs}
-        existing = [x.get("drop_sequence") for x in _store["truck_requests"]
-                    if x.get("assigned_truck_id") == truck_id and x.get("drop_sequence") is not None
-                    and x.get("status_id") in (2, 3) and x["id"] not in our_ids]
-        start = (max(existing) + 1) if existing else 1
+        # Drop numbers are per trip (1..n), even when the truck already carries another trip.
+        start = 1
         ordered = sorted(reqs, key=lambda x: (x.get("drop_sequence") is None, x.get("drop_sequence") or 0, x["id"]))
         want_tt = next((r.get("truck_type_id") for r in ordered if r.get("truck_type_id") is not None), None)
         if want_tt is not None and truck.get("truck_type_id") != want_tt:
@@ -3826,10 +3857,8 @@ def _assign_truck_core(u, vid, trip_id, truck_id, keep_status=False):
         raise HTTPException(403, "Trip belongs to a different vendor")
     old_tids = {r.get("assigned_truck_id") for r in reqs
                 if r.get("assigned_truck_id") and r["assigned_truck_id"] != truck_id}
-    our_ids = {r["id"] for r in reqs}
-    actives = db_q("SELECT id, drop_sequence FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3) AND drop_sequence IS NOT NULL", (truck_id,))
-    existing = [x.get("drop_sequence") for x in actives if x["id"] not in our_ids]
-    start = (max(existing) + 1) if existing else 1
+    # Drop numbers are per trip (1..n), even when the truck already carries another trip.
+    start = 1
     ordered = sorted(reqs, key=lambda x: (x.get("drop_sequence") is None, x.get("drop_sequence") or 0, x["id"]))
     want_tt = next((r.get("truck_type_id") for r in ordered if r.get("truck_type_id") is not None), None)
     if want_tt is not None and truck.get("truck_type_id") != want_tt:
@@ -3877,12 +3906,6 @@ def _free_truck_assignment(rids, email):
                 x["updated_at"] = nows()
         for tid, seqs in gone.items():
             rem = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == tid]
-            for seq in seqs:
-                if seq is None:
-                    continue
-                for x in rem:
-                    if x.get("drop_sequence") is not None and x["drop_sequence"] > seq:
-                        x["drop_sequence"] -= 1
             actives = [x for x in rem if x.get("status_id") in (2, 3)]
             if not actives:
                 for t in _store["trucks"]:
@@ -3903,11 +3926,6 @@ def _free_truck_assignment(rids, email):
         updated_by=%s, updated_at=NOW() WHERE id IN ({marks})""",
          (email,) + tuple(rids))
     for tid, seqs in gone.items():
-        for seq in seqs:
-            if seq is None:
-                continue
-            db_x("UPDATE truck_requests SET drop_sequence=drop_sequence-1 WHERE assigned_truck_id=%s AND drop_sequence>%s",
-                 (tid, seq))
         cnt = db_1("SELECT COUNT(*) as c FROM truck_requests WHERE assigned_truck_id=%s AND status_id IN (2,3)", (tid,))
         if not (cnt and cnt.get("c")):
             db_x("UPDATE trucks SET status='available' WHERE id=%s", (tid,))
@@ -4415,6 +4433,11 @@ def _truck_plate(tid):
     t = db_1("SELECT plate_number FROM trucks WHERE id=%s", (tid,))
     return (t or {}).get("plate_number") or ""
 
+def _local_truck_type(d):
+    t = next((x for x in _store["trucks"] if x["id"] == d.get("truck_id")), None) if d.get("truck_id") else None
+    d["truck_type_id"] = (t or {}).get("truck_type_id")
+    d["truck_type_name"] = next((tt["name"] for tt in _store["truck_types"] if tt["id"] == d["truck_type_id"]), "") if t else ""
+
 def _driver_public(d):
     if not d:
         return None
@@ -4425,6 +4448,7 @@ def _driver_public(d):
             "username": d.get("username") or "", "driver_name": d.get("driver_name") or "",
             "driver_phone": d.get("driver_phone") or "", "vendor_name": d.get("vendor_name") or "",
             "truck_id": d.get("truck_id"), "plate_number": plate or "",
+            "truck_type_id": d.get("truck_type_id"), "truck_type_name": d.get("truck_type_name") or "",
             "is_active": bool(d.get("is_active", 1))}
 
 def _driver_rows(vid=None, active_only=False):
@@ -4436,13 +4460,16 @@ def _driver_rows(vid=None, active_only=False):
             rows = [d for d in rows if d.get("is_active", 1)]
         for d in rows:
             d["plate_number"] = _truck_plate(d.get("truck_id"))
+            _local_truck_type(d)
             d["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == d.get("vendor_id")), "")
         rows.sort(key=lambda d: str(d.get("username") or "").lower())
         return rows
-    sql = """SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number
+    sql = """SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number,
+        tk2.truck_type_id as truck_type_id, ttd.name as truck_type_name
         FROM driver_accounts da
         LEFT JOIN vendors v ON da.vendor_id=v.id
-        LEFT JOIN trucks tk2 ON da.truck_id=tk2.id"""
+        LEFT JOIN trucks tk2 ON da.truck_id=tk2.id
+        LEFT JOIN truck_types ttd ON tk2.truck_type_id=ttd.id"""
     wh, pa = [], []
     if vid is not None:
         wh.append("da.vendor_id=%s"); pa.append(vid)
@@ -4458,11 +4485,14 @@ def _driver_row(did):
         row = row2d(next((x for x in _store["driver_accounts"] if x["id"] == did), None))
         if row:
             row["plate_number"] = _truck_plate(row.get("truck_id"))
+            _local_truck_type(row)
         return row
-    return db_1("""SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number
+    return db_1("""SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number,
+        tk2.truck_type_id as truck_type_id, ttd.name as truck_type_name
         FROM driver_accounts da
         LEFT JOIN vendors v ON da.vendor_id=v.id
-        LEFT JOIN trucks tk2 ON da.truck_id=tk2.id WHERE da.id=%s""", (did,))
+        LEFT JOIN trucks tk2 ON da.truck_id=tk2.id
+        LEFT JOIN truck_types ttd ON tk2.truck_type_id=ttd.id WHERE da.id=%s""", (did,))
 
 def _driver_by_username(u):
     u = str(u or "").strip().lower()
@@ -4473,11 +4503,14 @@ def _driver_by_username(u):
                           if str(x.get("username") or "").lower() == u), None))
         if row:
             row["plate_number"] = _truck_plate(row.get("truck_id"))
+            _local_truck_type(row)
         return row
-    return db_1("""SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number
+    return db_1("""SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number,
+        tk2.truck_type_id as truck_type_id, ttd.name as truck_type_name
         FROM driver_accounts da
         LEFT JOIN vendors v ON da.vendor_id=v.id
-        LEFT JOIN trucks tk2 ON da.truck_id=tk2.id WHERE LOWER(da.username)=%s""", (u,))
+        LEFT JOIN trucks tk2 ON da.truck_id=tk2.id
+        LEFT JOIN truck_types ttd ON tk2.truck_type_id=ttd.id WHERE LOWER(da.username)=%s""", (u,))
 
 def _clean_username(raw):
     u = str(raw or "").strip()
@@ -4953,7 +4986,7 @@ async def create_driver_account(request: Request):
              "driver_phone": vals[5], "is_active": bool(vals[6]), "truck_id": vals[7],
              "active_trip_id": None, "created_at": nows(), "updated_at": nows()}
         _store["driver_accounts"].append(d)
-        return _driver_public(row2d(d))
+        return _driver_public(_driver_row(d["id"]))
     did = db_i("""INSERT INTO driver_accounts (vendor_id,username,password_hash,password_salt,
         driver_name,driver_phone,is_active,truck_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""", vals)
     return _driver_public(_driver_row(did))
@@ -5009,7 +5042,7 @@ async def update_driver_account(did: int, request: Request):
                         if s.get("driver_account_id") == did:
                             _store["driver_sessions"].pop(t, None)
                 x["updated_at"] = nows()
-                return _driver_public(row2d(x))
+                return _driver_public(_driver_row(did))
         raise HTTPException(404, "Driver account not found")
     params.append(did)
     db_x(f"UPDATE driver_accounts SET {','.join(sets)},updated_at=NOW() WHERE id=%s", tuple(params))

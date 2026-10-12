@@ -494,7 +494,8 @@ body.scan-mode .layout{display:none}
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Vendor Truck Assignment</strong> (available to Admin, Master Admin and vendor roles).</li>
 <li>The list shows <strong>trips waiting for a driver</strong> - trip ID, status, final call, truck type, origin and every drop on the trip, including each drop's <strong>International MAWB</strong> and <strong>Domestic MAWB</strong>.</li>
-<li>Each card has a <strong>Select driver / fleet account</strong> dropdown. It contains the active accounts for your vendor with the driver's <strong>phone number</strong>; the plate in brackets is the truck that account drives.</li>
+<li>Each card has a <strong>Select driver / fleet account</strong> dropdown. It contains only the active accounts for your vendor whose truck is the <strong>same truck type as the trip</strong> (e.g. a 6W trip lists only 6W accounts), with the driver's <strong>phone number</strong>; the plate in brackets is the truck that account drives.</li>
+<li>Drop numbers belong to each trip: every trip is numbered 1, 2, 3... on its own, even when one truck carries more than one trip.</li>
 <li>If a driver is removed from a trip (Masterlist, <i class="fas fa-user-slash"></i>), the trip comes back to this list with its drop numbers (1, 2, 3...) unchanged.</li>
 <li>Pick the account and click <strong>Assign Driver</strong>. The trip takes both the driver and that account's truck, leaves this list, and the plate appears on the <strong>Masterlist</strong>. The status stays <strong>Allocated</strong> - it only becomes <strong>In Transit</strong> when the driver scans <strong>Depart</strong> in the scanning app.</li>
 <li>If an account has no truck yet, the assignment is refused with a message. Set the truck on the <strong>Driver / Fleet Accounts</strong> page and try again.</li>
@@ -524,7 +525,7 @@ body.scan-mode .layout{display:none}
 <li><strong>My trips</strong> lists every trip assigned to the account. A driver works on <strong>one trip at a time</strong>: once Arrived at pickup is tapped on a trip, every other trip stays locked until that trip is finished to its last drop.</li>
 <li>Steps unlock <strong>strictly in order</strong> - a step cannot be opened until the step before it is done.</li>
 <li><strong>Step 1 - Arrived at pickup.</strong> A confirmation popup asks before the time is saved. If the final call time has already passed, the app asks for a <strong>late reason</strong> (up to 1000 characters).</li>
-<li><strong>Step 2 - Pickup scan.</strong> Type or camera-scan bag IDs. They are checked against the manifests of every request on the trip: success plays a chime; a bag not on the manifest or already scanned plays an <strong>error siren</strong> (a not-on-manifest bag can still be forced through with Override). The first accepted bag records <strong>Start Loading</strong>. The camera opens at 1x zoom on the main lens (use <em>Switch camera</em> if needed) and records each barcode once.</li>
+<li><strong>Step 2 - Pickup scan.</strong> Type or camera-scan bag IDs. They are checked against the manifests of every request on the trip: success plays a chime; a bag not on the manifest or already scanned plays an <strong>error siren</strong> (a not-on-manifest bag can still be forced through with Override). The first accepted bag records <strong>Start Loading</strong>. The camera opens with the phone's normal (zoomed-out) photo view on the main lens (use <em>Switch camera</em> if needed) and records each barcode once.</li>
 <li><strong>End pickup scan</strong> first shows a summary - total manifest IDs on the trip, original successful scans, manifest IDs not yet scanned and override scans. Press <strong>Confirm</strong> to end it; no more scans are possible after that.</li>
 <li><strong>Step 3 - End loading</strong> (needs the pickup scan ended), then <strong>Step 4 - Depart</strong>, which flips the trip to <strong>In Transit</strong>.</li>
 <li><strong>Each drop, in drop # order:</strong> (a) Arrived at destination - Drop #, (b) unloading scan, (c) optional photos, (d) Finish this drop. The next drop unlocks only when the one before it is finished.</li>
@@ -1948,11 +1949,12 @@ async function loadVT(){
       });
       html+='</tbody></table></div>';
       if(isVendor){
-        const vtList=(g.drivers||[]).filter(d=>d&&d.is_active!==false);
-        const vtMsg=vtList.length?'Select driver / fleet account...':'No driver accounts yet - create one on the Driver / Fleet Accounts page';
-        html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select driver / fleet account *</label><select class="fs" id="vtDriver-'+i+'"><option value="">'+vtMsg+'</option>';
+        // The server only sends accounts whose truck matches this trip's truck type.
+        const vtList=(g.drivers||[]).filter(d=>d&&d.is_active!==false&&(g.truck_type_id==null||+d.truck_type_id===+g.truck_type_id));
+        const vtMsg=vtList.length?'Select driver / fleet account ('+(g.truck_type_name||'any truck type')+')...':'No active driver / fleet account with a '+(g.truck_type_name||'matching')+' truck - set one up on the Driver / Fleet Accounts page';
+        html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select driver / fleet account * <span style="font-weight:400;color:var(--muted)">(only '+esc(g.truck_type_name||'matching')+' trucks)</span></label><select class="fs" id="vtDriver-'+i+'"><option value="">'+vtMsg+'</option>';
         vtList.forEach(d=>{
-          html+='<option value="'+d.id+'">'+esc(d.username)+(d.driver_name?' - '+esc(d.driver_name):'')+(d.driver_phone?' - '+esc(d.driver_phone):' - no phone')+(d.plate_number?' ('+esc(d.plate_number)+')':'')+'</option>';
+          html+='<option value="'+d.id+'">'+esc(d.username)+(d.driver_name?' - '+esc(d.driver_name):'')+(d.driver_phone?' - '+esc(d.driver_phone):' - no phone')+(d.plate_number?' ('+esc(d.plate_number)+(d.truck_type_name?' - '+esc(d.truck_type_name):'')+')':'')+'</option>';
         });
         html+='</select></div><button class="btn btn-p" onclick="assignVT('+i+')"><i class="fas fa-check"></i> Assign Driver</button></div>';
         html+='<div style="margin-top:8px;font-size:12px;color:var(--mut)"><i class="fas fa-info-circle"></i> The account\'s truck (plate above) is assigned with the driver, and the trip stays <strong>Allocated</strong> until the driver scans <strong>Depart</strong> in the scanning app.</div>';
@@ -1996,7 +1998,7 @@ async function loadDA(){
     daRows.forEach((d,i)=>{
       const badge=d.is_active?'<span class="badge" style="background:#DCFCE7;color:#166534"><i class="fas fa-check"></i> Active</span>':'<span class="badge" style="background:#FEE2E2;color:#991B1B"><i class="fas fa-ban"></i> Disabled</span>';
       html+='<tr><td><strong style="color:var(--pri)">'+esc(d.username)+'</strong></td><td>'+esc(d.driver_name||'-')+'</td><td>'+esc(d.driver_phone||'-')+'</td><td>'+esc(d.vendor_name||'-')+'</td>';
-      html+='<td>'+(d.plate_number?'<span class="badge b-bl">'+esc(d.plate_number)+'</span>':'<span style="color:var(--muted);font-size:12.5px">No truck</span>')+'</td><td>'+badge+'</td>';
+      html+='<td>'+(d.plate_number?'<span class="badge b-bl">'+esc(d.plate_number)+'</span>'+(d.truck_type_name?'<br><small style="color:var(--muted)">'+esc(d.truck_type_name)+'</small>':''):'<span style="color:var(--muted);font-size:12.5px">No truck</span>')+'</td><td>'+badge+'</td>';
       const trips=d.trips||[];
       html+='<td style="min-width:260px">'+(trips.length?trips.map(t=>{
         const col=t.status_id===3?'#8B5CF6':'#3B82F6';
@@ -3900,7 +3902,7 @@ async function scEndOv(kind,key){
 }
 
 /* ---- camera: main back lens at 1x zoom, and one record per barcode ---- */
-const SC_CAM_KEY='scan_cam_id';
+const SC_CAM_KEY='scan_cam_id2';
 let scCams=[],scCamId='',scCamLast='',scCamLastAt=0,scCamHold=false;
 function scCamRank(c,i){
   const l=String(c.label||'').toLowerCase();
@@ -3918,6 +3920,14 @@ async function scCamList(){
     scCams=scCams.filter(c=>c.r<1000).concat(scCams.filter(c=>c.r>=1000));
   }catch(e){scCams=[]}
   return scCams;
+}
+/* Ask for the phone camera's normal photo view: the full 4:3 sensor picture at a
+   high resolution. A small default stream (640x480) is cropped from the middle of
+   the sensor on many phones, which is what made the view look zoomed in. */
+function scCamConstraints(id){
+  const c={width:{ideal:1920},height:{ideal:1440},aspectRatio:{ideal:4/3},advanced:[{zoom:1}]};
+  if(id)c.deviceId={exact:id};else c.facingMode={ideal:'environment'};
+  return c;
 }
 async function scCamZoom1(){
   // Undo any default zoom: set 1x (or the lowest zoom the lens allows).
@@ -3971,7 +3981,7 @@ async function scCamStart(wantId){
     scanCam=new Html5Qrcode('qrReader',{verbose:false,formatsToSupport:formats,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
     const cfg={fps:10,disableFlip:true,
       qrbox:(w,h)=>{const bw=Math.floor(w*0.86);return {width:bw,height:Math.max(80,Math.floor(Math.min(h*0.55,bw*0.6)))}},
-      videoConstraints:pick?{deviceId:{exact:pick},advanced:[{zoom:1}]}:{facingMode:'environment',advanced:[{zoom:1}]}};
+      videoConstraints:scCamConstraints(pick)};
     try{
       await scanCam.start(pick?{deviceId:{exact:pick}}:{facingMode:'environment'},cfg,scCamOnRead,()=>{});
     }catch(first){
@@ -3979,7 +3989,7 @@ async function scCamStart(wantId){
       try{localStorage.removeItem(SC_CAM_KEY)}catch(e){}
       try{scanCam.clear()}catch(e){}
       scanCam=new Html5Qrcode('qrReader',{verbose:false,formatsToSupport:formats,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
-      cfg.videoConstraints={facingMode:'environment',advanced:[{zoom:1}]};
+      cfg.videoConstraints=scCamConstraints('');
       await scanCam.start({facingMode:'environment'},cfg,scCamOnRead,()=>{});
       pick='';
     }
