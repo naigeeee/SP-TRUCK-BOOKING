@@ -3670,26 +3670,35 @@ async function scCompress(file){
   }catch(e){return file}
 }
 async function scPhotoSend(rid,input){
-  const files=input.files;
-  if(!files||!files.length)return;
+  // Copy the picked files first: input.files is live and empties when the input is reset.
+  const files=Array.from((input&&input.files)||[]);
+  if(input)input.value='';
+  if(!files.length)return;
   if(scanBusy)return;scanBusy=true;
   const w=document.getElementById('scLateWrap');
-  try{
-    let before=0,after=0;
-    for(let i=0;i<files.length;i++){
-      if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-spinner fa-spin"></i> Compressing and uploading photo '+(i+1)+' of '+files.length+'...</div>';
+  let done=0,before=0,after=0,err=null;
+  for(let i=0;i<files.length;i++){
+    if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-spinner fa-spin"></i> Compressing and uploading file '+(i+1)+' of '+files.length+'...</div>';
+    try{
       const small=await scCompress(files[i]);
-      before+=files[i].size;after+=small.size;
       const fd=new FormData();
       fd.append('file',small,small.name);
       await scanApi('/api/scan/requests/'+rid+'/photo',{method:'POST',body:fd});
-    }
-    input.value='';
-    await scanReloadTrip();
+      done++;before+=files[i].size;after+=small.size;
+    }catch(e){err=e;break}
+  }
+  try{await scanReloadTrip()}catch(e){}
+  const w2=document.getElementById('scLateWrap');
+  const sizes=done?' ('+scKB(before)+(after<before?' compressed to '+scKB(after):'')+')':'';
+  if(err){
+    scanSiren();
+    if(w2)w2.innerHTML=(done?'<div class="sc-ok"><i class="fas fa-check-circle"></i> '+done+' of '+files.length+' file(s) uploaded'+sizes+'.</div>':'')+
+      '<div class="sc-err"><i class="fas fa-exclamation-triangle"></i> '+esc(err.message)+'</div>';
+  }else{
     scanOkSound();scanFlash('#10B981');
-    const w2=document.getElementById('scLateWrap');
-    if(w2)w2.innerHTML='<div class="sc-ok"><i class="fas fa-check-circle"></i> '+files.length+' photo(s) uploaded ('+scKB(before)+' compressed to '+scKB(after)+').</div>';
-  }catch(e){scanSiren();scanAlert(e.message)}
+    if(w2)w2.innerHTML='<div class="sc-ok"><i class="fas fa-check-circle"></i> '+done+' file(s) uploaded'+sizes+'.</div>';
+  }
+  if(w2)w2.scrollIntoView({block:'center'});
   scanBusy=false;
 }
 function scKB(n){return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
