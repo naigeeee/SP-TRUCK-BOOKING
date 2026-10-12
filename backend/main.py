@@ -3666,7 +3666,7 @@ def trip_assignments(request: Request):
     rows = db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.status_id, tr.drop_sequence, tr.trip_id,
         tr.assigned_truck_id, tr.vendor_id, tr.final_call_datetime, tr.quantity, tr.weight_kg, tr.volume_cbm,
         tr.packaging_type_id, tr.destination_port_id, tr.origin_port_id, tr.truck_type_id, tr.account_id,
-        tr.driver_account_id,
+        tr.driver_account_id, tr.international_mawb, tr.domestic_mawb,
         tt.name as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
         pt.name as packaging_type_name, a.name as account_name, COALESCE(vv.name, v.name) as vendor_name
         FROM truck_requests tr
@@ -4436,6 +4436,7 @@ def _driver_rows(vid=None, active_only=False):
             rows = [d for d in rows if d.get("is_active", 1)]
         for d in rows:
             d["plate_number"] = _truck_plate(d.get("truck_id"))
+            d["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == d.get("vendor_id")), "")
         rows.sort(key=lambda d: str(d.get("username") or "").lower())
         return rows
     sql = """SELECT da.*, v.name as vendor_name, tk2.plate_number as plate_number
@@ -4662,7 +4663,7 @@ def _rows_for_base(base):
         except ValueError:
             return []
         return db_q(_SCAN_SELECT + " WHERE tr.id=%s", (rid,))
-    rows = db_q(_SCAN_SELECT + " WHERE tr.trip_id IS NOT NULL", ())
+    rows = db_q(_SCAN_SELECT + " WHERE tr.trip_id=%s OR tr.trip_id LIKE %s", (base, base + "-_"))
     return [r for r in rows if trip_base(r.get("trip_id")) == base]
 
 def _pickup_scans(base):
@@ -4719,43 +4720,96 @@ def _record_scan(table, values, trip_base_val=None, rid=None, bag=None):
         return False
 
 def _unload_reference(row, trip_rows):
-    """Bag ids a scan against `row` may accept, or None for free mode."""
-    own = _manifest_ids_for(row.get("id"))
-    if own:
-        return own
-    others = [r for r in trip_rows if r.get("id") != row.get("id")]
-    union = set()
-    for r in others:
-        for x in _manifest_ids_for(r.get("id")):
-            union.add(str(x).lower())
-    if not union:
-        return None
-    base = _scan_base(trip_rows)
-    return [s.get("bag_id") for s in _pickup_scans(base)
-            if str(s.get("bag_id") or "").lower() not in union]
+    """Bag ids an unloading scan at `row` accepts: the bags picked up for that drop.
 
-def _scan_summary(kind, rows, key):
+    A pickup scan is tied to the drop whose manifest lists the bag. On a
+    single-drop trip every pickup-scanned bag belongs to that one drop."""
+    trip_rows = trip_rows or [row]
+    base = _scan_base(trip_rows)
+    single = len({r.get("id") for r in trip_rows}) <= 1
+    out, seen = [], set()
+    for s in _pickup_scans(base):
+        rid = s.get("request_id")
+        if rid == row.get("id") or (single and not rid):
+            b = str(s.get("bag_id") or "")
+            if b.lower() not in seen:
+                seen.add(b.lower())
+                out.append(b)
+    return out
+
+def _drop_no(row, trip_rows):
+    """Drop # of a request inside its own trip (1..n, in drop order).
+
+    drop_sequence counts across the whole truck, so a truck carrying two trips
+    numbers the second trip 4, 5... The driver needs the number within the trip."""
+    ordered = _ordered(trip_rows or [row])
+    for i, r in enumerate(ordered):
+        if r.get("id") == row.get("id"):
+            return i + 1
+    return row.get("drop_sequence")
+
+def _drop_info(r, trip_rows=None):
+    return {"request_id": r.get("id"), "request_number": r.get("request_number") or "",
+            "account_name": r.get("account_name") or "",
+            "destination_port_name": r.get("destination_port_name") or "",
+            "drop_sequence": _drop_no(r, trip_rows) if trip_rows else r.get("drop_sequence")}
+
+def _pickup_owner(bag, trip_rows):
+    """The drop a bag was picked up for (None when not pickup-scanned or unattributed)."""
+    base = _scan_base(trip_rows)
+    k = str(bag).lower()
+    hit = next((s for s in _pickup_scans(base) if str(s.get("bag_id") or "").lower() == k), None)
+    if not hit:
+        return None, False
+    rid = hit.get("request_id")
+    if not rid and len(trip_rows) == 1:
+        rid = trip_rows[0].get("id")
+    owner = next((r for r in trip_rows if r.get("id") == rid), None)
+    return owner, True
+
+def _scan_summary(kind, rows, key, trip_rows=None):
     base = _scan_base(rows)
     closed_field = "pickup_scan_closed_at" if kind == "pickup" else "unload_scan_closed_at"
     closed = next((r.get(closed_field) for r in rows if r.get(closed_field)), None)
-    scans = _pickup_scans(base) if kind == "pickup" else _unload_scans(rows[0]["id"])
-    expected = _expected_pickup_ids(rows) if kind == "pickup" else (_unload_reference(rows[0], rows) or [])
+    if kind == "pickup":
+        scans = _pickup_scans(base)
+        expected = _expected_pickup_ids(rows)
+    else:
+        scans = _unload_scans(rows[0]["id"])
+        if trip_rows is None:
+            trip_rows = _rows_for_base(base) or rows
+        expected = _unload_reference(rows[0], trip_rows)
     exp_set = {str(x).lower() for x in expected}
     scanned = []
     for s in scans:
         b = str(s.get("bag_id") or "")
         scanned.append({"bag_id": b, "scan_kind": s.get("scan_kind") or "original",
                         "request_id": s.get("request_id"),
+                        "scanned_at": to_gmt8(s.get("scanned_at")),
                         "known": (b.lower() in exp_set) if exp_set else None})
+    scanned_keys = {x["bag_id"].lower() for x in scanned}
+    original = sum(1 for x in scanned if x["scan_kind"] != "override")
+    override = sum(1 for x in scanned if x["scan_kind"] == "override")
+    remaining = len(exp_set - scanned_keys)
+    if kind == "pickup":
+        started = any(r.get("arrived_pickup_datetime") for r in rows)
+        mode = "manifest" if exp_set else "free"
+    else:
+        started = bool(rows[0].get("arrived_dest_datetime"))
+        mode = "pickup"
     return {"kind": kind, "trip_id": base, "key": key,
-            "override_code": _override_code(key),
-            "mode": "manifest" if exp_set else "free",
-            "expected_count": (len(exp_set) if exp_set else None),
+            "override_code": _override_code(key) if kind == "pickup" else None,
+            "mode": mode,
+            "expected_count": (len(exp_set) if (exp_set or kind == "unload") else None),
             "scanned_count": len(scans),
+            "original_count": original,
+            "override_count": override,
+            "remaining_count": remaining,
             "scanned": scanned,
+            "started": started,
             "closed": bool(closed), "closed_at": to_gmt8(closed),
             "requests": [{"id": r.get("id"), "request_number": r.get("request_number"),
-                          "drop_sequence": r.get("drop_sequence"),
+                          "drop_sequence": _drop_no(r, trip_rows or rows),
                           "account_name": r.get("account_name") or "",
                           "destination_port_name": r.get("destination_port_name") or "",
                           "status_id": r.get("status_id")} for r in rows]}
@@ -4777,6 +4831,8 @@ def _scan_csv(rows, scans, expected, label):
             if str(x).lower() in {str(m).lower() for m in _manifest_ids_for(r.get("id"))}:
                 owner = r
                 break
+        if owner is None and len(rows) == 1:
+            owner = rows[0]
         kind = _scan_kind_of(scans, x)
         remark = kind if kind else "missing"
         w.writerow([x, (owner or {}).get("account_name") or "", (owner or {}).get("destination_port_name") or "",
@@ -4786,7 +4842,7 @@ def _scan_csv(rows, scans, expected, label):
         if b.lower() in seen:
             continue
         seen.add(b.lower())
-        owner = by_id.get(s.get("request_id")) or {}
+        owner = by_id.get(s.get("request_id")) or (rows[0] if len(rows) == 1 else {})
         w.writerow([b, owner.get("account_name") or "", owner.get("destination_port_name") or "",
                     owner.get("drop_sequence") or "", s.get("scan_kind") or "original"])
     data = buf.getvalue().encode("utf-8")
@@ -4796,10 +4852,75 @@ def _scan_csv(rows, scans, expected, label):
 
 # --- Driver / Fleet account management ------------------------------------
 
+def _trip_stage(rows):
+    """Plain-language progress of one trip, from its requests' milestones."""
+    rows = _ordered(rows)
+    total = len(rows)
+    done = sum(1 for r in rows if r.get("status_id") == 4)
+    active = [r for r in rows if r.get("status_id") in (2, 3)]
+    if not active:
+        return "Completed", "done"
+    if any(r.get("status_id") == 3 for r in active):
+        cur = active[0]
+        d = rows.index(cur) + 1
+        if cur.get("unload_scan_closed_at"):
+            return f"Drop {d}: unloading scan ended ({done}/{total} delivered)", "transit"
+        if cur.get("start_unloading_datetime"):
+            return f"Drop {d}: unloading ({done}/{total} delivered)", "transit"
+        if cur.get("arrived_dest_datetime"):
+            return f"Drop {d}: arrived at destination ({done}/{total} delivered)", "transit"
+        return f"In Transit to drop {d} ({done}/{total} delivered)", "transit"
+    if any(r.get("end_loading_datetime") for r in active):
+        return "Loaded - waiting to depart", "loading"
+    if any(r.get("pickup_scan_closed_at") for r in active):
+        return "Pickup scan ended - waiting for End Loading", "loading"
+    if any(r.get("start_loading_datetime") for r in active):
+        return "Loading (pickup scan in progress)", "loading"
+    if any(r.get("arrived_pickup_datetime") for r in active):
+        return "Arrived at pickup", "loading"
+    return "Allocated - not started", "allocated"
+
+def _driver_trip_map(driver_ids):
+    """driver id -> [{trip_id, status, stage, drops}] for trips still open."""
+    if not driver_ids:
+        return {}
+    if LOCAL_MODE:
+        mine = [_scan_row_names(row2d(r)) for r in _store["truck_requests"]
+                if r.get("driver_account_id") in driver_ids and r.get("status_id") in (2, 3)]
+    else:
+        marks = ",".join(["%s"] * len(driver_ids))
+        mine = db_q(_SCAN_SELECT + f" WHERE tr.driver_account_id IN ({marks}) AND tr.status_id IN (2,3)",
+                    tuple(driver_ids))
+    by = {}
+    for r in mine:
+        by.setdefault(r.get("driver_account_id"), {}).setdefault(_trip_key_of(r), []).append(r)
+    out = {}
+    for did, trips in by.items():
+        lst = []
+        for base, rs in trips.items():
+            full = _rows_for_base(base) or rs
+            label, tone = _trip_stage(full)
+            fcs = [to_gmt8(r.get("final_call_datetime")) for r in rs if r.get("final_call_datetime")]
+            lst.append({"trip_id": base,
+                        "status_id": 3 if any(r.get("status_id") == 3 for r in rs) else 2,
+                        "status_name": "In Transit" if any(r.get("status_id") == 3 for r in rs) else "Allocated",
+                        "stage": label, "tone": tone, "drops": len(full),
+                        "final_call_datetime": min(fcs) if fcs else None})
+        lst.sort(key=lambda t: str(t.get("final_call_datetime") or "9999-12-31"))
+        out[did] = lst
+    return out
+
 @app.get("/api/driver-accounts")
 def list_driver_accounts(request: Request):
     u, vid = require_vendor_or_admin(request)
-    return [_driver_public(d) for d in _driver_rows(vid)]
+    rows = _driver_rows(vid)
+    trips = _driver_trip_map([d.get("id") for d in rows])
+    out = []
+    for d in rows:
+        p = _driver_public(d)
+        p["trips"] = trips.get(d.get("id"), [])
+        out.append(p)
+    return out
 
 @app.post("/api/driver-accounts")
 async def create_driver_account(request: Request):
@@ -4971,24 +5092,30 @@ def _driver_trip_rows(driver, base):
             raise HTTPException(403, "This trip belongs to another vendor")
     return rows
 
+def _ordered(rows):
+    return sorted(rows, key=lambda x: (x.get("drop_sequence") is None,
+                                       x.get("drop_sequence") or 0, x.get("id")))
+
+def _trip_started(rows):
+    """A trip is in progress once the driver has tapped Arrived at pickup."""
+    return any(r.get("arrived_pickup_datetime") for r in rows)
+
 def _trip_detail(driver, rows):
     base = _scan_base(rows)
-    expected = _expected_pickup_ids(rows)
+    all_rows = _rows_for_base(base) or rows
+    expected = _expected_pickup_ids(all_rows)
     scans = _pickup_scans(base)
     pk = next((r.get("pickup_scan_key") for r in rows if r.get("pickup_scan_key")), None)
     closed = next((r.get("pickup_scan_closed_at") for r in rows if r.get("pickup_scan_closed_at")), None)
     reqs = []
-    for r in sorted(rows, key=lambda x: (x.get("drop_sequence") is None,
-                                         x.get("drop_sequence") or 0, x.get("id"))):
+    for i, r in enumerate(_ordered(rows)):
         usc = _unload_scans(r.get("id"))
-        uref = _unload_reference(r, rows)
+        uref = _unload_reference(r, all_rows)
         uk = r.get("unload_scan_key")
-        usum = None
-        if uk:
-            usum = _scan_summary("unload", [r], uk)
         reqs.append({
             "id": r.get("id"), "request_number": r.get("request_number"),
-            "drop_sequence": r.get("drop_sequence"), "status_id": r.get("status_id"),
+            "drop_sequence": r.get("drop_sequence"), "drop_no": _drop_no(r, all_rows),
+            "status_id": r.get("status_id"),
             "account_name": r.get("account_name") or "",
             "origin_port_name": r.get("origin_port_name") or "",
             "destination_port_name": r.get("destination_port_name") or "",
@@ -5006,8 +5133,8 @@ def _trip_detail(driver, rows):
             "unload_scan_key": uk,
             "unload_scan_closed": bool(r.get("unload_scan_closed_at")),
             "unload_scan_count": len(usc),
-            "unload_expected_count": (len(uref) if uref is not None else None),
-            "unload_summary": usum,
+            "unload_expected_count": len(uref),
+            "is_next_drop": i == 0,
             "attachments": db_q("SELECT id, original_filename, file_size FROM truck_request_attachments WHERE truck_request_id=%s",
                                 (r.get("id"),)) if not LOCAL_MODE else
                            [row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == r.get("id")],
@@ -5016,6 +5143,9 @@ def _trip_detail(driver, rows):
     return {"trip_id": base, "status_id": 3 if any(r.get("status_id") == 3 for r in rows) else 2,
             "final_call_datetime": min(fcs) if fcs else None,
             "driver": _driver_public(driver),
+            "in_progress": _trip_started(rows),
+            "total_drops": len(all_rows),
+            "delivered_drops": sum(1 for r in all_rows if r.get("status_id") == 4),
             "pickup": {"key": pk, "override_code": _override_code(pk),
                        "mode": "manifest" if expected else "free",
                        "expected_count": (len(expected) if expected else None),
@@ -5023,21 +5153,46 @@ def _trip_detail(driver, rows):
                        "closed": bool(closed), "closed_at": to_gmt8(closed)},
             "requests": reqs}
 
+def _driver_active_rows(driver):
+    if LOCAL_MODE:
+        return [_scan_row_names(row2d(r)) for r in _store["truck_requests"]
+                if r.get("driver_account_id") == driver.get("id")
+                and r.get("status_id") in (2, 3)]
+    return db_q(_SCAN_SELECT + " WHERE tr.driver_account_id=%s AND tr.status_id IN (2,3)",
+                (driver.get("id"),))
+
+def _busy_trip(driver, except_base=None):
+    """The trip this driver has started but not finished, other than except_base."""
+    groups = {}
+    for r in _driver_active_rows(driver):
+        groups.setdefault(_trip_key_of(r), []).append(r)
+    for b, rs in groups.items():
+        if b != except_base and _trip_started(rs):
+            return b
+    return None
+
+def _set_active_trip(driver, base):
+    if LOCAL_MODE:
+        for d in _store["driver_accounts"]:
+            if d["id"] == driver.get("id"):
+                d["active_trip_id"] = base
+        return
+    db_x("UPDATE driver_accounts SET active_trip_id=%s,updated_at=NOW() WHERE id=%s",
+         (base, driver.get("id")))
+
 @app.get("/api/scan/trips")
 def scan_trips(request: Request):
     driver = get_driver(request)
-    if LOCAL_MODE:
-        rows = [_scan_row_names(row2d(r)) for r in _store["truck_requests"]
-                if r.get("driver_account_id") == driver.get("id")
-                and r.get("status_id") in (2, 3)]
-    else:
-        rows = db_q(_SCAN_SELECT + " WHERE tr.driver_account_id=%s AND tr.status_id IN (2,3)",
-                    (driver.get("id"),))
+    rows = _driver_active_rows(driver)
     groups = {}
     for r in rows:
         groups.setdefault(_trip_key_of(r), []).append(r)
     out = [_trip_detail(driver, rs) for rs in groups.values()]
-    out.sort(key=lambda g: str(g.get("final_call_datetime") or "9999-12-31"))
+    out.sort(key=lambda g: (not g.get("in_progress"), str(g.get("final_call_datetime") or "9999-12-31")))
+    busy = next((g["trip_id"] for g in out if g.get("in_progress")), None)
+    for g in out:
+        g["locked"] = bool(busy) and g["trip_id"] != busy
+        g["locked_by"] = busy if g["locked"] else None
     return out
 
 @app.post("/api/scan/trips/{base}/pickup-arrival")
@@ -5047,6 +5202,11 @@ async def scan_pickup_arrival(base: str, request: Request):
     rows = _driver_trip_rows(driver, base)
     if all(r.get("status_id") != 2 for r in rows):
         raise HTTPException(400, "This trip has already left")
+    if _trip_started(rows):
+        raise HTTPException(409, "Arrived at pickup is already recorded for this trip")
+    busy = _busy_trip(driver, except_base=_scan_base(rows))
+    if busy:
+        raise HTTPException(409, f"Finish trip {busy} (every step up to the last drop) before starting another trip")
     fcs = [to_gmt8(r.get("final_call_datetime")) for r in rows if r.get("final_call_datetime")]
     fc = min(fcs) if fcs else None
     late = str(body.get("late_reason") or "").strip()
@@ -5061,13 +5221,7 @@ async def scan_pickup_arrival(base: str, request: Request):
     if late:
         for r in rows:
             _write_fields(r, {"late_reason": late}, driver.get("username"))
-    if LOCAL_MODE:
-        for d in _store["driver_accounts"]:
-            if d["id"] == driver.get("id"):
-                d["active_trip_id"] = base
-    else:
-        db_x("UPDATE driver_accounts SET active_trip_id=%s,updated_at=NOW() WHERE id=%s",
-             (base, driver.get("id")))
+    _set_active_trip(driver, _scan_base(rows))
     return _trip_detail(driver, [r for r in _driver_trip_rows(driver, base)])
 
 @app.post("/api/scan/trips/{base}/end-loading")
@@ -5076,6 +5230,12 @@ async def scan_end_loading(base: str, request: Request):
     rows = [r for r in _driver_trip_rows(driver, base) if r.get("status_id") == 2]
     if not rows:
         raise HTTPException(400, "This trip has already left")
+    if not _trip_started(rows):
+        raise HTTPException(400, "Complete Step 1 (Arrived at pickup) first")
+    if not any(r.get("pickup_scan_closed_at") for r in rows):
+        raise HTTPException(400, "Complete Step 2 (end the pickup scan) before End Loading")
+    if all(r.get("end_loading_datetime") for r in rows):
+        raise HTTPException(409, "End Loading is already recorded for this trip")
     _set_milestones(rows, "end_loading_datetime", driver.get("username"))
     return _trip_detail(driver, _driver_trip_rows(driver, base))
 
@@ -5087,16 +5247,9 @@ async def scan_depart(base: str, request: Request):
         raise HTTPException(400, "This trip has already left")
     missing = [r for r in rows if not r.get("end_loading_datetime")]
     if missing:
-        raise HTTPException(400, "Record End Loading before setting off")
+        raise HTTPException(400, "Complete Step 3 (End Loading) before setting off")
     for r in rows:
         _write_fields(r, {"status_id": 3}, driver.get("username"))
-    if LOCAL_MODE:
-        for d in _store["driver_accounts"]:
-            if d["id"] == driver.get("id"):
-                d["active_trip_id"] = None
-    else:
-        db_x("UPDATE driver_accounts SET active_trip_id=NULL,updated_at=NOW() WHERE id=%s",
-             (driver.get("id"),))
     return _trip_detail(driver, _driver_trip_rows(driver, base))
 
 @app.post("/api/scan/requests/{rid}/drop-arrival")
@@ -5108,8 +5261,11 @@ async def scan_drop_arrival(rid: int, request: Request):
         raise HTTPException(404, "This request is not on your trip")
     if target.get("status_id") not in (2, 3):
         raise HTTPException(400, "This drop is already finished")
+    _check_drop_turn(rows, target)
+    if target.get("arrived_dest_datetime"):
+        raise HTTPException(409, "Arrived at destination is already recorded for this drop")
     _set_milestones([target], "arrived_dest_datetime", driver.get("username"))
-    return _trip_detail(driver, rows)
+    return _trip_detail(driver, _driver_trip_rows(driver, _trip_key_of(target)))
 
 @app.post("/api/scan/requests/{rid}/start-unload")
 async def scan_start_unload(rid: int, request: Request):
@@ -5122,11 +5278,15 @@ async def scan_start_unload(rid: int, request: Request):
         raise HTTPException(400, "This drop is already finished")
     if target.get("unload_scan_closed_at"):
         raise HTTPException(409, "Unloading has already been completed for this drop")
-    _set_milestones([target], "start_unloading_datetime", driver.get("username"))
+    _check_drop_turn(rows, target)
+    if not target.get("arrived_dest_datetime"):
+        raise HTTPException(400, "Tap Arrived at destination for this drop first")
+    # Start Unloading is no longer stamped here: the first bag accepted by the
+    # unloading scan records it. This only makes sure the scan link exists.
     if not target.get("unload_scan_key"):
         _write_fields(target, {"unload_scan_key": secrets.token_hex(16)},
                       driver.get("username"))
-    return _trip_detail(driver, rows)
+    return _trip_detail(driver, _driver_trip_rows(driver, _trip_key_of(target)))
 
 @app.post("/api/scan/requests/{rid}/finish")
 async def scan_finish(rid: int, request: Request):
@@ -5142,13 +5302,34 @@ async def scan_finish(rid: int, request: Request):
         raise HTTPException(400, "This drop is already finished")
     if target.get("end_unloading_datetime"):
         return {"ok": True, "status_id": target.get("status_id")}
+    _check_drop_turn(rows, target)
+    if not target.get("arrived_dest_datetime"):
+        raise HTTPException(400, "Tap Arrived at destination for this drop first")
+    if not target.get("unload_scan_closed_at"):
+        raise HTTPException(400, "End the unloading scan for this drop before finishing it")
+    now = nows()
+    vals = {"end_unloading_datetime": now, "status_id": 4}
+    if not target.get("start_unloading_datetime"):
+        # Nothing was scanned at this drop, so no bag stamped Start Unloading.
+        vals["start_unloading_datetime"] = now
     body = {f: target.get(f) for f in MILESTONE_FIELDS}
-    body["end_unloading_datetime"] = nows()
+    body.update({k: v for k, v in vals.items() if k in MILESTONE_FIELDS})
     validate_delivered_chronology(body)
-    _write_fields(target, {"end_unloading_datetime": body["end_unloading_datetime"],
-                           "status_id": 4}, driver.get("username"))
+    _write_fields(target, vals, driver.get("username"))
     _finalize_delivered(target, driver.get("username"))
-    return {"ok": True, "status_id": 4}
+    left = [r for r in rows if r.get("id") != rid]
+    if not left:
+        _set_active_trip(driver, None)
+    return {"ok": True, "status_id": 4, "trip_complete": not left}
+
+def _check_drop_turn(rows, target):
+    """Drops are worked strictly in drop # order, and only after Depart."""
+    if target.get("status_id") != 3:
+        raise HTTPException(400, "Complete Step 4 (Depart) before working on the drops")
+    first = _ordered(rows)[0] if rows else None
+    if first and first.get("id") != target.get("id"):
+        full = _rows_for_base(_scan_base(rows)) or rows
+        raise HTTPException(400, f"Finish drop {_drop_no(first, full)} ({first.get('request_number') or ''}) first - drops are done in order")
 
 def _scan_request_or_404(rid, driver):
     if LOCAL_MODE:
@@ -5230,6 +5411,8 @@ async def scan_pickup_post(key: str, request: Request):
         raise HTTPException(400, "Bag ID is too long")
     if any(r.get("pickup_scan_closed_at") for r in rows):
         raise HTTPException(409, "Pickup scanning has been closed for this trip")
+    if not any(r.get("arrived_pickup_datetime") for r in rows):
+        raise HTTPException(409, "Step 1 first: the driver must tap Arrived at pickup before bags can be scanned")
     base = _scan_base(rows)
     expected = _expected_pickup_ids(rows)
     exp_set = {str(x).lower() for x in expected}
@@ -5243,6 +5426,8 @@ async def scan_pickup_post(key: str, request: Request):
         kind = "override"
     owner = next((r for r in rows
                   if str(bag).lower() in {str(m).lower() for m in _manifest_ids_for(r.get("id"))}), None)
+    if owner is None and len(rows) == 1:
+        owner = rows[0]
     ok = _record_scan("scan_pickup",
                       {"bag_id": bag, "scan_kind": kind, "scanned_by": actor},
                       trip_base_val=base, rid=(owner or {}).get("id"), bag=bag)
@@ -5253,9 +5438,9 @@ async def scan_pickup_post(key: str, request: Request):
     for r in rows:
         if not r.get("start_loading_datetime"):
             _set_milestones([r], "start_loading_datetime", actor)
-            break
     return {"result": "success", "bag_id": bag, "scan_kind": kind,
             "request_id": (owner or {}).get("id"),
+            "drop": _drop_info(owner, rows) if owner else None,
             **_scan_summary("pickup", rows, key)}
 
 @app.post("/api/scan/pickup/{key}/end")
@@ -5288,48 +5473,63 @@ async def scan_unload_post(key: str, request: Request):
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
-    rid = rows[0].get("id")
+    row = rows[0]
+    rid = row.get("id")
     bag = str(body.get("bag_id") or "").strip()
     if not bag:
         raise HTTPException(400, "No bag ID was read")
     if len(bag) > 255:
         raise HTTPException(400, "Bag ID is too long")
-    if rows[0].get("unload_scan_closed_at"):
+    if row.get("unload_scan_closed_at"):
         raise HTTPException(409, "Unloading has already been completed for this drop")
-    trip_rows = _rows_for_base(_scan_base(rows))
-    ref = _unload_reference(rows[0], trip_rows)
-    ref_set = {str(x).lower() for x in ref} if ref is not None else None
+    if not row.get("arrived_dest_datetime"):
+        raise HTTPException(409, "The driver must tap Arrived at destination for this drop before unloading")
+    trip_rows = _rows_for_base(_scan_base(rows)) or rows
+    here = _drop_info(row, trip_rows)
     actor = _scan_actor(request)
-    kind = "original"
-    if ref_set is not None and bag.lower() not in ref_set:
-        if not _ov_ok(body, key):
-            return {"result": "unknown", "bag_id": bag,
-                    "detail": "Bag ID is not expected at this drop",
-                    **_scan_summary("unload", rows, key)}
-        kind = "override"
+    # A bag already unloaded here is a duplicate: reported, never recorded again.
+    if _scan_kind_of(_unload_scans(rid), bag):
+        return {"result": "duplicate", "bag_id": bag, "drop": here,
+                "detail": "Bag ID already scanned at this drop",
+                **_scan_summary("unload", rows, key, trip_rows)}
+    ref = {str(x).lower() for x in _unload_reference(row, trip_rows)}
+    if bag.lower() not in ref:
+        owner, picked = _pickup_owner(bag, trip_rows)
+        if owner and owner.get("id") != rid:
+            why = (f"Bag ID belongs to drop {_drop_no(owner, trip_rows)} "
+                   f"({owner.get('account_name') or ''} - {owner.get('destination_port_name') or ''}), not this drop")
+        elif picked:
+            why = "Bag ID was pickup-scanned but is not tied to this drop"
+        else:
+            why = "Bag ID was not pickup-scanned on this trip"
+        return {"result": "failed", "bag_id": bag, "drop": None,
+                "other_drop": _drop_info(owner, trip_rows) if owner and owner.get("id") != rid else None,
+                "detail": why, **_scan_summary("unload", rows, key, trip_rows)}
     ok = _record_scan("scan_unload",
-                      {"bag_id": bag, "scan_kind": kind, "scanned_by": actor},
+                      {"bag_id": bag, "scan_kind": "original", "scanned_by": actor},
                       rid=rid, bag=bag)
     if not ok:
-        return {"result": "duplicate", "bag_id": bag,
+        return {"result": "duplicate", "bag_id": bag, "drop": here,
                 "detail": "Bag ID already scanned at this drop",
-                **_scan_summary("unload", rows, key)}
-    return {"result": "success", "bag_id": bag, "scan_kind": kind,
-            **_scan_summary("unload", rows, key)}
+                **_scan_summary("unload", rows, key, trip_rows)}
+    if not row.get("start_unloading_datetime"):
+        # The first accepted bag is what records Start Unloading.
+        _set_milestones([row], "start_unloading_datetime", actor)
+    return {"result": "success", "bag_id": bag, "scan_kind": "original", "drop": here,
+            **_scan_summary("unload", rows, key, trip_rows)}
 
 @app.post("/api/scan/unload/{key}/end")
 async def scan_unload_end(key: str, request: Request):
-    body = await request.json() or {}
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
-    if not _may_close(request, body, key):
-        raise HTTPException(403, "Closing the scan needs Override permission")
     if rows[0].get("unload_scan_closed_at"):
         return _scan_summary("unload", rows, key)
-    now = nows()
-    _write_fields(rows[0], {"unload_scan_closed_at": now})
-    return _scan_summary("unload", rows, key)
+    if not rows[0].get("arrived_dest_datetime"):
+        raise HTTPException(409, "The driver must tap Arrived at destination for this drop first")
+    # Anyone on the unloading screen may end it: the scan link is the permission.
+    _write_fields(rows[0], {"unload_scan_closed_at": nows()})
+    return _scan_summary("unload", _rows_by_unload_key(key), key)
 
 def _ov_ok(body, key):
     want = str(body.get("ov") or "").strip()
@@ -5444,6 +5644,26 @@ async def assign_trip_driver(trip_id: str, request: Request):
             "plate_number": _truck_plate(tid), "status_id": 2,
             "pickup_scan_key": pk, "pickup_override_code": _override_code(pk)}
 
+def _restore_drop_order(ordered_ids):
+    """Number a freed trip's requests 1..n in their previous order."""
+    def _relettered(tid, seq):
+        # Keep the trip letter in step with the drop number ('X-00086-D' -> 'X-00086-A').
+        if not tid:
+            return tid
+        base = trip_base(tid)
+        return f"{base}-{_trip_letter(seq)}" if base and base != tid else tid
+    for i, rid in enumerate(ordered_ids):
+        if LOCAL_MODE:
+            for x in _store["truck_requests"]:
+                if x["id"] == rid:
+                    x["drop_sequence"] = i + 1
+                    x["trip_id"] = _relettered(x.get("trip_id"), i + 1)
+                    break
+        else:
+            cur = db_1("SELECT trip_id FROM truck_requests WHERE id=%s", (rid,)) or {}
+            db_x("UPDATE truck_requests SET drop_sequence=%s, trip_id=%s WHERE id=%s",
+                 (i + 1, _relettered(cur.get("trip_id"), i + 1), rid))
+
 @app.post("/api/requests/{rid}/unassign-driver")
 async def unassign_driver(rid: int, request: Request):
     vid, u = vendor_scope(request)
@@ -5467,7 +5687,14 @@ async def unassign_driver(rid: int, request: Request):
     for r in rows:
         _write_fields(r, clears, u.get("email", ""))
     rids = [r.get("id") for r in rows]
+    # Remember the trip's own drop order before the truck comes off: freeing the
+    # truck blanks drop_sequence, but the trip keeps its drops (1, 2, 3...) so it
+    # goes back on the assignment list exactly as it was.
+    order = [r.get("id") for r in sorted(rows, key=lambda x: (x.get("drop_sequence") is None,
+                                                              x.get("drop_sequence") or 0,
+                                                              x.get("id")))]
     freed = _free_truck_assignment(rids, u.get("email", ""))
+    _restore_drop_order(order)
     if LOCAL_MODE:
         _store["scan_pickup"] = [s for s in _store["scan_pickup"] if s.get("trip_base") != base]
         _store["scan_unload"] = [s for s in _store["scan_unload"] if s.get("request_id") not in rids]
@@ -5516,12 +5743,13 @@ def download_unload_scan(rid: int, request: Request):
         raise HTTPException(404, "Not found")
     if not row.get("unload_scan_closed_at"):
         raise HTTPException(409, "Unloading is still open for this drop - end scanning first")
-    trip_rows = _rows_for_base(_scan_base([row]))
+    trip_rows = _rows_for_base(_scan_base([row])) or [row]
     scans = _unload_scans(rid)
-    ref = _unload_reference(row, trip_rows) or []
+    ref = _unload_reference(row, trip_rows)
     label = str(row.get("request_number") or f"request-{rid}")
-    return _scan_csv(trip_rows if ref and _manifest_ids_for(rid) else [row],
-                     scans, ref, label)
+    return _scan_csv([_scan_row_names(row) if LOCAL_MODE else
+                      (db_1(_SCAN_SELECT + " WHERE tr.id=%s", (rid,)) or row)],
+                     scans, ref, f"{label}-unloading")
 
 # ---------------------------------------------------------------------------
 # Vendor Rates

@@ -150,7 +150,35 @@ body.scan-mode .layout{display:none}
 .sc-ok{background:#052E16;border:1px solid #14532D;color:#86EFAC;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
 .sc-warn{background:#451A0A;border:1px solid #78350F;color:#FCD34D;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
 #qrReader{width:100%;border-radius:10px;overflow:hidden;background:#000;margin-top:10px}
-#qrReader video{width:100%!important}
+#qrReader:empty{display:none}
+#qrReader video{width:100%!important;height:auto!important;object-fit:contain!important;transform:none}
+.sc-lock{color:#64748B!important;margin-top:4px}
+.ml-scan-link{font-size:11.5px;color:var(--pri);white-space:nowrap;text-decoration:none;font-weight:600}
+.ml-scan-link:hover{text-decoration:underline}
+.da-trip{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:4px 8px;margin:2px 4px 2px 0;font-size:12px}
+.da-trip small{color:var(--muted)}
+.sc-locked{opacity:.6}
+.sc-cur{border-color:#3B82F6;box-shadow:0 0 0 1px #3B82F6 inset}
+.sc-modal{position:fixed;inset:0;z-index:300;background:rgba(2,6,23,.78);display:flex;align-items:center;justify-content:center;padding:16px}
+.sc-modal-box{width:100%;max-width:440px;background:#111C33;border:1px solid #334155;border-radius:14px;padding:18px;color:#E2E8F0;max-height:90vh;overflow:auto}
+.sc-modal-box h5{font-size:16px;color:#fff;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sc-modal-body{font-size:14px;line-height:1.55}
+.sc-modal-foot{display:flex;gap:10px;margin-top:6px}
+.sc-modal-foot .sc-btn{flex:1}
+.sc-sum{border:1px solid #24324A;border-radius:10px;overflow:hidden}
+.sc-sum-row{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid #24324A;font-size:13.5px}
+.sc-sum-row:last-child{border-bottom:0}
+.sc-sum-row b{font-size:17px;color:#fff;white-space:nowrap}
+.sc-sum-row.g b{color:#34D399}.sc-sum-row.r b{color:#F87171}.sc-sum-row.y b{color:#FBBF24}
+.sc-res{border-radius:12px;padding:14px;margin-bottom:6px;border:2px solid}
+.sc-res .h{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+.sc-res .bag{font-family:ui-monospace,Menlo,monospace;font-size:22px;font-weight:800;color:#fff;margin:8px 0;word-break:break-all}
+.sc-res .why{font-size:13px;margin-top:4px}
+.sc-res.ok{background:#052E16;border-color:#16A34A;color:#86EFAC}
+.sc-res.dup{background:#451A03;border-color:#F59E0B;color:#FCD34D}
+.sc-res.bad{background:#450A0A;border-color:#DC2626;color:#FCA5A5}
+.sc-res-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px;margin-top:4px}
+.sc-res-grid span{color:#94A3B8}.sc-res-grid b{color:#fff}
 </style>
 </head>
 <body>
@@ -465,8 +493,9 @@ body.scan-mode .layout{display:none}
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Vendor Truck Assignment</strong> (available to Admin, Master Admin and vendor roles).</li>
-<li>The list shows <strong>trips waiting for a driver</strong> - trip ID, status, final call, truck type, origin and every drop on the trip.</li>
-<li>Each card has a <strong>Select driver / fleet account</strong> dropdown. It contains the active accounts for your vendor; the plate in brackets is the truck that account drives.</li>
+<li>The list shows <strong>trips waiting for a driver</strong> - trip ID, status, final call, truck type, origin and every drop on the trip, including each drop's <strong>International MAWB</strong> and <strong>Domestic MAWB</strong>.</li>
+<li>Each card has a <strong>Select driver / fleet account</strong> dropdown. It contains the active accounts for your vendor with the driver's <strong>phone number</strong>; the plate in brackets is the truck that account drives.</li>
+<li>If a driver is removed from a trip (Masterlist, <i class="fas fa-user-slash"></i>), the trip comes back to this list with its drop numbers (1, 2, 3...) unchanged.</li>
 <li>Pick the account and click <strong>Assign Driver</strong>. The trip takes both the driver and that account's truck, leaves this list, and the plate appears on the <strong>Masterlist</strong>. The status stays <strong>Allocated</strong> - it only becomes <strong>In Transit</strong> when the driver scans <strong>Depart</strong> in the scanning app.</li>
 <li>If an account has no truck yet, the assignment is refused with a message. Set the truck on the <strong>Driver / Fleet Accounts</strong> page and try again.</li>
 <li>Accounts are managed on <strong>Driver / Fleet Accounts</strong> - see topic 8.</li>
@@ -483,6 +512,7 @@ body.scan-mode .layout{display:none}
 <li>Choose the <strong>Truck</strong> this account drives. This is what gets assigned on the Vendor Truck Assignment page - one account, one truck.</li>
 <li>Untick <strong>Account is active</strong> to switch an account off without deleting it; existing scanning sessions stop working straight away.</li>
 <li>Use the pencil to edit (leave the password blank to keep the current one) and the bin to delete. Deleting clears the driver from any trip that still points at it.</li>
+<li>The <strong>Assigned Trips</strong> column lists every open trip ID on each account with its current status (Allocated / In Transit) and where the driver is in the trip (e.g. <em>Loading</em>, <em>Drop 2: unloading</em>).</li>
 </ol>
 </div></div>
 
@@ -491,14 +521,18 @@ body.scan-mode .layout{display:none}
 <div class="card-b">
 <p style="font-size:13.5px;line-height:1.9;margin-bottom:10px">A phone-first screen for drivers and warehouse staff. Open it from <strong>Scanning App</strong> in the menu, or go straight to <strong>#/scan</strong> in the address bar. Sign in with a driver / fleet account - the session lasts 30 days on that device.</p>
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li><strong>My trips</strong> lists every trip assigned to the account, with its status, final call and pickup sort progress.</li>
-<li><strong>Step 1 - Arrived at pickup.</strong> If the final call time has already passed, the app refuses and asks for a <strong>late reason</strong> (up to 1000 characters). Save it and the step completes; the reason is stored on the request and shown on the Masterlist.</li>
-<li><strong>Step 2 - Pickup sort.</strong> Open the pickup scan and enter or scan bag IDs. When a manifest is uploaded the list is checked against it: a bag that is not on the manifest returns <strong>unknown</strong> and needs the override code to be forced through; a bag already scanned returns <strong>duplicate</strong>. Success, duplicate and unknown each have their own sound and screen colour. The first accepted bag records <strong>Start Loading</strong>. You can also share the QR code on screen with the person actually scanning.</li>
-<li><strong>Step 3 - End loading</strong>, then <strong>Step 4 - Depart</strong>. Depart requires End Loading and flips the trip to <strong>In Transit</strong>.</li>
-<li><strong>Each drop:</strong> Arrived at destination, Start unloading, open the unloading scan (one bag list per drop, same rules and sounds), then <strong>Finish this drop</strong>. Finishing records End Unloading and marks the request Delivered.</li>
-<li><strong>Photos:</strong> the camera button on a drop attaches up to 8 files (25MB total) as proof of delivery.</li>
-<li><strong>Close scanning</strong> ends a session. It needs the override code shown on the scan screen (or a signed-in scanning session); after that no more bags are accepted.</li>
-<li>When a session is closed, a barcode icon appears next to the manifest on the <strong>Masterlist</strong> - that downloads the scan CSV (Bag ID, Account, Destination, Drop #, Remark).</li>
+<li><strong>My trips</strong> lists every trip assigned to the account. A driver works on <strong>one trip at a time</strong>: once Arrived at pickup is tapped on a trip, every other trip stays locked until that trip is finished to its last drop.</li>
+<li>Steps unlock <strong>strictly in order</strong> - a step cannot be opened until the step before it is done.</li>
+<li><strong>Step 1 - Arrived at pickup.</strong> A confirmation popup asks before the time is saved. If the final call time has already passed, the app asks for a <strong>late reason</strong> (up to 1000 characters).</li>
+<li><strong>Step 2 - Pickup scan.</strong> Type or camera-scan bag IDs. They are checked against the manifests of every request on the trip: success plays a chime; a bag not on the manifest or already scanned plays an <strong>error siren</strong> (a not-on-manifest bag can still be forced through with Override). The first accepted bag records <strong>Start Loading</strong>. The camera opens at 1x zoom on the main lens (use <em>Switch camera</em> if needed) and records each barcode once.</li>
+<li><strong>End pickup scan</strong> first shows a summary - total manifest IDs on the trip, original successful scans, manifest IDs not yet scanned and override scans. Press <strong>Confirm</strong> to end it; no more scans are possible after that.</li>
+<li><strong>Step 3 - End loading</strong> (needs the pickup scan ended), then <strong>Step 4 - Depart</strong>, which flips the trip to <strong>In Transit</strong>.</li>
+<li><strong>Each drop, in drop # order:</strong> (a) Arrived at destination - Drop #, (b) unloading scan, (c) optional photos, (d) Finish this drop. The next drop unlocks only when the one before it is finished.</li>
+<li><strong>Unloading scan:</strong> only bags pickup-scanned for that drop are accepted. A match plays a chime and shows the bag, account, destination and drop #. A bag that does not match plays the siren and shows a failed result; a bag already unloaded plays the siren and shows a duplicate result - neither is recorded. <strong>Start Unloading</strong> is recorded by the first bag scanned, not by a button.</li>
+<li><strong>End Unloading Scan</strong> (anyone on the scan screen) shows a summary - pickup bags for the request, successful unloading scans and bags still remaining. Choose <strong>Resume scan</strong> or <strong>Confirm End Unloading Scan</strong> (asked once more to be sure). After that the unloading scan for that request cannot be opened again.</li>
+<li><strong>Photos</strong> (after Arrived at destination) can be taken with the camera or picked from the gallery. They are compressed on the phone before upload (max 8 files, 25MB total per request).</li>
+<li>Finishing the last drop completes the trip, and the next trip can be started.</li>
+<li>When a scan is ended, the <strong>Masterlist</strong> manifest column shows <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links (CSV: Bag ID, Account, Destination, Drop #, Remark).</li>
 </ol>
 </div></div>
 
@@ -1093,9 +1127,9 @@ async function loadML(){
           ?'<span style="color:#16A34A;font-weight:700;white-space:nowrap"><i class="fas fa-file-csv"></i> Uploaded</span><br><a href="/api/requests/'+r.id+'/manifest/download" style="font-size:11.5px" title="Download manifest CSV ('+r.manifest.id_count+' IDs)">Download CSV</a>'
           :'<strong style="color:#DC2626;cursor:pointer;white-space:nowrap" onclick="editReq('+r.id+')" title="Upload the manifest Excel file for this request">Missing Manifest</strong>';
         const scanLinks=[];
-        if(r.pickup_scan_closed&&r.trip_id)scanLinks.push(' <a href="/api/trips/'+tripBase(r.trip_id)+'/pickup-scan/download" title="Download the pickup scan CSV" style="color:var(--pri)"><i class="fas fa-barcode"></i></a>');
-        if(r.unload_scan_closed)scanLinks.push(' <a href="/api/requests/'+r.id+'/unload-scan/download" title="Download the unloading scan CSV" style="color:var(--pri)"><i class="fas fa-box-open"></i></a>');
-        if(scanLinks.length)mfCell+=''+scanLinks.join('');
+        if(r.pickup_scan_closed){const pb=r.trip_id?tripBase(r.trip_id):('req-'+r.id);scanLinks.push('<a href="/api/trips/'+encodeURIComponent(pb)+'/pickup-scan/download" title="Download the pickup scan manifest CSV for trip '+esc(pb)+'" class="ml-scan-link"><i class="fas fa-barcode"></i> Pickup Scan Manifest</a>')}
+        if(r.unload_scan_closed)scanLinks.push('<a href="/api/requests/'+r.id+'/unload-scan/download" title="Download the unloading scan manifest CSV for '+esc(r.request_number||'')+'" class="ml-scan-link"><i class="fas fa-box-open"></i> Unloading Scan Manifest</a>');
+        if(scanLinks.length)mfCell+='<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">'+scanLinks.join('')+'</div>';
         let dropCell='-';
         const ftCnt=(r.foul_trip_count===1||r.foul_trip_count===2)?String(r.foul_trip_count):'-';
         const ftEmail=r.foul_trip_approved_by_email||r.foul_trip_approved_by||'';
@@ -1908,17 +1942,17 @@ async function loadVT(){
       const ad=g.assigned_driver;
       const who=ad?(ad.driver_name||ad.username)+(ad.plate_number?' ('+ad.plate_number+')':''):(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>');
       html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Total Drops</label><p style="font-size:13px">'+((g.requests||[]).length||0)+'</p></div><div><label class="fl">'+(ad?'Assigned Driver':'Assigned Truck')+'</label><p style="font-size:13px">'+(ad?esc(who):who)+'</p></div></div>';
-      html+='<table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase"><th style="padding:4px 6px">Drop</th><th>Request #</th><th>Requestor</th><th>Account</th><th>Origin</th><th>Destination</th><th>Qty</th><th>Weight / Volume</th></tr></thead><tbody>';
-      (g.requests||[]).forEach(r=>{
-        html+='<tr style="border-top:1px solid var(--bdr)"><td style="padding:5px 6px"><b>'+(r.drop_sequence||'-')+'</b></td><td>'+(r.request_number||'')+'</td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.origin_port_name||'-')+'</td><td>'+(r.destination_port_name||'-')+'</td><td>'+(r.quantity||0)+' '+(r.packaging_type_name||'')+'</td><td>'+(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM</td></tr>';
+      html+='<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase"><th style="padding:4px 6px">Drop</th><th>Request #</th><th>Requestor</th><th>Account</th><th>Origin</th><th>Destination</th><th>International MAWB</th><th>Domestic MAWB</th><th>Qty</th><th>Weight / Volume</th></tr></thead><tbody>';
+      (g.requests||[]).forEach((r,ri)=>{
+        html+='<tr style="border-top:1px solid var(--bdr)"><td style="padding:5px 6px"><b>'+(r.drop_sequence||(ri+1))+'</b></td><td>'+(r.request_number||'')+'</td><td>'+esc(r.requestor_name||'')+'</td><td>'+esc(r.account_name||'-')+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.destination_port_name||'-')+'</td><td>'+esc(r.international_mawb||'-')+'</td><td>'+esc(r.domestic_mawb||'-')+'</td><td>'+(r.quantity||0)+' '+esc(r.packaging_type_name||'')+'</td><td>'+(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM</td></tr>';
       });
-      html+='</tbody></table>';
+      html+='</tbody></table></div>';
       if(isVendor){
         const vtList=(g.drivers||[]).filter(d=>d&&d.is_active!==false);
         const vtMsg=vtList.length?'Select driver / fleet account...':'No driver accounts yet - create one on the Driver / Fleet Accounts page';
         html+='<div style="margin-top:12px;display:flex;gap:10px;align-items:flex-end"><div class="fg" style="flex:1"><label class="fl">Select driver / fleet account *</label><select class="fs" id="vtDriver-'+i+'"><option value="">'+vtMsg+'</option>';
         vtList.forEach(d=>{
-          html+='<option value="'+d.id+'">'+esc(d.username)+(d.driver_name?' - '+esc(d.driver_name):'')+(d.plate_number?' ('+esc(d.plate_number)+')':'')+'</option>';
+          html+='<option value="'+d.id+'">'+esc(d.username)+(d.driver_name?' - '+esc(d.driver_name):'')+(d.driver_phone?' - '+esc(d.driver_phone):' - no phone')+(d.plate_number?' ('+esc(d.plate_number)+')':'')+'</option>';
         });
         html+='</select></div><button class="btn btn-p" onclick="assignVT('+i+')"><i class="fas fa-check"></i> Assign Driver</button></div>';
         html+='<div style="margin-top:8px;font-size:12px;color:var(--mut)"><i class="fas fa-info-circle"></i> The account\'s truck (plate above) is assigned with the driver, and the trip stays <strong>Allocated</strong> until the driver scans <strong>Depart</strong> in the scanning app.</div>';
@@ -1958,11 +1992,16 @@ async function loadDA(){
     ]);
     daRows=Array.isArray(a)?a:[];daTrucks=Array.isArray(b)?b:[];
     if(!daRows.length){body.innerHTML='<div class="empty" style="padding:30px"><i class="fas fa-id-card"></i><p>No driver accounts yet</p><p style="font-size:12.5px;color:var(--muted)">Click <strong>Add Account</strong> to create the first login for your drivers.</p></div>';return}
-    let html='<div class="tw"><table><thead><tr><th>Username</th><th>Driver Name</th><th>Phone</th><th>Vendor</th><th>Truck</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+    let html='<div class="tw"><table><thead><tr><th>Username</th><th>Driver Name</th><th>Phone</th><th>Vendor</th><th>Truck</th><th>Status</th><th>Assigned Trips (current status)</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
     daRows.forEach((d,i)=>{
       const badge=d.is_active?'<span class="badge" style="background:#DCFCE7;color:#166534"><i class="fas fa-check"></i> Active</span>':'<span class="badge" style="background:#FEE2E2;color:#991B1B"><i class="fas fa-ban"></i> Disabled</span>';
       html+='<tr><td><strong style="color:var(--pri)">'+esc(d.username)+'</strong></td><td>'+esc(d.driver_name||'-')+'</td><td>'+esc(d.driver_phone||'-')+'</td><td>'+esc(d.vendor_name||'-')+'</td>';
       html+='<td>'+(d.plate_number?'<span class="badge b-bl">'+esc(d.plate_number)+'</span>':'<span style="color:var(--muted);font-size:12.5px">No truck</span>')+'</td><td>'+badge+'</td>';
+      const trips=d.trips||[];
+      html+='<td style="min-width:260px">'+(trips.length?trips.map(t=>{
+        const col=t.status_id===3?'#8B5CF6':'#3B82F6';
+        return '<div class="da-trip"><span class="badge b-bl">'+esc(t.trip_id)+'</span>'+stBadge(t.status_name,col)+'<small>'+esc(t.stage)+(t.drops?' &middot; '+t.drops+' drop(s)':'')+'</small></div>';
+      }).join(''):'<span style="color:var(--muted);font-size:12.5px">No active trip</span>')+'</td>';
       html+='<td style="white-space:nowrap;text-align:right"><button class="btn btn-sm btn-o" onclick="showDAModal(daRows['+i+'])" title="Edit"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delDA('+d.id+')" title="Delete"><i class="fas fa-trash"></i></button></td></tr>';
     });
     html+='</tbody></table></div>';
@@ -3182,7 +3221,8 @@ let scanTimer=null,scanDriver=null,scanCam=null,scanTrips=[],scanCur=null,scanSu
 
 function scanStopCam(){
   if(scanTimer){clearInterval(scanTimer);scanTimer=null}
-  if(scanCam){const c=scanCam;scanCam=null;try{c.stop()}catch(e){};try{c.clear()}catch(e){}}
+  if(scanCam){const c=scanCam;scanCam=null;Promise.resolve().then(()=>c.stop()).catch(()=>{}).then(()=>{try{c.clear()}catch(e){}})}
+  const m=document.getElementById('scModal');if(m)m.remove();
 }
 function scanShell(title,body,back){
   const app=document.getElementById('scanApp');
@@ -3258,6 +3298,71 @@ function scanRoute(){
 }
 function scanRouteGo(h){location.hash=h}
 
+/* ---- sounds + popups ---- */
+function scanSiren(){
+  // Error siren: three fast high-low sweeps, loud enough to hear in a warehouse.
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    if(!window.__scanAC)window.__scanAC=new C();
+    const ac=window.__scanAC;if(ac.state==='suspended')ac.resume();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sawtooth';o.connect(g);g.connect(ac.destination);
+    const t=ac.currentTime,sweep=0.36,n=3;
+    for(let i=0;i<n;i++){
+      o.frequency.setValueAtTime(1350,t+i*sweep);
+      o.frequency.linearRampToValueAtTime(620,t+i*sweep+sweep*0.95);
+    }
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.32,t+0.03);
+    g.gain.setValueAtTime(0.32,t+n*sweep-0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+n*sweep);
+    o.start(t);o.stop(t+n*sweep+0.05);
+  }catch(e){}
+  try{if(navigator.vibrate)navigator.vibrate([220,90,220,90,220])}catch(e){}
+}
+function scanOkSound(){
+  // Success: a short rising two-note chime.
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    if(!window.__scanAC)window.__scanAC=new C();
+    const ac=window.__scanAC;if(ac.state==='suspended')ac.resume();
+    const t=ac.currentTime;
+    [[880,0],[1320,0.11]].forEach(p=>{
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='sine';o.frequency.value=p[0];o.connect(g);g.connect(ac.destination);
+      g.gain.setValueAtTime(0.0001,t+p[1]);
+      g.gain.exponentialRampToValueAtTime(0.25,t+p[1]+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+p[1]+0.16);
+      o.start(t+p[1]);o.stop(t+p[1]+0.18);
+    });
+  }catch(e){}
+  try{if(navigator.vibrate)navigator.vibrate(60)}catch(e){}
+}
+/* A popup inside the scanning app. Resolves true when the main button is pressed. */
+function scanModal(o){
+  return new Promise(res=>{
+    const old=document.getElementById('scModal');if(old)old.remove();
+    const m=document.createElement('div');
+    m.id='scModal';m.className='sc-modal';
+    m.innerHTML='<div class="sc-modal-box" role="dialog" aria-modal="true">'+
+      '<h5>'+(o.icon?'<i class="fas fa-'+o.icon+'"></i> ':'')+esc(o.title||'Confirm')+'</h5>'+
+      '<div class="sc-modal-body">'+(o.html||'')+'</div>'+
+      '<div class="sc-modal-foot">'+
+      '<button class="sc-btn sec" data-a="no">'+esc(o.cancel||'Cancel')+'</button>'+
+      '<button class="sc-btn '+(o.okClass||'')+'" data-a="yes">'+esc(o.ok||'Confirm')+'</button></div></div>';
+    const done=v=>{m.remove();res(v)};
+    m.addEventListener('click',e=>{
+      const b=e.target.closest('[data-a]');
+      if(b)done(b.getAttribute('data-a')==='yes');
+      else if(e.target===m)done(false);
+    });
+    (document.getElementById('scanApp')||document.body).appendChild(m);
+  });
+}
+function scSumRows(list){
+  return '<div class="sc-sum">'+list.map(x=>'<div class="sc-sum-row'+(x.cls?' '+x.cls:'')+'"><span>'+esc(x.label)+'</span><b>'+esc(x.value)+'</b></div>').join('')+'</div>';
+}
+
 /* ---- login + trip list ---- */
 function renderScanLogin(msg){
   scanShell('Driver sign in',
@@ -3265,7 +3370,7 @@ function renderScanLogin(msg){
     '<div class="sc-card"><h5><i class="fas fa-user-shield"></i> Scanning app</h5>'+
     '<div class="sc-hint" style="margin-bottom:12px">Sign in with the driver / fleet account made for you. Your session is kept for 30 days on this device.</div>'+
     '<label class="sc-hint">Username</label><input class="sc-in" id="scUser" autocomplete="username" autocapitalize="none" autocorrect="off">'+
-    '<label class="sc-hint" style="display:block;margin-top:10px">Password</label><div class="peek-wrap"><input class="sc-in" id="scPass" type="password" autocomplete="current-password" style="padding-right:46px"><button type="button" class="peek-btn" title="Show password" aria-label="Show password" onclick="peekPass(\'scPass\',this)"><i class="fas fa-eye"></i></button></div>'+
+    '<label class="sc-hint" style="display:block;margin-top:10px">Password</label><div class="peek-wrap"><input class="sc-in" id="scPass" type="password" autocomplete="current-password" style="padding-right:46px" onkeydown="if(event.key===\'Enter\')doScanLogin()"><button type="button" class="peek-btn" title="Show password" aria-label="Show password" onclick="peekPass(\'scPass\',this)"><i class="fas fa-eye"></i></button></div>'+
     '<button class="sc-btn" onclick="doScanLogin()"><i class="fas fa-sign-in-alt"></i> Sign in</button></div>',
     scanBack('Back to app',"location.hash='#/dashboard'"));
   const u=document.getElementById('scUser');if(u)u.focus();
@@ -3281,12 +3386,24 @@ async function doScanLogin(){
 }
 async function doScanLogout(){
   try{await scanApi('/api/scan/logout',{method:'POST',json:{}})}catch(e){}
-  scanSetTok('');scanDriver=null;scanTrips=[];renderScanLogin();
+  scanSetTok('');scanDriver=null;scanTrips=[];scanReturnTrip=null;renderScanLogin();
 }
+let scanReturnTrip=null;
 function scanHome(){
   scanStopCam();
   if(!scanTok()){renderScanLogin();return}
   renderScanTrips();
+}
+function scTripStage(t){
+  const rs=t.requests||[],f=rs[0]||{};
+  if(!t.in_progress)return 'Not started';
+  if(t.status_id===3){
+    const d=rs[0];
+    return d?'In Transit - next: Drop '+(d.drop_no||d.drop_sequence||1):'In Transit';
+  }
+  if(f.end_loading_datetime)return 'Step 4: ready to depart';
+  if(t.pickup&&t.pickup.closed)return 'Step 3: End loading';
+  return 'Step 2: pickup scan';
 }
 async function renderScanTrips(){
   scanShell('My trips','<div class="sc-card"><div class="sc-hint"><i class="fas fa-spinner fa-spin"></i> Loading your trips...</div></div>',
@@ -3298,85 +3415,164 @@ async function renderScanTrips(){
     if(e.status===401){renderScanLogin('Your session expired - sign in again');return}
     scanShellErr('My trips',e.message,scanBack('Sign out','doScanLogout()'));return;
   }
+  if(scanReturnTrip){
+    const back=scanTrips.findIndex(x=>x.trip_id===scanReturnTrip);
+    scanReturnTrip=null;
+    if(back>=0&&!scanTrips[back].locked){scanOpenTrip(back);return}
+  }
   if(!scanTrips.length){
     scanShell('My trips',
       '<div class="sc-card"><div class="sc-hint"><i class="fas fa-inbox" style="font-size:26px;color:#334155"></i><br><br>No trips are assigned to <strong>'+esc(scanDriver&&scanDriver.username||'you')+'</strong> right now.<br><br>Ask your dispatcher to assign a trip on the <strong>Vendor Truck Assignment</strong> page.</div></div>',
       scanBack('Sign out','doScanLogout()'));
     return;
   }
+  const busy=scanTrips.find(t=>t.in_progress);
   let body='<div class="sc-card"><h5><i class="fas fa-user"></i> '+esc(scanDriver.driver_name||scanDriver.username)+
     (scanDriver.plate_number?' <span class="sc-badge b">'+esc(scanDriver.plate_number)+'</span>':'')+'</h5>'+
-    '<div class="sc-hint">Tap a trip to work through the steps: arrive, pickup sort, loading, departure, then each drop.</div></div>';
+    '<div class="sc-hint">Work through one trip at a time, step by step: arrive, pickup scan, end loading, depart, then each drop in order.</div>'+
+    (busy?'<div class="sc-warn" style="margin:10px 0 0"><i class="fas fa-route"></i> Trip <strong>'+esc(busy.trip_id)+'</strong> is in progress. Finish it to the last drop before starting another trip.</div>':'')+
+    '</div>';
   scanTrips.forEach((t,i)=>{
-    const done=t.pickup&&t.pickup.closed;
-    body+='<div class="sc-card"><div class="sc-step" style="border:0;padding:0">'+
-      '<div class="sc-dot '+(t.status_id===3?'done':'now')+'">'+(t.status_id===3?'2':'1')+'</div>'+
-      '<div class="sc-body"><div class="t">'+esc(t.trip_id)+' <span class="sc-badge '+(t.status_id===3?'b':'y')+'">'+(t.status_id===3?'In Transit':'Allocated')+'</span></div>'+
-      '<div class="s">'+(t.requests||[]).length+' drop(s)'+(t.final_call_datetime?' &middot; Final call '+esc(t.final_call_datetime):'')+'</div>'+
-      '<div class="s">'+(t.pickup?(t.pickup.closed?'Pickup sort closed':'Pickup sort: '+t.pickup.scanned_count+' of '+(t.pickup.expected_count==null?'free':t.pickup.expected_count)+' scanned'):'')+'</div></div></div>'+
-      '<button class="sc-btn" onclick="scanOpenTrip('+i+')"><i class="fas fa-route"></i> Open trip</button>'+
+    const prog=t.in_progress;
+    body+='<div class="sc-card'+(t.locked?' sc-locked':'')+'"><div class="sc-step" style="border:0;padding:0">'+
+      '<div class="sc-dot '+(prog?'now':'')+'"><i class="fas fa-'+(t.locked?'lock':prog?'truck':'route')+'"></i></div>'+
+      '<div class="sc-body"><div class="t">'+esc(t.trip_id)+' <span class="sc-badge '+(t.status_id===3?'b':'y')+'">'+(t.status_id===3?'In Transit':'Allocated')+'</span>'+(prog?' <span class="sc-badge g">In progress</span>':'')+'</div>'+
+      '<div class="s">'+(t.total_drops||(t.requests||[]).length)+' drop(s)'+(t.delivered_drops?' &middot; '+t.delivered_drops+' delivered':'')+(t.final_call_datetime?' &middot; Final call '+esc(fmtD(t.final_call_datetime))+'':'')+'</div>'+
+      '<div class="s">'+esc(scTripStage(t))+'</div></div></div>'+
+      (t.locked
+        ?'<button class="sc-btn sec" disabled><i class="fas fa-lock"></i> Finish '+esc(t.locked_by||'the current trip')+' first</button>'
+        :'<button class="sc-btn" onclick="scanOpenTrip('+i+')"><i class="fas fa-route"></i> '+(prog?'Continue trip':'Open trip')+'</button>')+
       '</div>';
   });
   scanShell('My trips',body,scanBack('Sign out','doScanLogout()'));
 }
 function scanOpenTrip(i){
-  scanCur=scanTrips[i];if(!scanCur)return;
+  const t=scanTrips[i];if(!t)return;
+  if(t.locked){scanSiren();scanAlert('Finish trip '+(t.locked_by||'')+' before opening another trip');return}
+  scanCur=t;
   renderScanTrip();
 }
 
-/* ---- trip detail ---- */
-function scTs(v){return v?'<span class="sc-badge g">'+esc(v)+'</span>':'<span class="sc-badge">not yet</span>'}
-function scDropCard(t,r,i){
-  const closed=r.unload_scan_closed;
-  let acts='';
-  if(!r.arrived_dest_datetime)acts+='<button class="sc-btn" onclick="scAct(\'drop-arrival\','+r.id+')"><i class="fas fa-map-marker-alt"></i> Arrived at destination (drop '+(r.drop_sequence||i+1)+')</button>';
-  else if(!r.start_unloading_datetime)acts+='<button class="sc-btn" onclick="scAct(\'start-unload\','+r.id+')"><i class="fas fa-box-open"></i> Start unloading</button>';
-  else if(!closed&&r.unload_scan_key)acts+='<button class="sc-btn" onclick="scanRouteGo(\'#/s/unload/\'+\''+encodeURIComponent(r.unload_scan_key)+'\')"><i class="fas fa-barcode"></i> Open unloading scan ('+r.unload_scan_count+' done)</button>';
-  if(r.arrived_dest_datetime&&r.start_unloading_datetime&&!r.end_unloading_datetime)
-    acts+='<button class="sc-btn ok" onclick="scAct(\'finish\','+r.id+')"><i class="fas fa-check-double"></i> Finish this drop</button>';
-  if(closed)acts+='<div class="sc-ok" style="margin-top:10px"><i class="fas fa-check-circle"></i> Unloading complete for this drop.</div>';
-  acts+='<button class="sc-btn sec" onclick="scPhoto('+r.id+')"><i class="fas fa-camera"></i> Add photo'+((r.attachments||[]).length?' ('+r.attachments.length+')':'')+'</button>'+
-        '<input type="file" id="scFile'+r.id+'" accept="image/*,application/pdf" capture="environment" multiple style="display:none" onchange="scPhotoSend('+r.id+',this)">';
-  return '<div class="sc-card"><div class="sc-step" style="border:0;padding:0 0 8px">'+
-    '<div class="sc-dot '+(r.end_unloading_datetime?'done':r.arrived_dest_datetime?'now':'')+'">'+(r.drop_sequence||i+1)+'</div>'+
-    '<div class="sc-body"><div class="t">'+esc(r.request_number||'')+'</div>'+
+/* ---- trip detail: every step unlocks only after the one before it ---- */
+function scTs(v){return v?'<span class="sc-badge g">'+esc(fmtD(v))+'</span>':'<span class="sc-badge">not yet</span>'}
+function scLockNote(msg){return '<div class="s sc-lock"><i class="fas fa-lock"></i> '+esc(msg)+'</div>'}
+function scDropNo(r,i){return r.drop_no||r.drop_sequence||(i+1)}
+function scDropCard(t,r,i,prevNo){
+  const no=scDropNo(r,i);
+  const departed=t.status_id===3;
+  const myTurn=departed&&r.is_next_drop;
+  const arrived=!!r.arrived_dest_datetime;
+  const closed=!!r.unload_scan_closed;
+  const done=!!r.end_unloading_datetime;
+  let wait='';
+  if(!departed)wait='Complete Step 4 (Depart) first';
+  else if(!r.is_next_drop)wait='Finish Drop '+prevNo+' first';
+  // a) arrived at destination
+  let a='<div class="sc-step"><div class="sc-dot '+(arrived?'done':myTurn?'now':'')+'">a</div><div class="sc-body"><div class="t">Arrived at destination <span class="sc-badge b">Drop '+no+'</span></div>';
+  if(arrived)a+='<div class="s">'+scTs(r.arrived_dest_datetime)+'</div>';
+  else if(myTurn)a+='<button class="sc-btn" onclick="scAct(\'drop-arrival\','+r.id+')"><i class="fas fa-map-marker-alt"></i> Arrived at destination - Drop '+no+'</button>';
+  else a+=scLockNote(wait);
+  a+='</div></div>';
+  // b) unloading scan
+  let b='<div class="sc-step"><div class="sc-dot '+(closed?'done':arrived?'now':'')+'">b</div><div class="sc-body"><div class="t">Unloading scan</div>';
+  if(closed)b+='<div class="s">Ended &middot; '+r.unload_scan_count+' of '+r.unload_expected_count+' bag(s) unloaded &middot; Start unloading '+scTs(r.start_unloading_datetime)+'</div>';
+  else if(arrived&&myTurn)b+='<div class="s">'+r.unload_scan_count+' of '+r.unload_expected_count+' bag(s) scanned'+(r.start_unloading_datetime?' &middot; Start unloading '+scTs(r.start_unloading_datetime):' &middot; Start Unloading is recorded by the first bag scanned')+'</div>'+
+    '<button class="sc-btn" onclick="scOpenUnload('+r.id+')"><i class="fas fa-barcode"></i> Open unloading scan - Drop '+no+'</button>';
+  else b+=scLockNote(arrived?wait:'Tap Arrived at destination first');
+  b+='</div></div>';
+  // c) photos (after arrival)
+  let c='<div class="sc-step"><div class="sc-dot '+((r.attachments||[]).length?'done':'')+'">c</div><div class="sc-body"><div class="t">Photos <span style="font-weight:400;color:#94A3B8;font-size:12px">(optional)</span></div>';
+  if(arrived&&!done)c+='<div class="s">'+((r.attachments||[]).length)+' attached &middot; photos are compressed before upload</div><button class="sc-btn sec" onclick="scPhoto('+r.id+')"><i class="fas fa-camera"></i> Add photo (camera or gallery)</button>'+
+    '<input type="file" id="scFile'+r.id+'" accept="image/*,application/pdf" multiple style="display:none" onchange="scPhotoSend('+r.id+',this)">';
+  else c+=arrived?'<div class="s">'+((r.attachments||[]).length)+' attached</div>':scLockNote('Available after Arrived at destination');
+  c+='</div></div>';
+  // d) finish
+  let d='<div class="sc-step"><div class="sc-dot '+(done?'done':closed?'now':'')+'">d</div><div class="sc-body"><div class="t">Finish this drop</div>';
+  if(done)d+='<div class="s">'+scTs(r.end_unloading_datetime)+'</div>';
+  else if(closed&&myTurn)d+='<button class="sc-btn ok" onclick="scAct(\'finish\','+r.id+')"><i class="fas fa-check-double"></i> Finish Drop '+no+'</button>';
+  else d+=scLockNote(arrived?'End the unloading scan first':'Tap Arrived at destination first');
+  d+='</div></div>';
+  return '<div class="sc-card'+(myTurn?' sc-cur':'')+'"><div class="sc-step" style="border:0;padding:0 0 8px">'+
+    '<div class="sc-dot '+(done?'done':myTurn?'now':'')+'" style="width:34px;height:34px;font-size:14px">'+no+'</div>'+
+    '<div class="sc-body"><div class="t">Drop '+no+' &middot; '+esc(r.request_number||'')+'</div>'+
     '<div class="s">'+esc(r.account_name||'')+' &rarr; '+esc(r.destination_port_name||'')+'</div>'+
-    '<div class="s" style="margin-top:5px">Arrive '+scTs(fmtD(r.arrived_dest_datetime))+' &nbsp; Unload '+scTs(fmtD(r.start_unloading_datetime))+' &nbsp; Done '+scTs(fmtD(r.end_unloading_datetime))+'</div>'+
     (r.late_reason?'<div class="s" style="color:#FCD34D">Late reason: '+esc(r.late_reason)+'</div>':'')+
-    '</div></div>'+acts+'</div>';
+    '</div></div>'+a+b+c+d+'</div>';
 }
 function renderScanTrip(){
   const t=scanCur;if(!t){scanHome();return}
   const rs=t.requests||[];
   const f=rs[0]||{};
-  let steps='';
-  const canPre=t.status_id===2;
-  if(!f.arrived_pickup_datetime&&canPre)
-    steps+='<div class="sc-step"><div class="sc-dot now">1</div><div class="sc-body"><div class="t">Arrived at pickup</div><div class="s">Tap when the truck reaches the pickup point.</div><button class="sc-btn" onclick="scAct(\'pickup-arrival\')"><i class="fas fa-flag"></i> I have arrived</button></div></div>';
-  else
-    steps+='<div class="sc-step"><div class="sc-dot '+(f.arrived_pickup_datetime?'done':'')+'">1</div><div class="sc-body"><div class="t">Arrived at pickup</div><div class="s">'+scTs(fmtD(f.arrived_pickup_datetime))+'</div></div></div>';
+  const pre=t.status_id===2;
+  const s1=!!f.arrived_pickup_datetime;
+  const s2=!!(t.pickup&&t.pickup.closed);
+  const s3=!!f.end_loading_datetime;
+  const s4=t.status_id===3;
   const pk=t.pickup&&t.pickup.key;
-  steps+='<div class="sc-step"><div class="sc-dot '+(t.pickup&&t.pickup.closed?'done':pk?'now':'')+'">2</div><div class="sc-body"><div class="t">Pickup sort (scan bags)</div>'+
-    '<div class="s">'+(t.pickup?(t.pickup.closed?'Closed '+fmtD(t.pickup.closed_at):'Scanned '+t.pickup.scanned_count+(t.pickup.expected_count==null?'':' of '+t.pickup.expected_count)):'Waiting for a driver to be assigned')+'</div>'+
-    (pk?'<button class="sc-btn" onclick="scanRouteGo(\'#/s/pickup/\'+\''+encodeURIComponent(pk)+'\')"><i class="fas fa-barcode"></i> Open pickup scan</button>':'')+
-    '</div></div>';
-  if(!f.end_loading_datetime&&canPre)
-    steps+='<div class="sc-step"><div class="sc-dot now">3</div><div class="sc-body"><div class="t">End loading</div><div class="s">Tap once every bag is on the truck.</div><button class="sc-btn" onclick="scAct(\'end-loading\')"><i class="fas fa-box"></i> End loading</button></div></div>';
-  else
-    steps+='<div class="sc-step"><div class="sc-dot '+(f.end_loading_datetime?'done':'')+'">3</div><div class="sc-body"><div class="t">End loading</div><div class="s">'+scTs(fmtD(f.end_loading_datetime))+'</div></div></div>';
-  if(canPre)
-    steps+='<div class="sc-step"><div class="sc-dot '+(t.status_id===3?'done':'')+'">4</div><div class="sc-body"><div class="t">Set off</div><div class="s">'+(t.status_id===3?'On the road':'Requires End Loading first')+'</div>'+
-      (t.status_id===2?'<button class="sc-btn warn" onclick="scAct(\'depart\')"><i class="fas fa-truck"></i> Depart</button>':'')+'</div></div>';
-  else
-    steps+='<div class="sc-step"><div class="sc-dot done">4</div><div class="sc-body"><div class="t">Set off</div><div class="s">Departed &middot; In Transit</div></div></div>';
+  let steps='';
+  // Step 1
+  steps+='<div class="sc-step"><div class="sc-dot '+(s1?'done':'now')+'">1</div><div class="sc-body"><div class="t">Arrived at pickup</div>';
+  if(s1)steps+='<div class="s">'+scTs(f.arrived_pickup_datetime)+'</div>';
+  else if(pre)steps+='<div class="s">Tap when the truck reaches the pickup point.</div><button class="sc-btn" onclick="scConfirmArrival()"><i class="fas fa-flag"></i> Arrived at pickup</button>';
+  steps+='</div></div>';
+  // Step 2
+  steps+='<div class="sc-step"><div class="sc-dot '+(s2?'done':s1?'now':'')+'">2</div><div class="sc-body"><div class="t">Pickup scan (scan bags)</div>';
+  if(s2)steps+='<div class="s">Ended '+scTs(t.pickup.closed_at)+' &middot; '+t.pickup.scanned_count+' bag(s) scanned</div>';
+  else if(!s1)steps+=scLockNote('Complete Step 1 (Arrived at pickup) first');
+  else if(pk)steps+='<div class="s">Scanned '+t.pickup.scanned_count+(t.pickup.expected_count==null?'':' of '+t.pickup.expected_count)+'</div><button class="sc-btn" onclick="scOpenPickup()"><i class="fas fa-barcode"></i> Open pickup scan</button>';
+  else steps+='<div class="s">Waiting for a driver to be assigned</div>';
+  steps+='</div></div>';
+  // Step 3
+  steps+='<div class="sc-step"><div class="sc-dot '+(s3?'done':s2?'now':'')+'">3</div><div class="sc-body"><div class="t">End loading</div>';
+  if(s3)steps+='<div class="s">'+scTs(f.end_loading_datetime)+'</div>';
+  else if(!s2)steps+=scLockNote('Complete Step 2 (end the pickup scan) first');
+  else if(pre)steps+='<div class="s">Tap once every bag is on the truck.</div><button class="sc-btn" onclick="scAct(\'end-loading\')"><i class="fas fa-box"></i> End loading</button>';
+  steps+='</div></div>';
+  // Step 4
+  steps+='<div class="sc-step"><div class="sc-dot '+(s4?'done':s3?'now':'')+'">4</div><div class="sc-body"><div class="t">Depart</div>';
+  if(s4)steps+='<div class="s">Departed &middot; In Transit</div>';
+  else if(!s3)steps+=scLockNote('Complete Step 3 (End loading) first');
+  else steps+='<button class="sc-btn warn" onclick="scAct(\'depart\')"><i class="fas fa-truck"></i> Depart</button>';
+  steps+='</div></div>';
 
   let body='<div class="sc-card"><h5><i class="fas fa-route"></i> '+esc(t.trip_id)+'</h5>'+
-    '<div class="sc-hint">Final call: <strong>'+esc(t.final_call_datetime||'-')+'</strong><br>Driver: <strong>'+esc((t.driver&&t.driver.driver_name)|| (t.driver&&t.driver.username)||'-')+'</strong>'+
-    (t.driver&&t.driver.plate_number?' &middot; Truck <strong>'+esc(t.driver.plate_number)+'</strong>':'')+'</div></div>';
+    '<div class="sc-hint">Final call: <strong>'+esc(t.final_call_datetime?fmtD(t.final_call_datetime):'-')+'</strong><br>Driver: <strong>'+esc((t.driver&&t.driver.driver_name)|| (t.driver&&t.driver.username)||'-')+'</strong>'+
+    (t.driver&&t.driver.plate_number?' &middot; Truck <strong>'+esc(t.driver.plate_number)+'</strong>':'')+
+    '<br>Drops: <strong>'+(t.delivered_drops||0)+' of '+(t.total_drops||rs.length)+' delivered</strong></div></div>';
+  body+='<div id="scLateWrap"></div>';
   body+='<div class="sc-card"><h5><i class="fas fa-list-ol"></i> Trip steps</h5>'+steps+'</div>';
-  body+='<div class="sc-card"><h5><i class="fas fa-boxes-stacked"></i> Drops ('+rs.length+')</h5><div id="scLateWrap"></div></div>';
-  rs.forEach((r,i)=>{body+=scDropCard(t,r,i)});
+  body+='<div class="sc-card" style="padding-bottom:4px"><h5><i class="fas fa-boxes-stacked"></i> Drops ('+rs.length+' left)</h5><div class="sc-hint" style="margin-bottom:10px">Drops are done in order. Each drop unlocks after the one before it is finished.</div></div>';
+  let prevNo=null;
+  rs.forEach((r,i)=>{body+=scDropCard(t,r,i,prevNo);prevNo=scDropNo(r,i)});
   scanShell(esc(t.trip_id),body,scanBack('Trips','scanHome()'));
+}
+async function scConfirmArrival(){
+  const t=scanCur;if(!t)return;
+  const ok=await scanModal({title:'Arrived at pickup?',icon:'flag',ok:'Yes, I have arrived',
+    html:'<p>Record <strong>Arrived at pickup</strong> for trip <strong>'+esc(t.trip_id)+'</strong> now?</p>'+
+      '<p class="sc-hint" style="margin-top:8px">The time is saved straight away and cannot be undone. Once this trip starts, you must finish it to the last drop before starting another trip.</p>'});
+  if(ok)scAct('pickup-arrival');
+}
+function scOpenPickup(){
+  const t=scanCur;if(!t||!t.pickup||!t.pickup.key)return;
+  scanReturnTrip=t.trip_id;
+  scanRouteGo('#/s/pickup/'+encodeURIComponent(t.pickup.key));
+}
+async function scOpenUnload(rid){
+  if(scanBusy)return;
+  scanBusy=true;
+  const t=scanCur;
+  try{
+    const d=await scanApi('/api/scan/requests/'+rid+'/start-unload',{method:'POST',json:{}});
+    scanCur=d;
+    const r=(d.requests||[]).find(x=>x.id===rid);
+    if(!r||!r.unload_scan_key)throw new Error('The unloading scan link is missing - reopen the trip');
+    scanReturnTrip=t.trip_id;
+    scanBusy=false;
+    scanRouteGo('#/s/unload/'+encodeURIComponent(r.unload_scan_key));
+    return;
+  }catch(e){scanSiren();scanAlert(e.message)}
+  scanBusy=false;
 }
 async function scAct(kind,rid){
   if(scanBusy)return;
@@ -3388,27 +3584,33 @@ async function scAct(kind,rid){
     else if(kind==='end-loading'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/end-loading'}
     else if(kind==='depart'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/depart'}
     else{path='/api/scan/requests/'+rid+'/'+kind}
-    await scanApi(path,opts);
+    const r=await scanApi(path,opts);
+    scanOkSound();scanFlash('#10B981');
+    if(kind==='finish'&&r&&r.trip_complete){
+      scanBusy=false;
+      await scanModal({title:'Trip complete',icon:'check-circle',ok:'Back to my trips',cancel:'Close',
+        html:'<p>Every drop on <strong>'+esc(t.trip_id)+'</strong> is delivered. You can now start your next trip.</p>'});
+      scanCur=null;scanHome();return;
+    }
     await scanReloadTrip();
-    scanBeep('ok');scanFlash('#10B981');
   }catch(e){
     if(e.detail&&e.detail.code==='late_required'){scanBeep('warn');scLateForm(kind,rid,e.detail)}
-    else{scanBeep('err');scanAlert(e.message)}
+    else{scanSiren();scanAlert(e.message)}
   }
   scanBusy=false;
 }
 function scanAlert(msg){
   const w=document.getElementById('scLateWrap');
-  if(w){w.innerHTML='<div class="sc-err">'+esc(msg)+'</div>';w.scrollIntoView({block:'center'});return}
+  if(w){w.innerHTML='<div class="sc-err"><i class="fas fa-exclamation-triangle"></i> '+esc(msg)+'</div>';w.scrollIntoView({block:'center'});return}
   const b=document.querySelector('#scanApp .sc-wrap');
-  if(b)b.insertAdjacentHTML('afterbegin','<div class="sc-err">'+esc(msg)+'</div>');
+  if(b)b.insertAdjacentHTML('afterbegin','<div class="sc-err"><i class="fas fa-exclamation-triangle"></i> '+esc(msg)+'</div>');
 }
 function scLateForm(kind,rid,d){
   const w=document.getElementById('scLateWrap');if(!w)return;
   w.innerHTML='<div class="sc-warn"><i class="fas fa-clock"></i> '+esc(d.detail||'This trip is past its Final Call time.')+
-    '<div class="sc-hint" style="color:#FCD34D;margin-top:4px">Final call was '+esc(d.final_call||'')+'. Record why the arrival is late.</div>'+
+    '<div class="sc-hint" style="color:#FCD34D;margin-top:4px">Final call was '+esc(d.final_call?fmtD(d.final_call):'')+'. Record why the arrival is late.</div>'+
     '<textarea class="sc-in" id="scLateTxt" rows="3" maxlength="1000" style="margin-top:10px;font-size:15px" placeholder="Reason for arriving after Final Call..."></textarea>'+
-    '<button class="sc-btn warn" onclick="scLateSend(\''+kind+'\','+rid+')"><i class="fas fa-save"></i> Save reason and continue</button>'+
+    '<button class="sc-btn warn" onclick="scLateSend(\''+kind+'\','+(rid==null?'null':rid)+')"><i class="fas fa-save"></i> Save reason and continue</button>'+
     '<button class="sc-btn sec" onclick="scLateCancel()">Cancel</button></div>';
   w.scrollIntoView({block:'center'});
   const ta=document.getElementById('scLateTxt');if(ta)ta.focus();
@@ -3417,7 +3619,7 @@ function scLateCancel(){const w=document.getElementById('scLateWrap');if(w)w.inn
 async function scLateSend(kind,rid){
   const ta=document.getElementById('scLateTxt');
   const v=ta?ta.value.trim():'';
-  if(!v){ta.focus();return}
+  if(!v){if(ta)ta.focus();return}
   const t=scanCur;
   try{
     let path;
@@ -3425,98 +3627,162 @@ async function scLateSend(kind,rid){
     else path='/api/scan/requests/'+rid+'/'+kind;
     await scanApi(path,{method:'POST',json:{late_reason:v}});
     await scanReloadTrip();
-    scanBeep('ok');scanFlash('#10B981');
-  }catch(e){scanBeep('err');scanAlert(e.message)}
+    scanOkSound();scanFlash('#10B981');
+  }catch(e){scanSiren();scanAlert(e.message)}
 }
 async function scanReloadTrip(){
   const trips=await scanApi('/api/scan/trips');
   scanTrips=trips;
   const t=trips.find(x=>x.trip_id===scanCur.trip_id);
-  if(t)scanCur=t;
+  if(!t){scanCur=null;scanHome();return}
+  scanCur=t;
   renderScanTrip();
 }
 function scPhoto(rid){const i=document.getElementById('scFile'+rid);if(i)i.click()}
+/* Shrink a photo before upload: longest side 1600px, JPEG quality 0.72.
+   Anything that is not an image (or cannot be decoded) is sent as it is. */
+const SC_PHOTO_MAX=1600,SC_PHOTO_Q=0.72;
+function scLoadImg(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);res(img)};
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('decode'))};
+    img.src=url;
+  });
+}
+async function scCompress(file){
+  if(!file||!/^image\//i.test(file.type||'')||/gif|svg/i.test(file.type))return file;
+  try{
+    const img=await scLoadImg(file);
+    const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+    if(!w||!h)return file;
+    const k=Math.min(1,SC_PHOTO_MAX/Math.max(w,h));
+    const cw=Math.max(1,Math.round(w*k)),ch=Math.max(1,Math.round(h*k));
+    const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+    const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cw,ch);cx.drawImage(img,0,0,cw,ch);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',SC_PHOTO_Q));
+    if(!blob||blob.size>=file.size)return file;
+    const base=String(file.name||'photo').replace(/\.[^.]*$/,'')||'photo';
+    return new File([blob],base+'.jpg',{type:'image/jpeg',lastModified:Date.now()});
+  }catch(e){return file}
+}
 async function scPhotoSend(rid,input){
   const files=input.files;
   if(!files||!files.length)return;
   if(scanBusy)return;scanBusy=true;
+  const w=document.getElementById('scLateWrap');
   try{
+    let before=0,after=0;
     for(let i=0;i<files.length;i++){
+      if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-spinner fa-spin"></i> Compressing and uploading photo '+(i+1)+' of '+files.length+'...</div>';
+      const small=await scCompress(files[i]);
+      before+=files[i].size;after+=small.size;
       const fd=new FormData();
-      fd.append('file',files[i]);
+      fd.append('file',small,small.name);
       await scanApi('/api/scan/requests/'+rid+'/photo',{method:'POST',body:fd});
     }
     input.value='';
     await scanReloadTrip();
-    scanBeep('ok');scanFlash('#10B981');
-  }catch(e){scanBeep('err');scanAlert(e.message)}
+    scanOkSound();scanFlash('#10B981');
+    const w2=document.getElementById('scLateWrap');
+    if(w2)w2.innerHTML='<div class="sc-ok"><i class="fas fa-check-circle"></i> '+files.length+' photo(s) uploaded ('+scKB(before)+' compressed to '+scKB(after)+').</div>';
+  }catch(e){scanSiren();scanAlert(e.message)}
   scanBusy=false;
 }
+function scKB(n){return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
 
-/* ---- the public scan screens (pickup / unload) ---- */
+/* ---- the scan screens (pickup / unload) ---- */
+let scanKind='',scanKeyCur='';
 async function scanKey(kind,key){
-  const title=kind==='pickup'?'Pickup sort scan':'Unloading scan';
+  const title=kind==='pickup'?'Pickup scan':'Unloading scan';
+  scanKind=kind;scanKeyCur=key;
   scanShell(title,'<div class="sc-card"><div class="sc-hint"><i class="fas fa-spinner fa-spin"></i> Loading scan session...</div></div>',
-    scanBack('Back',"location.hash='#/scan'"));
+    scanBack('Back','scanLeave()'));
   try{
-    scanSum=await scanApi('/api/scan/'+kind+'/'+key+(scanOv?'?ov='+encodeURIComponent(scanOv):''));
+    scanSum=await scanApi('/api/scan/'+kind+'/'+key+(scanOv&&kind==='pickup'?'?ov='+encodeURIComponent(scanOv):''));
     renderScanKey(kind,key);
-    scanStartPoll(kind,key);
-  }catch(e){scanShellErr(title,e.message,scanBack('Back',"location.hash='#/scan'"))}
+    if(!scanSum.closed)scanStartPoll(kind,key);
+  }catch(e){scanShellErr(title,e.message,scanBack('Back','scanLeave()'))}
 }
+function scanLeave(){scanStopCam();location.hash='#/scan'}
 function scanStartPoll(kind,key){
   if(scanTimer)clearInterval(scanTimer);
   scanTimer=setInterval(async ()=>{
+    if(document.getElementById('scModal'))return;
     try{
-      const s=await scanApi('/api/scan/'+kind+'/'+key+(scanOv?'?ov='+encodeURIComponent(scanOv):''));
-      const was=scanSum?scanSum.scanned_count:0;
+      const s=await scanApi('/api/scan/'+kind+'/'+key+(scanOv&&kind==='pickup'?'?ov='+encodeURIComponent(scanOv):''));
+      const wasClosed=scanSum&&scanSum.closed,wasStarted=scanSum&&scanSum.started;
       scanSum=s;
-      if(s.closed){scanStopCam();renderScanKey(kind,key);return}
-      const list=document.getElementById('scList');
-      if(list)list.innerHTML=scList(s);
-      const pills=document.querySelectorAll('#scanApp .sc-pill b');
-      if(pills.length>=2){
-        pills[0].textContent=s.scanned_count;
-        pills[1].textContent=s.expected_count==null?'-':s.expected_count;
-      }
-      if(s.scanned_count>was)scanBeep('ok');
+      if(s.closed&&!wasClosed){scanStopCam();renderScanKey(kind,key);return}
+      if(s.started!==wasStarted){scanStopCam();renderScanKey(kind,key);return}
+      scanUpdate(kind);
     }catch(e){}
   },4000);
 }
+function scPills(kind,s){
+  if(kind==='pickup')return [
+    ['scPScan',s.scanned_count,'Scanned'],
+    ['scPExp',s.expected_count==null?'-':s.expected_count,'Manifest IDs'],
+    ['scPRem',s.expected_count==null?'-':s.remaining_count,'Remaining']];
+  return [
+    ['scPScan',s.scanned_count,'Unloaded'],
+    ['scPExp',s.expected_count==null?0:s.expected_count,'Picked up'],
+    ['scPRem',s.remaining_count,'Remaining']];
+}
+function scDropLine(s){
+  const r=(s.requests||[])[0]||{};
+  return '<span class="sc-badge b">Drop '+esc(r.drop_sequence||'-')+'</span> '+esc(r.request_number||'')+' &middot; '+esc(r.account_name||'')+' &rarr; '+esc(r.destination_port_name||'');
+}
 function renderScanKey(kind,key){
   const s=scanSum;
-  const title=kind==='pickup'?'Pickup sort scan':'Unloading scan';
-  const exp=s.expected_count==null?null:s.expected_count;
+  const title=kind==='pickup'?'Pickup scan':'Unloading scan';
   let body='';
-  if(s.closed)body+='<div class="sc-ok"><i class="fas fa-lock"></i> Scanning closed'+(s.closed_at?' at '+esc(s.closed_at):'')+'. Nothing more can be scanned.</div>';
-  const drop=(s.requests||[]).map(r=>'<div class="sc-row"><span class="sc-badge b">Drop '+(r.drop_sequence||'-')+'</span><span>'+esc(r.request_number||'')+'</span><span style="color:#94A3B8">'+esc(r.destination_port_name||'')+'</span></div>').join('');
+  if(s.closed){
+    // Ended sessions are read-only: no inputs, only the final summary.
+    const list=kind==='pickup'
+      ?[{label:'Total manifest IDs (all requests)',value:s.expected_count==null?'No manifest':s.expected_count},
+        {label:'Original successful scans',value:s.original_count,cls:'g'},
+        {label:'Manifest IDs not scanned',value:s.expected_count==null?'-':s.remaining_count,cls:s.remaining_count?'r':''},
+        {label:'Override scans (not on manifest)',value:s.override_count,cls:s.override_count?'y':''}]
+      :[{label:'Pickup-scanned bags for this drop',value:s.expected_count||0},
+        {label:'Successful unloading scans',value:s.scanned_count,cls:'g'},
+        {label:'Bags without an unloading scan',value:s.remaining_count,cls:s.remaining_count?'r':''}];
+    body+='<div class="sc-ok"><i class="fas fa-lock"></i> '+(kind==='pickup'?'Pickup scan':'Unloading scan')+' ended'+(s.closed_at?' at '+esc(fmtD(s.closed_at)):'')+'. No more bags can be scanned.</div>';
+    body+='<div class="sc-card"><h5><i class="fas fa-clipboard-check"></i> '+esc(s.trip_id)+'</h5>'+(kind==='unload'?'<div class="sc-hint" style="margin-bottom:8px">'+scDropLine(s)+'</div>':'')+scSumRows(list)+'</div>';
+    body+='<button class="sc-btn" onclick="scanLeave()"><i class="fas fa-arrow-left"></i> Back to the trip</button>';
+    scanShell(title,body,scanBack('Back','scanLeave()'));
+    return;
+  }
   body+='<div class="sc-card"><h5><i class="fas fa-list-ol"></i> '+esc(s.trip_id)+'</h5>'+
-    '<div class="sc-cnt"><div class="sc-pill"><b>'+s.scanned_count+'</b><span>Scanned</span></div>'+
-    '<div class="sc-pill"><b>'+(exp==null?'-':exp)+'</b><span>Expected</span></div>'+
-    '<div class="sc-pill"><b>'+(s.requests||[]).length+'</b><span>'+(kind==='pickup'?'Drops':'Drop')+'</span></div></div>'+
-    (s.mode==='manifest'?'<div class="sc-hint" style="margin-top:10px">Bag IDs are checked against the manifest. Unknown IDs are refused unless you use Override.</div>':'<div class="sc-hint" style="margin-top:10px">No manifest on this trip, so any bag ID is accepted.</div>')+
+    (kind==='unload'?'<div class="sc-hint" style="margin-bottom:10px">'+scDropLine(s)+'</div>':'')+
+    '<div class="sc-cnt">'+scPills(kind,s).map(p=>'<div class="sc-pill"><b id="'+p[0]+'">'+esc(p[1])+'</b><span>'+p[2]+'</span></div>').join('')+'</div>'+
+    (kind==='pickup'
+      ?(s.mode==='manifest'?'<div class="sc-hint" style="margin-top:10px">Bag IDs are checked against the manifests of every request on this trip. Unknown IDs are refused unless you use Override.</div>':'<div class="sc-hint" style="margin-top:10px">No manifest on this trip, so any bag ID is accepted.</div>')
+      :'<div class="sc-hint" style="margin-top:10px">Only bags pickup-scanned for <strong>this drop</strong> are accepted. The first accepted bag records Start Unloading.</div>')+
     '</div>';
-  if(!s.closed){
+  if(!s.started){
+    body+='<div class="sc-warn"><i class="fas fa-lock"></i> '+(kind==='pickup'?'The driver must tap <strong>Arrived at pickup</strong> (Step 1) before bags can be scanned.':'The driver must tap <strong>Arrived at destination</strong> for this drop before unloading.')+' This screen unlocks by itself.</div>';
+  }else{
     body+='<div class="sc-card"><h5><i class="fas fa-barcode"></i> Scan a bag</h5>'+
+      '<div id="scResult"></div>'+
       '<input class="sc-in" id="scBag" placeholder="Type or scan a bag ID" autocapitalize="none" autocorrect="off" autocomplete="off" onkeydown="if(event.key===\'Enter\')scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',this.value)">'+
       '<button class="sc-btn" onclick="scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',document.getElementById(\'scBag\').value)"><i class="fas fa-plus"></i> Record bag</button>'+
-      '<button class="sc-btn sec" onclick="scCam()"><i class="fas fa-camera"></i> Scan with camera</button>'+
+      '<button class="sc-btn sec" id="scCamBtn" onclick="scCam()"><i class="fas fa-camera"></i> Scan with camera</button>'+
       '<div id="qrReader"></div>'+
-      '<div id="scMsg"></div>'+
+      '<div id="scCamTools"></div>'+
       '</div>';
   }
-  body+='<div class="sc-card"><h5><i class="fas fa-qrcode"></i> Scan link (share with the scanner)</h5>'+
+  body+='<div class="sc-card"><h5><i class="fas fa-history"></i> Last scans (<span id="scListCnt">'+s.scanned_count+'</span>)</h5><div id="scList">'+scList(s)+'</div></div>';
+  if(s.started)body+='<button class="sc-btn danger" onclick="scEndAsk(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-flag-checkered"></i> '+(kind==='pickup'?'End pickup scan':'End Unloading Scan')+'</button>';
+  body+='<div id="scOvWrap"></div>';
+  body+='<div class="sc-card" style="margin-top:12px"><h5><i class="fas fa-qrcode"></i> Scan link (share with the scanner)</h5>'+
     '<div class="sc-hint">Anyone with this link can scan for this session.</div>'+
     '<div id="scQR" class="sc-qr" style="margin-top:10px"></div>'+
     '<div class="sc-hint" style="margin-top:8px;word-break:break-all" id="scUrl"></div>'+
-    '<div class="sc-hint" style="margin-top:8px">Override code: <strong>'+esc(s.override_code||'')+'</strong></div>'+
+    (kind==='pickup'&&s.override_code?'<div class="sc-hint" style="margin-top:8px">Override code: <strong>'+esc(s.override_code)+'</strong></div>':'')+
     '</div>';
-  body+='<div class="sc-card"><h5><i class="fas fa-history"></i> Last scans ('+s.scanned_count+')</h5><div id="scList">'+scList(s)+'</div></div>';
-  if(!s.closed){
-    body+='<button class="sc-btn danger" onclick="scEnd(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-lock"></i> Close scanning</button>';
-  }
-  body+='<div id="scOvWrap"></div>';
-  scanShell(title,body,scanBack('Back',"location.hash='#/scan'"));
+  scanShell(title,body,scanBack('Back','scanLeave()'));
   const url=location.origin+location.pathname+'#/s/'+kind+'/'+key;
   const u=document.getElementById('scUrl');if(u)u.textContent=url;
   const q=document.getElementById('scQR');
@@ -3524,61 +3790,107 @@ function renderScanKey(kind,key){
     q.innerHTML='';
     try{new QRCode(q,{text:url,width:180,height:180})}catch(e){q.innerHTML=''}
   }else if(q){q.innerHTML=''}
-  const inp=document.getElementById('scBag');if(inp&&!s.closed)inp.focus();
+  const inp=document.getElementById('scBag');if(inp)inp.focus();
+}
+/* Refresh the numbers and list only - the camera keeps running untouched. */
+function scanUpdate(kind){
+  const s=scanSum;if(!s)return;
+  scPills(kind,s).forEach(p=>{const el=document.getElementById(p[0]);if(el)el.textContent=p[1]});
+  const l=document.getElementById('scList');if(l)l.innerHTML=scList(s);
+  const c=document.getElementById('scListCnt');if(c)c.textContent=s.scanned_count;
 }
 function scList(s){
   const arr=s.scanned||[];
   if(!arr.length)return '<div class="sc-hint">Nothing scanned yet.</div>';
-  return arr.slice().reverse().map(x=>{
-    const k=x.known===false?'<span class="sc-badge y">override</span>':(x.scan_kind==='override'?'<span class="sc-badge y">override</span>':'<span class="sc-badge g">ok</span>');
+  return arr.slice().reverse().slice(0,200).map(x=>{
+    const k=x.scan_kind==='override'?'<span class="sc-badge y">override</span>':'<span class="sc-badge g">ok</span>';
     return '<div class="sc-row"><span class="sc-bag">'+esc(x.bag_id)+'</span>'+k+'</div>';
   }).join('');
 }
+/* The big result panel shown after every scan. */
+function scResultHtml(kind,r){
+  const d=r.drop||null;
+  const info=d?'<div class="sc-res-grid"><span>Account</span><b>'+esc(d.account_name||'-')+'</b><span>Destination</span><b>'+esc(d.destination_port_name||'-')+'</b><span>Drop #</span><b>'+esc(d.drop_sequence||'-')+'</b></div>':'';
+  if(r.result==='success')
+    return '<div class="sc-res ok"><div class="h"><i class="fas fa-check-circle"></i> Scan successful'+(r.scan_kind==='override'?' (override)':'')+'</div><div class="bag">'+esc(r.bag_id)+'</div>'+info+'</div>';
+  if(r.result==='duplicate')
+    return '<div class="sc-res dup"><div class="h"><i class="fas fa-clone"></i> Duplicate scan - not recorded</div><div class="bag">'+esc(r.bag_id)+'</div>'+info+'<div class="why">'+esc(r.detail||'')+'</div></div>';
+  const od=r.other_drop;
+  return '<div class="sc-res bad"><div class="h"><i class="fas fa-times-circle"></i> '+(kind==='pickup'?'Not on manifest':'Scan failed - no match')+'</div><div class="bag">'+esc(r.bag_id)+'</div>'+
+    '<div class="why">'+esc(r.detail||'')+'</div>'+
+    (od?'<div class="sc-res-grid"><span>Loaded for</span><b>Drop '+esc(od.drop_sequence||'-')+'</b><span>Account</span><b>'+esc(od.account_name||'-')+'</b><span>Destination</span><b>'+esc(od.destination_port_name||'-')+'</b></div>':'')+
+    (kind==='pickup'&&r.result==='unknown'?'<button class="sc-btn warn" onclick="scOverride(\''+kind+'\',\''+encodeURIComponent(scanKeyCur)+'\',\''+String(r.bag_id).replace(/[\\'"<>]/g,'')+'\')"><i class="fas fa-unlock"></i> Scan it anyway (override)</button>':'')+
+    '</div>';
+}
+let scSending=false;
 async function scSend(kind,key,bag){
   bag=String(bag||'').trim();
-  if(!bag)return;
-  const el=document.getElementById('scBag');
+  if(!bag||scSending)return;
+  scSending=true;
+  const box=document.getElementById('scResult');
   try{
-    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:scanOv||undefined}});
+    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:(kind==='pickup'&&scanOv)||undefined}});
     scanSum=r;
-    if(r.result==='success'){scanBeep('ok');scanFlash('#10B981')}
-    else if(r.result==='duplicate'){scanBeep('warn');scanFlash('#F59E0B')}
-    else{scanBeep('err');scanFlash('#DC2626')}
-    renderScanKey(kind,key);
-    const m=document.getElementById('scMsg');
-    if(m&&r.result!=='success'){
-      let extra='';
-      if(r.result==='unknown')extra='<button class="sc-btn warn" onclick="scOverride(\''+kind+'\',\''+encodeURIComponent(key)+'\',\''+String(r.bag_id).replace(/'/g,'')+'\')"><i class="fas fa-unlock"></i> Scan it anyway (override)</button>';
-      m.innerHTML='<div class="sc-'+(r.result==='unknown'?'err':'warn')+'"><i class="fas fa-'+(r.result==='unknown'?'times-circle':'exclamation-circle')+'"></i> '+esc(r.detail||r.result)+'</div>'+extra;
-    }else if(el){el.value=''}
+    if(r.result==='success'){scanOkSound();scanFlash('#10B981')}
+    else{scanSiren();scanFlash(r.result==='duplicate'?'#F59E0B':'#DC2626')}
+    if(box)box.innerHTML=scResultHtml(kind,r);
+    scanUpdate(kind);
   }catch(e){
-    scanBeep('err');
-    const m=document.getElementById('scMsg');
-    if(m)m.innerHTML='<div class="sc-err">'+esc(e.message)+'</div>';
+    scanSiren();scanFlash('#DC2626');
+    if(box)box.innerHTML='<div class="sc-res bad"><div class="h"><i class="fas fa-exclamation-triangle"></i> Not recorded</div><div class="bag">'+esc(bag)+'</div><div class="why">'+esc(e.message)+'</div></div>';
+    if(e.status===409){scanStopCam();setTimeout(()=>scanKey(kind,key),1500)}
   }
-  const i=document.getElementById('scBag');if(i){i.value='';i.focus()}
+  scSending=false;
+  const i=document.getElementById('scBag');if(i){i.value='';if(!scanCam)i.focus()}
 }
 async function scOverride(kind,key,bag){
   scanOv=scanSum&&scanSum.override_code?scanSum.override_code:'';
   await scSend(kind,key,bag);
 }
+/* End scan: show the summary first, end only after Confirm. */
+async function scEndAsk(kind,key){
+  try{scanSum=await scanApi('/api/scan/'+kind+'/'+key+(scanOv&&kind==='pickup'?'?ov='+encodeURIComponent(scanOv):''));scanUpdate(kind)}catch(e){}
+  const s=scanSum||{};
+  if(kind==='pickup'){
+    const ok=await scanModal({title:'End pickup scan?',icon:'flag-checkered',ok:'Confirm',okClass:'danger',cancel:'Resume scanning',
+      html:scSumRows([
+        {label:'Total manifest IDs (all requests in this trip)',value:s.expected_count==null?'No manifest':s.expected_count},
+        {label:'Original successful scans',value:s.original_count||0,cls:'g'},
+        {label:'Manifest IDs without a pickup scan yet',value:s.expected_count==null?'-':(s.remaining_count||0),cls:s.remaining_count?'r':''},
+        {label:'Override scans (not on the manifest)',value:s.override_count||0,cls:s.override_count?'y':''}])+
+        '<p class="sc-hint" style="margin-top:10px">After you confirm, the pickup scan is ended and no further scans can be done.</p>'});
+    if(ok)scEnd(kind,key);
+    return;
+  }
+  const go=await scanModal({title:'End Unloading Scan',icon:'clipboard-check',ok:'Confirm End Unloading Scan',okClass:'danger',cancel:'Resume scan',
+    html:'<div class="sc-hint" style="margin-bottom:8px">'+scDropLine(s)+'</div>'+scSumRows([
+      {label:'Total pickup bag / carton IDs for this request',value:s.expected_count||0},
+      {label:'Successful unloading scans',value:s.scanned_count||0,cls:'g'},
+      {label:'Remaining IDs without an unloading scan',value:s.remaining_count||0,cls:s.remaining_count?'r':''}])});
+  if(!go)return;
+  const sure=await scanModal({title:'Are you sure?',icon:'exclamation-triangle',ok:'Yes, end unloading',okClass:'danger',cancel:'Go back',
+    html:'<p>Ending the unloading scan is final. You will <strong>not</strong> be able to open this unloading scan again for this request.</p>'+
+      (s.remaining_count?'<p class="sc-hint" style="margin-top:8px;color:#FCA5A5">'+s.remaining_count+' bag(s) still have no unloading scan.</p>':'')});
+  if(sure)scEnd(kind,key);
+}
 async function scEnd(kind,key){
   try{
-    const r=await scanApi('/api/scan/'+kind+'/'+key+'/end',{method:'POST',json:{ov:scanOv||undefined}});
+    const r=await scanApi('/api/scan/'+kind+'/'+key+'/end',{method:'POST',json:{ov:(kind==='pickup'&&scanOv)||undefined}});
     scanSum=Object.assign({},scanSum,r);
-    scanBeep('ok');scanFlash('#10B981');
+    scanStopCam();
+    scanOkSound();scanFlash('#10B981');
     renderScanKey(kind,key);
   }catch(e){
     if(e.status===403){
       const w=document.getElementById('scOvWrap');
       if(w){
-        w.innerHTML='<div class="sc-card"><h5><i class="fas fa-unlock"></i> Override code needed</h5>'+
-          '<div class="sc-hint">Closing the session needs the override code from the trip, or a signed-in scanning session.</div>'+
+        w.innerHTML='<div class="sc-card" style="margin-top:12px"><h5><i class="fas fa-unlock"></i> Override code needed</h5>'+
+          '<div class="sc-hint">Ending the pickup scan needs the override code from the trip, or a signed-in driver session on this phone.</div>'+
           '<input class="sc-in" id="scOvIn" placeholder="Override code" autocapitalize="none" style="margin-top:10px">'+
-          '<button class="sc-btn warn" onclick="scEndOv(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-lock-open"></i> Close now</button></div>';
+          '<button class="sc-btn warn" onclick="scEndOv(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-lock-open"></i> End now</button></div>';
         w.scrollIntoView({block:'center'});
       }
-    }else{scanBeep('err');const m=document.getElementById('scMsg');if(m)m.innerHTML='<div class="sc-err">'+esc(e.message)+'</div>'}
+    }else{scanSiren();const b=document.getElementById('scResult');if(b)b.innerHTML='<div class="sc-err">'+esc(e.message)+'</div>';else scanAlert(e.message)}
   }
 }
 async function scEndOv(kind,key){
@@ -3586,26 +3898,112 @@ async function scEndOv(kind,key){
   scanOv=el?el.value.trim():'';
   await scEnd(kind,key);
 }
+
+/* ---- camera: main back lens at 1x zoom, and one record per barcode ---- */
+const SC_CAM_KEY='scan_cam_id';
+let scCams=[],scCamId='',scCamLast='',scCamLastAt=0,scCamHold=false;
+function scCamRank(c,i){
+  const l=String(c.label||'').toLowerCase();
+  let s=i;
+  if(/front|user|selfie|facing front/.test(l))s+=1000;
+  if(/ultra|tele|depth|macro|infrared|ir camera|zoom/.test(l))s+=100;
+  if(/dual|triple/.test(l))s+=20;
+  if(/back|rear|environment|facing back/.test(l))s-=50;
+  return s;
+}
+async function scCamList(){
+  try{
+    const cams=await Html5Qrcode.getCameras();
+    scCams=(cams||[]).map((c,i)=>({id:c.id,label:c.label||('Camera '+(i+1)),r:scCamRank(c,i)})).sort((a,b)=>a.r-b.r);
+    scCams=scCams.filter(c=>c.r<1000).concat(scCams.filter(c=>c.r>=1000));
+  }catch(e){scCams=[]}
+  return scCams;
+}
+async function scCamZoom1(){
+  // Undo any default zoom: set 1x (or the lowest zoom the lens allows).
+  try{
+    const caps=scanCam&&scanCam.getRunningTrackCapabilities?scanCam.getRunningTrackCapabilities():null;
+    if(caps&&caps.zoom){
+      const z=Math.min(Math.max(1,caps.zoom.min||1),caps.zoom.max||1);
+      await scanCam.applyVideoConstraints({advanced:[{zoom:z}]});
+    }
+  }catch(e){}
+}
+function scCamOnRead(txt){
+  txt=String(txt||'').trim();
+  if(!txt||scCamHold||scSending)return;
+  const now=Date.now();
+  // The same barcode stays in view for many frames: record it once only.
+  if(txt===scCamLast&&now-scCamLastAt<10000){scCamLastAt=now;return}
+  scCamLast=txt;scCamLastAt=now;scCamHold=true;
+  try{scanCam.pause(true)}catch(e){}
+  const el=document.getElementById('scBag');if(el)el.value=txt;
+  Promise.resolve(scSend(scanKind,encodeURIComponent(scanKeyCur),txt)).finally(()=>{
+    setTimeout(()=>{
+      scCamHold=false;
+      try{if(scanCam&&scanCam.getState&&scanCam.getState()===3)scanCam.resume()}catch(e){}
+    },1200);
+  });
+}
 async function scCam(){
   const box=document.getElementById('qrReader');
+  const tools=document.getElementById('scCamTools');
+  const btn=document.getElementById('scCamBtn');
   if(!box)return;
-  if(scanCam){scanStopCam();box.innerHTML='';return}
+  if(scanCam){scanStopCam();box.innerHTML='';if(tools)tools.innerHTML='';if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';return}
   if(!window.Html5Qrcode){box.innerHTML='<div class="sc-err">Camera scanning is not available on this device - type the bag ID instead.</div>';return}
+  scCamLast='';scCamLastAt=0;scCamHold=false;
+  await scCamStart();
+}
+async function scCamStart(wantId){
+  const box=document.getElementById('qrReader');
+  const tools=document.getElementById('scCamTools');
+  const btn=document.getElementById('scCamBtn');
+  if(!box)return;
+  if(scanCam){const c=scanCam;scanCam=null;try{await c.stop()}catch(e){};try{c.clear()}catch(e){}}
+  box.innerHTML='';
   try{
-    scanCam=new Html5Qrcode('qrReader');
-    await scanCam.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},
-      txt=>{
-        const el=document.getElementById('scBag');
-        if(el)el.value=txt;
-        const cur=location.hash.match(/^#\/s\/(pickup|unload)\/([^?]+)/);
-        if(cur)scSend(cur[1],decodeURIComponent(cur[2]),txt);
-      },
-      ()=>{});
-    box.insertAdjacentHTML('beforeend','<div class="sc-hint" style="margin-top:8px">Point the camera at the bag label. Tap the button again to stop.</div>');
+    if(!scCams.length)await scCamList();
+    let saved='';try{saved=localStorage.getItem(SC_CAM_KEY)||''}catch(e){}
+    let pick=wantId||(scCams.find(c=>c.id===saved)||{}).id||(scCams[0]||{}).id||'';
+    const F=window.Html5QrcodeSupportedFormats;
+    const formats=F?[F.CODE_128,F.CODE_39,F.CODE_93,F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.ITF,F.CODABAR,F.QR_CODE,F.DATA_MATRIX,F.PDF_417].filter(x=>x!==undefined):undefined;
+    scanCam=new Html5Qrcode('qrReader',{verbose:false,formatsToSupport:formats,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    const cfg={fps:10,disableFlip:true,
+      qrbox:(w,h)=>{const bw=Math.floor(w*0.86);return {width:bw,height:Math.max(80,Math.floor(Math.min(h*0.55,bw*0.6)))}},
+      videoConstraints:pick?{deviceId:{exact:pick},advanced:[{zoom:1}]}:{facingMode:'environment',advanced:[{zoom:1}]}};
+    try{
+      await scanCam.start(pick?{deviceId:{exact:pick}}:{facingMode:'environment'},cfg,scCamOnRead,()=>{});
+    }catch(first){
+      if(!pick)throw first;
+      try{localStorage.removeItem(SC_CAM_KEY)}catch(e){}
+      try{scanCam.clear()}catch(e){}
+      scanCam=new Html5Qrcode('qrReader',{verbose:false,formatsToSupport:formats,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+      cfg.videoConstraints={facingMode:'environment',advanced:[{zoom:1}]};
+      await scanCam.start({facingMode:'environment'},cfg,scCamOnRead,()=>{});
+      pick='';
+    }
+    scCamId=pick;
+    await scCamZoom1();
+    if(btn)btn.innerHTML='<i class="fas fa-stop"></i> Stop camera';
+    if(tools){
+      const others=scCams.filter(c=>!/front|user|selfie/i.test(c.label));
+      tools.innerHTML='<div class="sc-hint" style="margin-top:8px">Hold the label inside the box. Each barcode is recorded once - move to the next bag after the result shows.</div>'+
+        (others.length>1?'<button class="sc-btn sec" onclick="scCamSwitch()"><i class="fas fa-sync-alt"></i> Switch camera'+(scCamId?' ('+esc((scCams.find(c=>c.id===scCamId)||{}).label||'')+')':'')+'</button>':'');
+    }
   }catch(e){
     scanCam=null;
+    if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';
     box.innerHTML='<div class="sc-err">Camera could not be started: '+esc(String(e&&e.message||e))+' - type the bag ID instead.</div>';
   }
+}
+async function scCamSwitch(){
+  const list=scCams.filter(c=>!/front|user|selfie/i.test(c.label));
+  if(list.length<2)return;
+  const i=list.findIndex(c=>c.id===scCamId);
+  const next=list[(i+1)%list.length];
+  try{localStorage.setItem(SC_CAM_KEY,next.id)}catch(e){}
+  await scCamStart(next.id);
 }
 
 window.addEventListener('hashchange',scanRoute);
