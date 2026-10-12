@@ -4124,13 +4124,83 @@ def delete_att(aid: int, request: Request):
 # Manifest files — one Excel per truck request, IDs taken from its key column
 # ---------------------------------------------------------------------------
 
-MANIFEST_KEYWORDS = ("bag", "carton", "gunny", "sack")
+MANIFEST_KEYWORDS = ("bag", "carton", "gunny", "sack", "箱号", "箱號", "袋号", "袋號")
+MANIFEST_ID_WORDS = ("no", "number", "id", "code", "barcode", "label", "#", "号", "號")
+# Columns that mention a bag/carton but hold a measurement or a count, not the ID.
+MANIFEST_NOT_ID = ("size", "weight", "volume", "qty", "quantity", "count", "total", "sum",
+                   "dimension", "type", "pcs", "计数", "數", "数", "尺寸", "重量", "体积", "體積")
 MANIFEST_ID_HEADERS = {"id", "code", "referenceno", "reference", "trackingno", "trackingnumber",
                        "barcode", "manifestid", "itemno", "slipno"}
+# Labels pivot tables and totals rows put in the key column.
+MANIFEST_JUNK = {"(blank)", "(空白)", "blank", "总计", "總計", "合计", "合計", "grand total", "total", "sum"}
 MANIFEST_MAX = 5 * 1024 * 1024
+MANIFEST_HEADER_SCAN = 30          # rows searched for the header on every sheet
+MANIFEST_GAP_STOP = 2000           # stop reading after this many empty rows in a row
+MANIFEST_MAX_ROWS = 500000
+
+def _manifest_header_score(h):
+    """How sure we are that a header cell names the bag/carton/gunny/sack ID column."""
+    t = str(h or "").strip().lower()
+    if not t:
+        return 0
+    has_kw = any(k in t for k in MANIFEST_KEYWORDS)
+    if has_kw:
+        if any(x in t for x in MANIFEST_NOT_ID):
+            return 0
+        words = re.findall(r"[a-z]+|#|[号號]", t)
+        return 3 if any(w in MANIFEST_ID_WORDS for w in words) else 2
+    return 1 if _norm_hdr(h) in MANIFEST_ID_HEADERS else 0
+
+def _manifest_sheet_candidate(ws):
+    """(score, rows read, header text, ids) for the best key column on one sheet, or None.
+
+    The header does not have to be on row 1: titles, blank rows and pivot-table
+    headers above it are skipped."""
+    best = None
+    for r_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=MANIFEST_HEADER_SCAN, values_only=True), start=1):
+        for c_idx, h in enumerate(row or (), start=1):
+            sc = _manifest_header_score(h)
+            if sc and (best is None or sc > best[0]):
+                best = (sc, r_idx, c_idx, str(h).strip())
+        if best and best[0] >= 3:
+            break
+    if not best:
+        return None
+    sc, hr, col, htxt = best
+    ids, seen, gap, n = [], set(), 0, 0
+    for (v,) in ws.iter_rows(min_row=hr + 1, min_col=col, max_col=col, values_only=True):
+        n += 1
+        if n > MANIFEST_MAX_ROWS:
+            break
+        if v is None or (isinstance(v, str) and not v.strip()):
+            gap += 1
+            if gap >= MANIFEST_GAP_STOP:
+                break
+            continue
+        gap = 0
+        if isinstance(v, float) and v.is_integer():
+            v = int(v)
+        sv = str(v).strip()
+        k = sv.lower()
+        if k in MANIFEST_JUNK or k == htxt.lower():
+            continue
+        if k in seen:
+            continue
+        seen.add(k)
+        ids.append(sv)
+        if len(ids) > 100000:
+            raise HTTPException(400, "Too many IDs in the file (max 100,000)")
+    if not ids:
+        return None
+    return (sc, n, htxt, ids)
 
 def _parse_manifest(content: bytes):
-    """Read an Excel manifest and return the unique IDs from its key column."""
+    """Read an Excel manifest and return the unique IDs from its key column.
+
+    Every sheet is checked (not only the one open when the file was saved), and the
+    header may sit below title or blank rows. When several sheets have a key column
+    the one with the clearest header and the most rows wins - so a raw packing list
+    beats a pivot-table summary of it."""
     try:
         from openpyxl import load_workbook
     except ImportError:
@@ -4140,52 +4210,25 @@ def _parse_manifest(content: bytes):
     except Exception:
         raise HTTPException(400, "Cannot read this file - please upload a valid Excel workbook (.xlsx)")
     try:
-        ws = wb.active
-        if ws is None:
+        sheets = list(wb.worksheets)
+        if not sheets:
             raise HTTPException(400, "The Excel file has no worksheet")
-        it = ws.iter_rows(values_only=True)
-        header = next(it, None)
-        if not header:
-            raise HTTPException(400, "The Excel file has no header row")
-        col = None
-        for i, h in enumerate(header):
-            if any(k in str(h or "").lower() for k in MANIFEST_KEYWORDS):
-                col = i
-                break
-        if col is None:
-            for i, h in enumerate(header):
-                if _norm_hdr(h) in MANIFEST_ID_HEADERS:
-                    col = i
-                    break
-        if col is None:
-            raise HTTPException(400, "Could not find a bag / carton / gunny / sack ID column in the Excel file - check the header row")
-        ids, seen = [], set()
-        for row in it:
-            if not row or col >= len(row):
-                continue
-            v = row[col]
-            if v is None:
-                continue
-            if isinstance(v, float) and v.is_integer():
-                v = int(v)
-            s = str(v).strip()
-            if not s:
-                continue
-            k = s.lower()
-            if k in seen:
-                continue
-            seen.add(k)
-            ids.append(s)
-            if len(ids) > 100000:
-                raise HTTPException(400, "Too many IDs in the file (max 100,000)")
+        found = []
+        for ws in sheets:
+            cand = _manifest_sheet_candidate(ws)
+            if cand:
+                found.append(cand)
     finally:
         try:
             wb.close()
         except Exception:
             pass
-    if not ids:
-        raise HTTPException(400, "No bag / carton / gunny / sack IDs were found in the key column")
-    return ids
+    if not found:
+        names = ", ".join(str(ws.title) for ws in sheets)
+        raise HTTPException(400, "Could not find a bag / carton / gunny / sack ID column in any sheet "
+                                 f"({names}) - the header should be e.g. 'Carton No', 'Bag ID' or 'Sack No'")
+    found.sort(key=lambda c: (c[0], c[1]), reverse=True)
+    return found[0][3]
 
 def _manifest_scope_check(rid, scope_vid):
     if scope_vid is None:
