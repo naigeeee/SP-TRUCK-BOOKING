@@ -12,6 +12,7 @@ import math
 import hashlib
 import hmac
 import contextvars
+from urllib.parse import quote
 import base64
 import secrets
 import time
@@ -7044,7 +7045,7 @@ def _sync_attachments(rid):
     if LOCAL_MODE:
         atts = [a for a in _store["attachments"] if a.get("truck_request_id") == rid]
     else:
-        atts = db_q("SELECT id, original_filename FROM attachments WHERE truck_request_id=%s", (rid,))
+        atts = db_q("SELECT id, original_filename FROM truck_request_attachments WHERE truck_request_id=%s", (rid,))
     return [{"original_filename": a.get("original_filename", ""), "download_url": f"/api/attachments/{a.get('id')}/download"} for a in atts]
 
 @app.get("/api/sync/masterlist")
@@ -7059,6 +7060,16 @@ def sync_masterlist():
         r["initial_qty"] = r.get("initial_quantity") if r.get("initial_quantity") is not None else r.get("quantity")
         r["revised_qty_out"] = r.get("revised_qty") if r.get("revised_qty") is not None else r.get("quantity")
         r["foul_trip_approved"] = r.get("foul_trip_approved_by_email") or r.get("foul_trip_approved_by") or ""
+        # Download links (relative; the sheet prefixes the app URL). A scan manifest only
+        # exists once that scan has been ended - the same rule as the Masterlist links.
+        r["manifest_url"] = f"/api/requests/{r['id']}/manifest/download" if isinstance(m, dict) else ""
+        r["attachments"] = [dict(a, download_url=a.get("download_url") or f"/api/attachments/{a.get('id')}/download")
+                            for a in (r.get("attachments") or []) if isinstance(a, dict) and (a.get("id") or a.get("download_url"))]
+        base = trip_base(r.get("trip_id")) or f"req-{r['id']}"
+        r["pickup_scan_status"] = "Pickup Scan Manifest" if r.get("pickup_scan_closed") else "Not ended yet"
+        r["pickup_scan_url"] = f"/api/trips/{quote(str(base), safe='')}/pickup-scan/download" if r.get("pickup_scan_closed") else ""
+        r["unload_scan_status"] = "Unloading Scan Manifest" if r.get("unload_scan_closed") else "Not ended yet"
+        r["unload_scan_url"] = f"/api/requests/{r['id']}/unload-scan/download" if r.get("unload_scan_closed") else ""
     return items
 
 @app.get("/api/sync/rates")
