@@ -296,7 +296,7 @@ body.scan-mode .layout{display:none}
 <section class="pg" id="pg-rates">
 <div class="pg-hdr"><h1><i class="fas fa-dollar-sign" style="color:var(--ok)"></i> Rate Management</h1><div class="acts"><button class="btn btn-p" onclick="showRateModal()"><i class="fas fa-plus"></i> Add Rate</button></div></div>
 <div class="fb"><input type="text" class="s-input" id="rSrch" placeholder="Search vendor..." oninput="loadRates()" style="width:200px"><div class="fg2"><label>Origin</label><select class="f-input" id="rOrg" onchange="loadRates()"></select></div><div class="fg2"><label>Dest</label><select class="f-input" id="rDst" onchange="loadRates()"></select></div></div>
-<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Vendor</th><th>Truck Type</th><th>Origin Port</th><th>Destination Port</th><th>Rate/Trip</th><th>Effective</th><th>Expiry</th><th>Actions</th></tr></thead><tbody id="rTbl"></tbody></table></div></div></div>
+<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Vendor</th><th>Truck Type</th><th>Origin Port</th><th>Destination Port</th><th>Rate/Trip</th><th>Effective</th><th>Expiry</th><th>Remark</th><th>Actions</th></tr></thead><tbody id="rTbl"></tbody></table></div></div></div>
 </section>
 
 <!-- Vendor Evaluation -->
@@ -319,7 +319,7 @@ body.scan-mode .layout{display:none}
 </div></div>
 <div id="costRes" style="display:none"><div class="stats" id="cStats"></div>
 <div id="cVHdr" style="display:none"><div class="card" style="margin-top:20px"><div class="card-h"><h3><i class="fas fa-handshake"></i> Vendor Share of Delivered + Foul Trip Requests</h3></div><div class="card-b"><div class="stats" id="cVStats"></div></div></div></div>
-<div class="card"><div class="card-h"><h3><i class="fas fa-table"></i> Detailed Breakdown</h3></div><div class="card-b"><div class="tw" style="max-height:calc(100vh - 260px);overflow:auto"><table><thead><tr><th style="cursor:pointer" onclick="sortCost('request_number')">Request # <i class="fas fa-sort"></i></th><th>Actions</th><th style="cursor:pointer" onclick="sortCost('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('department_name')">Department <i class="fas fa-sort"></i></th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortCost('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('actual_cost')">Actual Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee')">Toll Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('management_fee')">Management Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('fuel')">Fuel <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('parking')">Parking <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('miscellaneous')">Miscellaneous <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('manpower')">Manpower <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll')">Toll <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('welfare')">Welfare <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('wh_rental')">WH Rental <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_easytrip')">Toll Fee (Easytrip) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_autosweep')">Toll Fee (Autosweep) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('foul_trip_cost')">Foul Trip Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('fuel_surcharge_cost')">Fuel Surcharge Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('total_cost')">Total Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('status_name')">Status <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('foul_trip_date')">Foul Trip Date <i class="fas fa-sort"></i></th><th>Foul Trip Count Confirmation</th><th>Foul Trip Reason</th><th style="cursor:pointer" onclick="sortCost('cost_updated_by_name')">Updated By <i class="fas fa-sort"></i></th></tr></thead><tbody id="cTbl"></tbody></table></div></div></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-table"></i> Detailed Breakdown</h3></div><div class="card-b"><div class="tw" style="max-height:calc(100vh - 260px);overflow:auto"><table><thead><tr><th style="cursor:pointer" onclick="sortCost('request_number')">Request # <i class="fas fa-sort"></i></th><th>Actions</th><th style="cursor:pointer" onclick="sortCost('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('account_name')">Account <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('department_name')">Department <i class="fas fa-sort"></i></th><th>Distance (KM)</th><th style="cursor:pointer" onclick="sortCost('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('destination_port_name')">Destination Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('international_mawb')">International MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('domestic_mawb')">Domestic MAWB <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('booking_date')">Booking Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('call_datetime')">Initial Call datetime (TBC) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('actual_cost')">Actual Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee')">Toll Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('management_fee')">Management Fee <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('fuel')">Fuel <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('parking')">Parking <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('miscellaneous')">Miscellaneous <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('manpower')">Manpower <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll')">Toll <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('welfare')">Welfare <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('wh_rental')">WH Rental <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_easytrip')">Toll Fee (Easytrip) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('toll_fee_autosweep')">Toll Fee (Autosweep) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('foul_trip_cost')">Foul Trip Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('fuel_surcharge_cost')">Fuel Surcharge Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('total_cost')">Total Cost <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('status_name')">Status <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('foul_trip_date')">Foul Trip Date <i class="fas fa-sort"></i></th><th>Foul Trip Count Confirmation</th><th>Foul Trip Reason</th><th style="cursor:pointer" onclick="sortCost('cost_updated_by_name')">Updated By <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortCost('cost_updated_at')">Updated At <i class="fas fa-sort"></i></th></tr></thead><tbody id="cTbl"></tbody></table></div></div></div>
 </div>
 </section>
 
@@ -335,15 +335,15 @@ body.scan-mode .layout{display:none}
 
 <!-- Trip Utilisation Review -->
 <section class="pg" id="pg-trip-utilisation">
-<div class="pg-hdr"><h1><i class="fas fa-gauge-high" style="color:var(--pri)"></i> Trip Utilisation Review</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="loadTU()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
-<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> Initial Utilisation is measured on the quantities the trip was created with; Revised Utilisation uses the current quantities. Both are converted to base units via <strong>Master Library → Capacity Conversion</strong> and measured against the truck type's max capacity.</div>
+<div class="pg-hdr"><h1><i class="fas fa-gauge-high" style="color:var(--pri)"></i> Trip Utilisation Review</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="loadTU()"><i class="fas fa-sync-alt"></i> Refresh</button> <button class="btn btn-o btn-sm" onclick="exportTUCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div>
+<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> Only <strong>Delivered</strong> requests are reviewed. Initial Utilisation is measured on the quantities the trip was created with; Revised Utilisation uses the current quantities. Both are converted to base units via <strong>Master Library → Capacity Conversion</strong> and measured against the truck type's max capacity.</div>
 <div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-filter"></i> Filters</h3></div><div class="card-b">
 <div class="fr3"><div class="fg"><label class="fl">Final Call From</label><input type="date" class="fi" id="tuFrom" onchange="loadTU()"></div><div class="fg"><label class="fl">Final Call To</label><input type="date" class="fi" id="tuTo" onchange="loadTU()"></div><div class="fg"><label class="fl">Department</label><select class="fs" id="tuDept" onchange="loadTU()"></select></div></div>
 <div class="fr3"><div class="fg"><label class="fl">Origin Port</label><select class="fs" id="tuOrg" onchange="loadTU()"></select></div><div class="fg"><label class="fl">Vendor</label><select class="fs" id="tuVendor" onchange="loadTU()"></select></div><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="tuTT" onchange="loadTU()"></select></div></div>
 </div></div>
 <div class="stats" id="tuStats"></div>
 <div class="card"><div class="card-h"><h3><i class="fas fa-route"></i> Trips</h3><span id="tuCnt" style="font-size:12.5px;color:var(--muted)"></span></div><div class="card-b">
-<div class="tw" style="max-height:calc(100vh - 380px);overflow:auto"><table><thead><tr><th style="cursor:pointer" onclick="sortTU('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('request_count')">Requests <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('department_name')">Department <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('max_capacity_units')">Capacity (units) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('initial_units')">Initial Qty (units) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('initial_utilisation')">Initial Utilisation % <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('revised_units')">Revised Qty (units) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('revised_utilisation')">Revised Utilisation % <i class="fas fa-sort"></i></th></tr></thead><tbody id="tuTbl"></tbody></table></div>
+<div class="tw" style="max-height:calc(100vh - 380px);overflow:auto"><table><thead><tr><th style="cursor:pointer" onclick="sortTU('trip_id')">Trip ID <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('final_call_datetime')">Final Call Datetime <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('status_name')">Status <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('request_count')">Requests <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('origin_port_name')">Origin Port <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('department_name')">Department <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('vendor_name')">Vendor <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('truck_type_name')">Truck Type <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('max_capacity_units')">Capacity (units) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('initial_units')">Initial Qty (units) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('initial_utilisation')">Initial Utilisation % <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('revised_units')">Revised Qty (units) <i class="fas fa-sort"></i></th><th style="cursor:pointer" onclick="sortTU('revised_utilisation')">Revised Utilisation % <i class="fas fa-sort"></i></th></tr></thead><tbody id="tuTbl"></tbody></table></div>
 </div></div>
 </section>
 
@@ -475,10 +475,10 @@ body.scan-mode .layout{display:none}
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Pending Allocation to Vendors</strong>. Waiting requests are grouped by origin port and time window. Use the <strong>MAWB</strong> box at the top to narrow the list.</li>
-<li>Tick the requests you want to send together. <strong>Select All</strong> selects everything with the same origin port &mdash; only requests sharing an origin can go on one trip (a notice appears if you mix origins).</li>
-<li>Watch the green <strong>Consolidation suggestion</strong> banner: it proposes a combination and truck type that reaches a good utilisation percentage. Click <strong>Select these</strong> to take the suggestion.</li>
+<li>Tick the requests you want to send together &mdash; only requests sharing an origin can go on one trip (a notice appears if you mix origins).</li>
+<li>Watch the <strong>Consolidation suggestion</strong> banners: for each time window the app looks for requests that can share a truck and picks the truck type that brings the load into <strong style="color:#16A34A">green (&gt;85%)</strong> &mdash; it does not have to be 100%. When several green trucks are possible they are listed as Suggestion 1, 2, ... If no combination reaches green, the best yellow/red option is shown in amber. Click <strong>Select these</strong> to take a suggestion.</li>
 <li><strong>Step 1 &mdash; Drop order</strong> (appears when destinations differ): drops are suggested automatically by shortest distance; the distance between stops is shown in red. Change any number manually or click <strong>Re-suggest order</strong>.</li>
-<li><strong>Step 2 &mdash; Truck type</strong>: pick the truck. The <strong>Trip Utilisation</strong> box shows the load against the truck's max capacity: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>. Overload and weight/volume warnings appear in red above the panel.</li>
+<li><strong>Step 2 &mdash; Truck type</strong>: pick the truck. The <strong>Trip Utilisation</strong> box shows the load against the truck's max capacity: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>. Weight (KG) and volume (CBM) are not checked against the truck's maximums.</li>
 <li><strong>Step 3 &mdash; Vendor</strong>: vendors are pre-sorted with the cheapest matching rate first. If a truck type has no max capacity set, add it in Master Library &rarr; Truck Types.</li>
 <li><strong>Step 4 &mdash; Final Call datetime</strong>: required. Pick the date/time.</li>
 <li>Click <strong>Allocate to Vendor</strong>. You get a confirmation with the new Trip ID, the requests get drop numbers, and they leave this page.</li>
@@ -620,7 +620,7 @@ body.scan-mode .layout{display:none}
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>User Roles</strong> (Admin and Master Admin). Every signed-in user is listed with name, email and role.</li>
-<li>Change a user's access with the <strong>Role</strong> dropdown: Viewer, Normal User, Admin, Master Admin, <strong>Driver/Fleet</strong> (Scanning App only), New User (no access) or a Vendor role. The change takes effect on their next page load.</li>
+<li>Change a user's access with the <strong>Role</strong> dropdown: Viewer, Normal User, Admin, Master Admin, <strong>Driver/Fleet</strong> (Scanning App only by default), New User (no access) or a Vendor role. The change takes effect on their next page load.</li>
 <li>A Master Admin can also change <strong>their own</strong> role from the dropdown on their own row &mdash; the page reloads with the new permissions straight away. Note: once you switch away from Master Admin, only another Master Admin can switch you back.</li>
 <li>Admins cannot change their own role, and only Master Admins can assign the Master Admin role.</li>
 <li>Click a user's <strong>name</strong> to rename it (Admin+), or the red minus to remove the user.</li>
@@ -635,7 +635,7 @@ body.scan-mode .layout{display:none}
 <li>Tick the pages that role should see, then click <strong>Save Changes</strong>. Users pick up the change on their next page load.</li>
 <li>Click a role heading to rename how the role is displayed everywhere (e.g. rename "Normal User" to "Dispatcher").</li>
 <li><strong>New User</strong> always starts with no pages &mdash; that is the "waiting for access" state. The <strong>User Guide</strong> page is granted to every role automatically and cannot be switched off.</li>
-<li><strong>Scanning App</strong> is a page like the others and can be switched on or off per role. <strong>Driver/Fleet</strong> is fixed to the Scanning App only: users with that role open straight into it and cannot reach the rest of the app.</li>
+<li><strong>Scanning App</strong> is a page like the others and can be switched on or off per role. <strong>Driver/Fleet</strong> starts with the Scanning App only: while that is its only page, its users open straight into the scanning app and cannot reach the rest of the app. Tick more pages for Driver/Fleet to widen its scope like any other role.</li>
 </ol>
 </div></div>
 
@@ -1155,7 +1155,7 @@ async function loadML(){
         }else if(r.drop_sequence&&(multiDrop||r.status_id===7||r.status_id===4||r.status_id===5)){
           dropCell='<strong>'+r.drop_sequence+'</strong>';
         }
-        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&r.driver_account_id&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
+        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&(r.driver_account_id||r.trip_has_driver)&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
       }).join('');
     }else{tb.innerHTML='<tr><td colspan="45" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
     [...tb.rows].forEach(row=>{if(row.children.length===ML_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=ML_KEYS[i]})});
@@ -1268,6 +1268,14 @@ async function viewReq(id){
       f('Foul Trip Reason',v(r.foul_trip_reason)),f('Foul Trip Date',fmtDDate(r.foul_trip_date)),
       f('Foul Trip Count Confirmation',ftc),f('Foul Trip Approval',appr),
       f('Cancellation Date',fmtDDate(r.cancellation_date))]);
+    const scanFiles=[];
+    if(r.pickup_scan_closed)scanFiles.push('<a href="/api/trips/'+encodeURIComponent(r.scan_trip_base)+'/pickup-scan/download" class="ml-scan-link"><i class="fas fa-barcode"></i> Pickup Scan Manifest</a>');
+    if(r.unload_scan_closed)scanFiles.push('<a href="/api/requests/'+id+'/unload-scan/download" class="ml-scan-link"><i class="fas fa-box-open"></i> Unloading Scan Manifest</a>');
+    h+=sec('Scan manifests &amp; last update','history',[
+      f('Pickup Scan Manifest',r.pickup_scan_closed?scanFiles[0]:'<span style="color:var(--muted)">Pickup scan not ended yet</span>'),
+      f('Unloading Scan Manifest',r.unload_scan_closed?scanFiles[scanFiles.length-1]:'<span style="color:var(--muted)">Unloading scan not ended yet</span>'),
+      f('Updated By',v(r.updated_by_name||r.updated_by)+(r.updated_by&&r.updated_by_name&&r.updated_by_name!==r.updated_by?'<br><small style="color:var(--muted)">'+esc(r.updated_by)+'</small>':'')),
+      f('Updated At',fmtD(r.updated_at))]);
     h+='<div class="vw-cols"><div class="vw-sec"><h4><i class="fas fa-comment-alt"></i> Instructions</h4><p style="font-size:13.5px;white-space:pre-wrap">'+v(r.special_instructions)+'</p></div><div class="vw-sec"><h4><i class="fas fa-file-csv"></i> Manifest</h4>'+(r.manifest?('<p style="font-size:13px"><i class="fas fa-file-csv" style="color:#16A34A"></i> <strong>'+esc(r.manifest.original_filename)+'</strong> &middot; '+fmtS(r.manifest.file_size)+' &middot; <strong>'+r.manifest.id_count+' IDs</strong><br><a href="/api/requests/'+id+'/manifest/download"><i class="fas fa-download"></i> Download manifest CSV</a></p>'):'<p style="font-size:13px;color:#DC2626;font-weight:700">Missing Manifest</p>')+'</div>'+
       '<div class="vw-sec"><h4><i class="fas fa-paperclip"></i> Attachments ('+(r.attachments||[]).length+'/8)</h4>'+(atts||'<p style="color:var(--muted);font-size:13px">No attachments</p>')+'</div></div>';
     document.getElementById('mBody').innerHTML=h;
@@ -1289,7 +1297,9 @@ async function editReq(id){
     document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Account</label><select class="fs" id="eAcct"></select></div><div class="fg"><label class="fl">Department</label><select class="fs" id="eDept"></select></div></div><div class="fr"><div class="fg"><label class="fl">Origin</label><select class="fs" id="eOrg"></select></div><div class="fg"><label class="fl">Destination</label><select class="fs" id="eDst"></select></div></div><div class="fr"><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi" id="eImawb" maxlength="100" value="'+String(r.international_mawb||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi" id="eDmawb" maxlength="100" value="'+String(r.domestic_mawb||'').replace(/"/g,'&quot;')+'"></div></div><div class="fr"><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="eTT"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="eSt"></select></div></div><div class="fr"><div class="fg"><label class="fl">Truck Plate #</label><div id="ePlateWrap"></div></div><div class="fg"><label class="fl">Vendor</label><p id="eVname" style="font-size:13px;margin:0;padding-top:8px">-</p></div></div><div class="fr"><div class="fg"><label class="fl">Initial Call datetime (TBC)</label><input type="datetime-local" class="fi" id="eCall" value="'+toDT(r.call_datetime)+'"></div><div class="fg"><label class="fl">Customs Cleared</label><input type="datetime-local" class="fi" id="eCustoms" value="'+toDT(r.customs_cleared_datetime)+'"></div></div><div class="fr"><div class="fg"><label class="fl">Final Call Datetime</label><input type="datetime-local" class="fi" id="eFinal" value="'+toDT(r.final_call_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Qty</label><input type="number" class="fi" id="eQty" value="'+(r.quantity||0)+'"></div><div class="fg"><label class="fl">Weight</label><input type="number" step="0.01" class="fi" id="eWt" value="'+(r.weight_kg||0)+'"></div><div class="fg"><label class="fl">Volume</label><input type="number" step="0.01" class="fi" id="eVol" value="'+(r.volume_cbm||0)+'"></div></div><div class="fg"><label class="fl">Instructions</label><textarea class="ft" id="eNotes">'+(r.special_instructions||'')+'</textarea></div><hr style="margin:12px 0;border-color:var(--bdr)"><h4 style="font-size:14px;font-weight:600;margin-bottom:12px">Trip Details</h4><div class="fr"><div class="fg"><label class="fl">Foul Trip Date</label><input type="date" class="fi" id="eFoulDate" value="'+(r.foul_trip_date||'')+'"></div><div class="fg"><label class="fl">Foul Trip Reason</label><input class="fi" id="eFoul" value="'+(r.foul_trip_reason||'')+'" placeholder="Required if Foul Trip status"></div></div><div class="fr"><div class="fg"><label class="fl">Foul Trip Count Confirmation *</label><select class="fs" id="eFoulCount"><option value="">-- Select 1 or 2 --</option><option value="1">1</option><option value="2">2</option></select></div><div class="fg"><label class="fl">&nbsp;</label><small style="font-size:12px;color:var(--muted);display:block;padding-top:6px">Compulsory (1 or 2) when setting the status to Foul Trip. Used to work out the Foul Trip Cost.</small></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Pickup</label><input type="datetime-local" class="fi" id="eArrPickup" value="'+toDT(r.arrived_pickup_datetime)+'"></div><div class="fg"><label class="fl">Start Loading</label><input type="datetime-local" class="fi" id="eStartLoad" value="'+toDT(r.start_loading_datetime)+'"></div><div class="fg"><label class="fl">End Loading</label><input type="datetime-local" class="fi" id="eEndLoad" value="'+toDT(r.end_loading_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Destination</label><input type="datetime-local" class="fi" id="eArrDest" value="'+toDT(r.arrived_dest_datetime)+'"></div><div class="fg"><label class="fl">Start Unloading</label><input type="datetime-local" class="fi" id="eStartUnload" value="'+toDT(r.start_unloading_datetime)+'"></div><div class="fg"><label class="fl">End Unloading</label><input type="datetime-local" class="fi" id="eEndUnload" value="'+toDT(r.end_unloading_datetime)+'"></div></div><div class="fg"><label class="fl">Attachments ('+(r.attachments||[]).length+'/8)</label><div style="font-size:11px;color:var(--muted);margin:2px 0 4px"><i class="fas fa-info-circle"></i> Max 8 files, 25 MB total per request</div><div id="eAtts"></div><input type="file" class="fi" id="eFile" multiple accept="*/*" style="margin-top:8px"></div><div class="fr"><div class="fg"><label class="fl">Cancellation Date</label><input type="date" class="fi" id="eCancelDate" value="'+(r.cancellation_date||'')+'"></div><div class="fg"></div></div><div class="fr"><div class="fg" style="grid-column:1/-1"><label class="fl">Manifest (Excel)</label><div id="eManInfo"></div><input type="file" class="fi" id="eManFile" accept=".xlsx,.xlsm" style="margin-top:8px"><div style="font-size:11px;color:var(--muted);margin-top:4px"><i class="fas fa-info-circle"></i> Max 5 MB &middot; one manifest file per request &middot; the key column (bag/carton/gunny/sack) is read into unique IDs; the Excel file itself is not kept &mdash; it is converted straight into a CSV (the MAWBs plus those IDs), and that CSV is what gets stored and downloaded.</div></div></div>';
     popSel('eAcct',accts,'id','name');popSel('eDept',depts,'id','name');popSel('eOrg',ports,'id','name');popSel('eDst',ports,'id','name');popSel('eTT',tts,'id','name');
     const validTrans={1:[1,2,3,4,5,6,7],2:[1,2,3,4,5,6,7],3:[3,4,5,6,7],4:[4,6],5:[5,6],6:[3,4,5,6,7],7:[6,7]};
-    const allowed=validTrans[r.status_id]||[r.status_id];
+    let allowed=validTrans[r.status_id]||[r.status_id];
+    // Vendor roles cannot move a request back to Pending.
+    if(isVendor&&r.status_id!==1)allowed=allowed.filter(x=>x!==1);
     const filteredSts=sts.filter(s=>allowed.includes(s.id));
     popSel('eSt',filteredSts,'id','name');
     document.getElementById('eAcct').value=r.account_id;document.getElementById('eDept').value=r.department_id;document.getElementById('eOrg').value=r.origin_port_id;document.getElementById('eDst').value=r.destination_port_id;document.getElementById('eTT').value=r.truck_type_id;    document.getElementById('eSt').value=r.status_id;document.getElementById('eSt').dataset.prev=String(r.status_id);
@@ -1486,7 +1496,7 @@ function renderPend(){
     if(!pendData.length){el.innerHTML='<div class="card"><div class="card-b"><div class="empty"><i class="fas fa-check-circle"></i><p>No pending allocations</p></div></div></div>';return}
     const items=mf?pendData.filter(i=>((i.international_mawb||'')+' '+(i.domestic_mawb||'')).toLowerCase().includes(mf)):pendData;
     if(!items.length){el.innerHTML='<div class="card"><div class="card-b"><div class="empty"><i class="fas fa-filter"></i><p>No pending allocations match the MAWB filter</p></div></div></div>';return}
-    let html='<div class="card" style="margin-bottom:16px"><div class="card-b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><label class="fl" style="margin:0"><input type="checkbox" id="selectAllPend" onchange="toggleSelectAll()"> Select All</label><span id="selCount" style="font-size:13px;color:var(--muted)"></span></div><div id="pendOriginWarn" style="display:none;padding:8px 12px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E;margin-bottom:4px"><i class="fas fa-info-circle"></i> Only requests with the same origin port can be consolidated together.</div></div></div>';
+    let html='<div class="card" style="margin-bottom:16px"><div class="card-b"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><span style="font-size:13px;color:var(--muted)"><i class="fas fa-hand-pointer"></i> Tick the requests to allocate, or use a consolidation suggestion.</span><span id="selCount" style="font-size:13px;color:var(--muted)"></span></div><div id="pendOriginWarn" style="display:none;padding:8px 12px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E;margin-bottom:4px"><i class="fas fa-info-circle"></i> Only requests with the same origin port can be consolidated together.</div></div></div>';
     const originGroups=groupPendItems(items);
     originGroups.forEach(og=>{
       html+='<div style="margin-bottom:20px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;background:var(--pri);color:#fff;border-radius:8px;font-weight:600;font-size:14px"><i class="fas fa-map-marker-alt"></i> '+og.origin_name+' <span style="font-weight:400;font-size:12px;opacity:.8">('+og.groups.length+' time window(s), '+og.groups.reduce((a,g)=>a+g.items.length,0)+' requests)</span></div>';
@@ -1508,11 +1518,15 @@ function renderPend(){
           const txtClr=grp._hasRef?'var(--pri)':'#6B7280';
           html+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;margin-left:8px;padding:4px 10px;background:'+bgClr+';border-radius:6px;font-size:12px;color:'+txtClr+';font-weight:500"><i class="fas fa-clock"></i> '+windowLabel+'</div>';
         }
-        const combo=bestConsolCombo(grp.items);
-        if(combo){
+        const combos=consolPlan(grp.items);
+        combos.forEach((combo,ci)=>{
           const ct=utilTier(combo.pct);
-          html+='<div style="margin-bottom:8px;margin-left:8px;padding:10px 12px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;font-size:12.5px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span><i class="fas fa-lightbulb" style="color:#16A34A"></i> <strong>Consolidation suggestion:</strong> load <strong>'+combo.ids.length+'</strong> of these requests onto a <strong>'+esc(combo.tt.name||'')+'</strong> to reach <strong style="color:'+utilColor(ct)+'">'+utilText(combo.pct)+' utilisation</strong> <span style="font-size:11px;font-weight:700;color:'+utilColor(ct)+'">'+(ct==='red'?'RED':ct==='yellow'?'YELLOW':'GREEN')+'</span> <span style="color:var(--muted)">('+Math.round(combo.units*100)/100+' / '+combo.cap+' '+esc(ccBaseName())+')</span></span><button type="button" class="btn btn-sm btn-p" onclick="selectConsolCombo(\''+combo.ids.join(',')+'\')"><i class="fas fa-check-double"></i> Select these</button></div>';
-        }
+          const green=ct==='green';
+          const nums=combo.ids.map(id=>{const it=grp.items.find(x=>x.id===id);return it?it.request_number:''}).filter(Boolean);
+          html+='<div style="margin-bottom:8px;margin-left:8px;padding:10px 12px;background:'+(green?'#ECFDF5':'#FFFBEB')+';border:1px solid '+(green?'#A7F3D0':'#FDE68A')+';border-radius:8px;font-size:12.5px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span><i class="fas fa-lightbulb" style="color:'+(green?'#16A34A':'#D97706')+'"></i> <strong>Consolidation suggestion'+(combos.length>1?' '+(ci+1):'')+':</strong> load <strong>'+combo.ids.length+'</strong> of these requests onto a <strong>'+esc(combo.tt.name||'')+'</strong> to reach <strong style="color:'+utilColor(ct)+'">'+utilText(combo.pct)+' utilisation</strong> <span style="font-size:11px;font-weight:700;color:'+utilColor(ct)+'">'+(ct==='red'?'RED':ct==='yellow'?'YELLOW':'GREEN')+'</span>'+
+            (green?'':' <span style="color:var(--muted)">&middot; no combination of these requests reaches green</span>')+
+            '<br><span style="color:var(--muted);font-size:11.5px">'+nums.map(esc).join(', ')+'</span></span><button type="button" class="btn btn-sm btn-p" onclick="selectConsolCombo(\''+combo.ids.join(',')+'\')"><i class="fas fa-check-double"></i> Select these</button></div>';
+        });
         grp.items.forEach(item=>{
           const sugs=(item.consolidation_suggestions||[]);
           html+='<div class="card pend-card" style="margin-bottom:10px;margin-left:16px"><div class="card-b" style="padding:14px 18px"><div style="display:flex;align-items:flex-start;gap:12px"><input type="checkbox" class="pend-check" data-id="'+item.id+'" data-truck-type="'+(item.truck_type_id||0)+'" data-qty="'+(item.quantity||0)+'" data-pkg="'+(item.packaging_type_id||0)+'" data-origin="'+(item.origin_port_id||0)+'" onchange="onPendCheck()" style="margin-top:4px;width:18px;height:18px;cursor:pointer"><div style="flex:1"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--pri);font-size:14px">'+item.request_number+'</strong>'+stBadge(item.status_name||'Pending','#F59E0B')+'</div><div class="fr" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:0"><div><label class="fl">Requestor</label><p style="font-size:13px">'+(item.requestor_name||'')+'</p></div><div><label class="fl">Department</label><p style="font-size:13px">'+(item.department_name||'')+'</p></div><div><label class="fl">Origin Port</label><p style="font-size:13px">'+(item.origin_port_name||'')+'</p></div><div><label class="fl">Destination Port</label><p style="font-size:13px">'+(item.destination_port_name||'')+'</p></div></div><div class="fr" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:6px;margin-bottom:0"><div><label class="fl">Initial Call datetime (TBC)</label><p style="font-size:13px">'+fmtD(item.call_datetime)+'</p></div><div><label class="fl">Packaging</label><p style="font-size:13px">'+(item.packaging_type_name||'-')+'</p></div><div><label class="fl">Qty</label><p style="font-size:13px">'+(item.quantity||0)+'</p></div><div><label class="fl">Weight / Volume</label><p style="font-size:13px">'+(item.weight_kg||0)+' KG / '+(item.volume_cbm||0)+' CBM</p></div><div><label class="fl">International MAWB</label><p style="font-size:13px">'+(item.international_mawb||'-')+'</p></div><div><label class="fl">Domestic MAWB</label><p style="font-size:13px">'+(item.domestic_mawb||'-')+'</p></div></div>'+(sugs.length?'<div style="margin-top:8px;border:1px solid #FCD34D;border-radius:6px;overflow:hidden"><div class="sugs-toggle" onclick="this.parentElement.classList.toggle(\'expanded\');this.querySelector(\'i\').className=this.parentElement.classList.contains(\'expanded\')?\'fas fa-chevron-up\':\'fas fa-chevron-down\'" style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#FEF3C7;border-radius:6px;font-size:12px;cursor:pointer;user-select:none"><i class="fas fa-chevron-down" style="color:var(--warn);font-size:10px"></i><i class="fas fa-link" style="color:var(--warn)"></i> <strong>'+sugs.length+'</strong> consolidation suggestion(s)</div><div class="sugs-body" style="padding:6px 10px 10px">'+sugs.map(s=>'<div style="margin-top:5px;padding:6px 8px;background:#fff;border-radius:4px;border:1px solid #FCD34D"><strong style="color:var(--pri)">'+s.request_number+'</strong> — '+s.requestor_name+'<br>Initial Call (TBC): '+fmtD(s.call_datetime)+' | Qty: '+s.quantity+' | '+s.packaging_type_name+'<br>Weight: '+(s.weight_kg||0)+' KG | Volume: '+(s.volume_cbm||0)+' CBM<br><span style="color:var(--muted);font-style:italic">'+(s.reason||'')+'</span></div>').join('')+'</div></div>':'')+'</div></div></div></div>';
@@ -1522,15 +1536,6 @@ function renderPend(){
     });
     html+='<div id="pendAssignPanel" style="display:none"><div class="card" style="border:2px solid var(--pri)"><div class="card-h" style="background:rgba(37,99,235,.05)"><h3><i class="fas fa-route" style="color:var(--pri)"></i> Route to Vendor</h3></div><div class="card-b"><div id="consolWarn" style="display:none;padding:12px;background:#FEE2E2;border-radius:8px;margin-bottom:12px;font-size:13px;color:#DC2626"><i class="fas fa-exclamation-triangle"></i> <span id="consolWarnTxt"></span></div><div id="dropOrderSection" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg);border-radius:8px"><label class="fl" style="margin-bottom:4px">Step 1: Set Drop Point Order (1st = first delivery)</label><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px"><small style="font-size:11.5px;color:var(--muted)"><i class="fas fa-wand-magic-sparkles" style="color:var(--info)"></i> Suggested automatically by shortest distance — you can still change any drop number.</small><button type="button" class="btn btn-sm btn-o" onclick="suggestDropOrder()"><i class="fas fa-route"></i> Re-suggest order</button></div><div id="dropOrderRows"></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 2: Select Truck Type *</label><select class="fs" id="pendTruckType" onchange="onTruckTypeChange()"><option value="">Select truck type...</option></select></div><div class="fg"><label class="fl">Step 3: Select Vendor *</label><select class="fs" id="pendVendor"><option value="">Select vendor...</option></select></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 4: Final Call Datetime *</label><input type="datetime-local" class="fi" id="pendFinalCall"></div><div></div></div><div id="pendUtilBox" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div id="consolSummary" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div style="display:flex;gap:10px"><button class="btn btn-p" onclick="allocateSelected()"><i class="fas fa-check"></i> Allocate to Vendor</button><button class="btn btn-o" onclick="clearPendSelection()"><i class="fas fa-times"></i> Cancel</button></div></div></div></div>';
     el.innerHTML=html;
-}
-
-function toggleSelectAll(){
-  const checked=document.getElementById('selectAllPend').checked;
-  const firstOrigin=pendData.length?pendData[0].origin_port_id:null;
-  document.querySelectorAll('.pend-check').forEach(c=>{
-    if(checked){c.checked=(+c.dataset.origin===firstOrigin)}else{c.checked=false}
-  });
-  onPendCheck();
 }
 
 let pendSelectedOrigin=null;
@@ -1633,18 +1638,8 @@ function pendCapWarn(){
       }
     }
   }
-  let totalKg=0,totalCbm=0;
-  checked.forEach(c=>{
-    const pd=pendData.find(p=>p.id===+c.dataset.id);
-    if(!pd)return;
-    totalKg+=parseFloat(pd.weight_kg)||0;totalCbm+=parseFloat(pd.volume_cbm)||0;
-  });
-  if(tt&&checked.length){
-    const maxKg=parseFloat(tt.max_capacity_kg)||0;
-    const maxCbm=parseFloat(tt.max_capacity_cbm)||0;
-    if(maxKg>0&&totalKg>maxKg)msgs.push('Weight: '+totalKg+' kg ordered vs '+maxKg+' kg capacity');
-    if(maxCbm>0&&totalCbm>maxCbm)msgs.push('Volume: '+totalCbm+' CBM ordered vs '+maxCbm+' CBM capacity');
-  }
+  // Weight (KG) and volume (CBM) are no longer checked against the truck's maximums;
+  // utilisation in base units (above) is the capacity measure.
   if(msgs.length){
     warnEl.style.display='block';warnEl.style.background='#FEE2E2';warnEl.style.color='#DC2626';
     warnTxt.innerHTML='<i class="fas fa-exclamation-triangle"></i> <strong>Overload Warning:</strong> '+msgs.join('; ')+'. You can still proceed, but this will overbook the truck.';
@@ -1654,7 +1649,6 @@ function onTruckTypeChange(){pendCapWarn()}
 
 function clearPendSelection(){
   document.querySelectorAll('.pend-check').forEach(c=>c.checked=false);
-  document.getElementById('selectAllPend').checked=false;
   pendSelectedOrigin=null;
   pendAllTrucks=[];
   const fc=document.getElementById('pendFinalCall');if(fc)fc.value='';
@@ -1785,15 +1779,37 @@ function bestConsolCombo(items){
   const arr=items.map(it=>({id:it.id,u:baseUnits(it.quantity,it.packaging_type_id)})).filter(x=>x.u>0);
   if(arr.length<2)return null;
   let best=null;
+  const rank=c=>{const t=utilTier(c.pct);return [t==='green'?2:t==='yellow'?1:0,t==='green'?c.units:c.pct,c.ids.length,-c.cap]};
+  const better=(a,b)=>{const x=rank(a),y=rank(b);for(let i=0;i<x.length;i++){if(Math.abs(x[i]-y[i])>1e-9)return x[i]>y[i]}return false};
   tts.filter(t=>t.is_active!==false&&t.max_capacity_units!=null&&parseFloat(t.max_capacity_units)>0).forEach(tt=>{
     const cap=parseFloat(tt.max_capacity_units);
     const sel=knapsackBest(arr,cap);
     if(!sel||!sel.ids||sel.ids.length<2)return;
     const pct=sel.units/cap*100;
     if(pct>100+1e-9)return;
-    if(!best||pct>best.pct)best={ids:sel.ids,pct:pct,tt:tt,units:sel.units,cap:cap};
+    const c={ids:sel.ids,pct:pct,tt:tt,units:sel.units,cap:cap};
+    if(!best||better(c,best))best=c;
   });
   return best;
+}
+/* Smarter consolidation: for every truck type find the fullest load of these requests
+   that fits (never above 100%). Prefer a load that reaches GREEN (>85%) - it does not
+   have to be 100% - and among green loads move the most cargo. When no load reaches
+   green, offer the best yellow/red one. Repeat on the requests that are left so a
+   time window can produce several suggested trucks. */
+function consolPlan(items){
+  const out=[];
+  let pool=(items||[]).slice();
+  for(let n=0;n<5&&pool.length>=2;n++){
+    const c=bestConsolCombo(pool);
+    if(!c)break;
+    const t=utilTier(c.pct);
+    if(out.length&&t!=='green')break;          // extra trucks only when they are green
+    out.push(c);
+    pool=pool.filter(x=>!c.ids.includes(x.id));
+    if(t!=='green')break;
+  }
+  return out;
 }
 function selectConsolCombo(idsStr){
   const ids=(idsStr||'').split(',').map(Number);
@@ -2219,21 +2235,56 @@ async function loadRates(){
     data.forEach(r=>{if(typeof r.destination_drops==='string'){try{r.destination_drops=JSON.parse(r.destination_drops)}catch(e){r.destination_drops=[]}}});
     const tb=document.getElementById('rTbl');
     const today=new Date().toISOString().slice(0,10);
-    const rowHtml=r=>'<tr><td><strong>'+r.vendor_name+'</strong></td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtDDate(r.effective_date)+'</td><td>'+fmtDDate(r.expiry_date)+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
+    const rowHtml=(r,remark)=>'<tr><td><strong>'+esc(r.vendor_name||'')+'</strong></td><td>'+esc(r.truck_type_name||'')+'</td><td>'+esc(r.origin_port_name||'')+'</td><td>'+esc(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtDDate(r.effective_date)+'</td><td>'+fmtDDate(r.expiry_date)+'</td><td>'+(remark||'<span style="color:var(--muted)">-</span>')+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
+    /* Second grouping: rates sharing an origin -> destination pair sit together.
+       When a pair has more than one rate, the Remark column names the cheapest
+       vendor for each truck type (rates of different truck types are not compared). */
+    const pairGroups=list=>{
+      const m=new Map();
+      list.forEach(r=>{const k=(r.origin_port_id||'')+'>'+(r.destination_port_id||'');if(!m.has(k))m.set(k,[]);m.get(k).push(r)});
+      return [...m.values()].sort((x,y)=>(String(x[0].origin_port_name||'')+String(x[0].destination_port_name||'')).localeCompare(String(y[0].origin_port_name||'')+String(y[0].destination_port_name||'')));
+    };
+    const groupHtml=(rows,accent)=>{
+      let out='';
+      pairGroups(rows).forEach(g=>{
+        const remarks=new Map();
+        let headExtra='';
+        if(g.length>1){
+          const byTT=new Map();
+          g.forEach(r=>{const k=r.truck_type_id||0;if(!byTT.has(k))byTT.set(k,[]);byTT.get(k).push(r)});
+          const lows=[];
+          byTT.forEach(list=>{
+            const tt=esc(list[0].truck_type_name||'this truck type');
+            if(list.length<2){remarks.set(list[0].id,'<span style="color:var(--muted);font-size:12px">Only '+tt+' rate on this route</span>');return}
+            const min=Math.min(...list.map(x=>+x.rate_per_trip||0));
+            const cheapest=list.filter(x=>(+x.rate_per_trip||0)===min);
+            const others=list.filter(x=>(+x.rate_per_trip||0)!==min).map(x=>+x.rate_per_trip||0);
+            const next=others.length?Math.min(...others):null;
+            cheapest.forEach(x=>remarks.set(x.id,'<span class="badge" style="background:#DCFCE7;color:#166534"><i class="fas fa-arrow-down"></i> Lowest '+tt+' rate'+(cheapest.length>1?' (tie)':'')+'</span>'+(next!=null?'<br><small style="color:var(--muted)">₱'+fmtN(next-min)+' below next</small>':'')));
+            list.filter(x=>!cheapest.includes(x)).forEach(x=>remarks.set(x.id,'<small style="color:var(--muted)">₱'+fmtN((+x.rate_per_trip||0)-min)+' above '+esc(cheapest[0].vendor_name||'')+'</small>'));
+            lows.push(cheapest.map(x=>esc(x.vendor_name||'')).join(' / ')+' ('+tt+', ₱'+fmtN(min)+')');
+          });
+          if(lows.length)headExtra=' &middot; <span style="color:#166534">Lowest: '+lows.join('; ')+'</span>';
+        }
+        out+='<tr><td colspan="9" style="background:'+accent+';font-weight:600;padding:6px 10px 6px 22px;font-size:12.5px"><i class="fas fa-route" style="color:var(--pri)"></i> '+esc(g[0].origin_port_name||'-')+' &rarr; '+esc(g[0].destination_port_name||'-')+' <span style="font-weight:400;color:var(--muted)">('+g.length+' rate'+(g.length>1?'s':'')+')</span>'+headExtra+'</td></tr>';
+        g.slice().sort((x,y)=>String(x.truck_type_name||'').localeCompare(String(y.truck_type_name||''))||(+x.rate_per_trip||0)-(+y.rate_per_trip||0)).forEach(r=>{out+=rowHtml(r,remarks.get(r.id))});
+      });
+      return out;
+    };
     if(data.length){
       const cur=data.filter(r=>!r.expiry_date||String(r.expiry_date).slice(0,10)>=today);
       const hist=data.filter(r=>r.expiry_date&&String(r.expiry_date).slice(0,10)<today);
       let html='';
       if(cur.length){
-        html+='<tr><td colspan="8" style="background:#ECFDF5;font-weight:700;color:#047857;padding:8px 10px"><i class="fas fa-check-circle"></i> Current Rate <span style="font-weight:400;color:var(--mut)">('+cur.length+')</span></td></tr>';
-        html+=cur.map(rowHtml).join('');
+        html+='<tr><td colspan="9" style="background:#ECFDF5;font-weight:700;color:#047857;padding:8px 10px"><i class="fas fa-check-circle"></i> Current Rate <span style="font-weight:400;color:var(--mut)">('+cur.length+')</span></td></tr>';
+        html+=groupHtml(cur,'#F0FDF4');
       }
       if(hist.length){
-        html+='<tr><td colspan="8" style="background:#FEF2F2;font-weight:700;color:#B91C1C;padding:8px 10px"><i class="fas fa-history"></i> Historical Rate <span style="font-weight:400;color:#B91C1C;opacity:.8">('+hist.length+')</span></td></tr>';
-        html+=hist.map(rowHtml).join('');
+        html+='<tr><td colspan="9" style="background:#FEF2F2;font-weight:700;color:#B91C1C;padding:8px 10px"><i class="fas fa-history"></i> Historical Rate <span style="font-weight:400;color:#B91C1C;opacity:.8">('+hist.length+')</span></td></tr>';
+        html+=groupHtml(hist,'#FFF7F7');
       }
       tb.innerHTML=html;
-    }else{tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-dollar-sign"></i><p>No rates found</p></td></tr>'}
+    }else{tb.innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-dollar-sign"></i><p>No rates found</p></td></tr>'}
   }catch(e){console.error(e)}
 }
 
@@ -2404,8 +2455,8 @@ async function loadCost(){
 }
 function exportCostCSV(){
   if(!costData||!costData.requests||!costData.requests.length){toast('No data to export','error');return}
-  const rows=[['Request #','Trip ID','Account','Department','Distance (KM)','Origin Port','Destination Port','International MAWB','Domestic MAWB','Truck Type','Vendor','Booking Date','Initial Call datetime (TBC)','Final Call Datetime','Delivered Date','Actual Cost','Toll Fee','Management Fee','Fuel','Parking','Miscellaneous','Manpower','Toll','Welfare','WH Rental','Toll Fee (Easytrip)','Toll Fee (Autosweep)','Foul Trip Cost','Fuel Surcharge Cost','Total Cost','Status','Foul Trip Date','Foul Trip Count Confirmation','Foul Trip Reason','Updated By']];
-  costData.requests.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.account_name||'',r.department_name||'',r.distance_km!=null?r.distance_km:'',r.origin_port_name||'',r.destination_port_name||'',r.international_mawb||'',r.domestic_mawb||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.call_datetime||'',r.final_call_datetime||'',r.delivered_date||'',r.actual_cost||0,(r.toll_fee||0),(r.management_fee||0),(r.fuel||0),(r.parking||0),(r.miscellaneous||0),(r.manpower||0),(r.toll||0),(r.welfare||0),(r.wh_rental||0),(r.toll_fee_easytrip||0),(r.toll_fee_autosweep||0),(r.foul_trip_cost||0),(r.fuel_surcharge_cost||0),(r.total_cost||0),r.status_name||'',r.foul_trip_date||'',((r.foul_trip_count===1||r.foul_trip_count===2)?r.foul_trip_count:''),r.foul_trip_reason||'',(r.cost_updated_by_name&&r.cost_updated_by_email)?r.cost_updated_by_name+' ('+r.cost_updated_by_email+')':(r.cost_updated_by_email||r.cost_updated_by||'')])});
+  const rows=[['Request #','Trip ID','Account','Department','Distance (KM)','Origin Port','Destination Port','International MAWB','Domestic MAWB','Truck Type','Vendor','Booking Date','Initial Call datetime (TBC)','Final Call Datetime','Delivered Date','Actual Cost','Toll Fee','Management Fee','Fuel','Parking','Miscellaneous','Manpower','Toll','Welfare','WH Rental','Toll Fee (Easytrip)','Toll Fee (Autosweep)','Foul Trip Cost','Fuel Surcharge Cost','Total Cost','Status','Foul Trip Date','Foul Trip Count Confirmation','Foul Trip Reason','Updated By','Updated At']];
+  costData.requests.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.account_name||'',r.department_name||'',r.distance_km!=null?r.distance_km:'',r.origin_port_name||'',r.destination_port_name||'',r.international_mawb||'',r.domestic_mawb||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.call_datetime||'',r.final_call_datetime||'',r.delivered_date||'',r.actual_cost||0,(r.toll_fee||0),(r.management_fee||0),(r.fuel||0),(r.parking||0),(r.miscellaneous||0),(r.manpower||0),(r.toll||0),(r.welfare||0),(r.wh_rental||0),(r.toll_fee_easytrip||0),(r.toll_fee_autosweep||0),(r.foul_trip_cost||0),(r.fuel_surcharge_cost||0),(r.total_cost||0),r.status_name||'',r.foul_trip_date||'',((r.foul_trip_count===1||r.foul_trip_count===2)?r.foul_trip_count:''),r.foul_trip_reason||'',(r.cost_updated_by_name&&r.cost_updated_by_email)?r.cost_updated_by_name+' ('+r.cost_updated_by_email+')':(r.cost_updated_by_email||r.cost_updated_by||''),r.cost_updated_at||''])});
   let csv='';rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n'});
   const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cost-analysis-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
@@ -2433,16 +2484,16 @@ function costRowHtml(r){
   const ubEmail=r.cost_updated_by_email||r.cost_updated_by||'';
   const ubName=r.cost_updated_by_name||'';
   const ub=ubEmail?(ubName?ubName+' ('+ubEmail+')':ubEmail):'-';
-  return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+act+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.department_name||'-')+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>₱'+fmtN(r.actual_cost||0)+'</td>'+costCells+addCells+'<td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+(r.foul_trip_reason||'-')+'</td><td>'+ub+'</td></tr>';
+  return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+act+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.department_name||'-')+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>₱'+fmtN(r.actual_cost||0)+'</td>'+costCells+addCells+'<td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+(r.foul_trip_reason||'-')+'</td><td>'+ub+'</td><td>'+(r.cost_updated_at?fmtD(r.cost_updated_at):'-')+'</td></tr>';
 }
 function renderCostTable(){
   const tb=document.getElementById('cTbl');
-  if(!costData||!costData.requests||!costData.requests.length){tb.innerHTML='<tr><td colspan="36" class="empty"><i class="fas fa-inbox"></i><p>No data for selected filters</p></td></tr>';return}
+  if(!costData||!costData.requests||!costData.requests.length){tb.innerHTML='<tr><td colspan="37" class="empty"><i class="fas fa-inbox"></i><p>No data for selected filters</p></td></tr>';return}
   tb.innerHTML=costData.requests.map(costRowHtml).join('');
   [...tb.rows].forEach(row=>{if(row.children.length===COST_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=COST_KEYS[i]})});
   applyCostOrder();
 }
-const COST_KEYS=['request_number','actions','trip_id','account_name','department_name','distance_km','origin_port_name','destination_port_name','international_mawb','domestic_mawb','truck_type_name','vendor_name','booking_date','call_datetime','final_call_datetime','delivered_date','actual_cost','toll_fee','management_fee','fuel','parking','miscellaneous','manpower','toll','welfare','wh_rental','toll_fee_easytrip','toll_fee_autosweep','foul_trip_cost','fuel_surcharge_cost','total_cost','status_name','foul_trip_date','foul_trip_count','foul_trip_reason','cost_updated_by'];
+const COST_KEYS=['request_number','actions','trip_id','account_name','department_name','distance_km','origin_port_name','destination_port_name','international_mawb','domestic_mawb','truck_type_name','vendor_name','booking_date','call_datetime','final_call_datetime','delivered_date','actual_cost','toll_fee','management_fee','fuel','parking','miscellaneous','manpower','toll','welfare','wh_rental','toll_fee_easytrip','toll_fee_autosweep','foul_trip_cost','fuel_surcharge_cost','total_cost','status_name','foul_trip_date','foul_trip_count','foul_trip_reason','cost_updated_by','cost_updated_at'];
 let cDragTh=null,cDragBound=false,cHeaderOrdered=false;
 function cHeadTr(){const t=document.getElementById('cTbl');return t&&t.parentElement&&t.parentElement.tHead?t.parentElement.tHead.rows[0]:null}
 function cStoredOrder(){try{const o=JSON.parse(localStorage.getItem('cColOrder')||'null');if(Array.isArray(o)&&o.length===COST_KEYS.length&&o.every(i=>Number.isInteger(i)&&i>=0&&i<COST_KEYS.length)&&new Set(o).size===COST_KEYS.length)return o}catch(e){}return COST_KEYS.map((_,i)=>i)}
@@ -2702,6 +2753,20 @@ function sortTUPairs(){
     return String(x).localeCompare(String(y))*dir;
   });
 }
+/* Shared CSV download: rows is an array of arrays (first row = headers). */
+function dlCSV(filename,rows){
+  const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n';
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+}
+function exportTUCSV(){
+  if(!tuData||!tuData.length){toast('No data to export','error');return}
+  const rows=[['Trip ID','Final Call Datetime','Status','Requests','Origin Port','Department','Vendor','Truck Type','Capacity (units)','Initial Qty (units)','Initial Utilisation %','Initial Tier','Revised Qty (units)','Revised Utilisation %','Revised Tier']];
+  const tier=p=>{const t=utilTier(p);return t?t.toUpperCase():''};
+  tuData.forEach(r=>rows.push([r.trip_id||'',r.final_call_datetime||'',r.status_name||'Delivered',r.request_count||0,r.origin_port_name||'',r.department_name||'',r.vendor_name||'',r.truck_type_name||'',r.max_capacity_units!=null?r.max_capacity_units:'',Math.round((r.initial_units||0)*100)/100,r.initial_utilisation!=null?Math.round(r.initial_utilisation*10)/10:'',tier(r.initial_utilisation),Math.round((r.revised_units||0)*100)/100,r.revised_utilisation!=null?Math.round(r.revised_utilisation*10)/10:'',tier(r.revised_utilisation)]));
+  dlCSV('trip-utilisation-'+todayLocal()+'.csv',rows);
+}
 function tuPctCell(pct){
   if(pct==null)return'<span style="color:var(--muted)">—</span>';
   const t=utilTier(pct);
@@ -2724,10 +2789,10 @@ function renderTU(){
   ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
   document.getElementById('tuCnt').textContent=tuData.length+' trip(s)';
   if(!tuData.length){
-    tb.innerHTML='<tr><td colspan="12" class="empty"><i class="fas fa-gauge"></i><p>No trips found for these filters</p></td></tr>';
+    tb.innerHTML='<tr><td colspan="13" class="empty"><i class="fas fa-gauge"></i><p>No delivered trips found for these filters</p></td></tr>';
     return;
   }
-  tb.innerHTML=tuData.map(r=>'<tr><td><span class="badge b-bl">'+esc(r.trip_id||'')+'</span></td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.request_count||0)+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.department_name||'-')+'</td><td>'+esc(r.vendor_name||'-')+'</td><td>'+esc(r.truck_type_name||'-')+'</td><td>'+(r.max_capacity_units!=null?('<strong>'+r.max_capacity_units+'</strong> '+esc(ccBaseName())):'<span style="color:var(--muted)">not set</span>')+'</td><td>'+(Math.round((r.initial_units||0)*100)/100)+'</td><td>'+tuPctCell(r.initial_utilisation)+'</td><td>'+(Math.round((r.revised_units||0)*100)/100)+'</td><td>'+tuPctCell(r.revised_utilisation)+'</td></tr>').join('');
+  tb.innerHTML=tuData.map(r=>'<tr><td><span class="badge b-bl">'+esc(r.trip_id||'')+'</span></td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+stBadge(esc(r.status_name||'Delivered'),'#10B981')+'</td><td>'+(r.request_count||0)+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.department_name||'-')+'</td><td>'+esc(r.vendor_name||'-')+'</td><td>'+esc(r.truck_type_name||'-')+'</td><td>'+(r.max_capacity_units!=null?('<strong>'+r.max_capacity_units+'</strong> '+esc(ccBaseName())):'<span style="color:var(--muted)">not set</span>')+'</td><td>'+(Math.round((r.initial_units||0)*100)/100)+'</td><td>'+tuPctCell(r.initial_utilisation)+'</td><td>'+(Math.round((r.revised_units||0)*100)/100)+'</td><td>'+tuPctCell(r.revised_utilisation)+'</td></tr>').join('');
 }
 let ftDragTh=null,ftDragBound=false,ftHeaderOrdered=false;
 function ftHeadTr(){const t=document.getElementById('ftTbl');return t&&t.parentElement&&t.parentElement.tHead?t.parentElement.tHead.rows[0]:null}
@@ -2793,6 +2858,20 @@ function resetFTCols(){localStorage.removeItem('ftColOrder');location.reload()}
 // Master Library
 let currentLibTab='ports';
 let portMap=null,portMarkers=[];
+const libRowsCache={};
+function exportLibCSV(tbl){
+  const data=libRowsCache[tbl]||[];
+  if(!data.length){toast('No data to export','error');return}
+  if(tbl==='ports'){
+    const rows=[['Name','Code','Address','Latitude','Longitude','Active']];
+    data.forEach(r=>rows.push([r.name||'',r.code||'',r.location||'',r.latitude!=null?r.latitude:'',r.longitude!=null?r.longitude:'',r.is_active===false||r.is_active===0?'No':'Yes']));
+    dlCSV('master-library-ports-'+todayLocal()+'.csv',rows);
+  }else if(tbl==='accounts'){
+    const rows=[['Name','Code','Active']];
+    data.forEach(r=>rows.push([r.name||'',r.code||'',r.is_active===false||r.is_active===0?'No':'Yes']));
+    dlCSV('master-library-accounts-'+todayLocal()+'.csv',rows);
+  }
+}
 async function libTab(tbl,btn){
   currentLibTab=tbl;
   document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('on'));
@@ -2803,7 +2882,9 @@ async function libTab(tbl,btn){
     const el=document.getElementById('libC');
     const labels={ports:'Ports',accounts:'Accounts',departments:'Departments',packaging_types:'Packaging Types',truck_statuses:'Statuses',truck_types:'Truck Types',vendors:'Vendors'};
     const lbl=labels[tbl]||tbl;
-    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'</h3>'+(isAdmin?'<button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl.slice(0,-1)+'</button>':'')+'</div>';
+    libRowsCache[tbl]=Array.isArray(data)?data:[];
+    const canExport=(tbl==='ports'||tbl==='accounts');
+    let html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px;font-weight:700">'+lbl+'</h3>'+(canExport?'<button class="btn btn-o btn-sm" onclick="exportLibCSV(\''+tbl+'\')" style="margin-left:auto;margin-right:8px"><i class="fas fa-download"></i> Export CSV</button>':'')+(isAdmin?'<button class="btn btn-p btn-sm" onclick="showAddLib(\''+tbl+'\')"><i class="fas fa-plus"></i> Add '+lbl.slice(0,-1)+'</button>':'')+'</div>';
     if(tbl==='ports'){
       html+='<div class="lib-map-section"><div id="portMapContainer" class="port-map-wrap"></div></div>';
     }
@@ -3235,9 +3316,7 @@ function renderRoleVisibility(){
     html+='<tr><td style="padding:8px 12px;border-bottom:1px solid #F3F4F6;font-weight:600">'+p.label+'</td>';
     ROLE_ORDER.forEach(r=>{
       const checked=rvPages(r).includes(p.key);
-      // Driver/Fleet is fixed to the Scanning App only.
-      const locked=r==='driver_fleet';
-      html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+(locked?' disabled title="Driver/Fleet can only use the Scanning App"':'')+' style="width:16px;height:16px;cursor:'+(locked?'not-allowed':'pointer')+'"></td>';
+      html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+' style="width:16px;height:16px;cursor:pointer"></td>';
     });
     html+='</tr>';
   });

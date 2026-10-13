@@ -849,9 +849,18 @@ def get_user(request: Request):
     u = _get_user_row(request)
     if u and u.get("role") == DRIVER_FLEET_ROLE:
         path = request.url.path
-        if path not in DRIVER_FLEET_PATHS and not path.startswith("/api/scan/"):
+        if path not in DRIVER_FLEET_PATHS and not path.startswith("/api/scan/") and _driver_fleet_scan_only():
             raise HTTPException(403, "The Driver/Fleet role can only use the Scanning App")
     return u
+
+def _driver_fleet_scan_only():
+    """True while Role Visibility gives Driver/Fleet nothing but the Scanning App
+    (the default). Once a master admin grants it more pages it is a normal role."""
+    try:
+        cfg = _merge_role_visibility(_load_role_visibility_cfg() or DEFAULT_ROLE_VISIBILITY)
+    except Exception:
+        return True
+    return all(p == SCAN_PAGE for p in (cfg.get(DRIVER_FLEET_ROLE) or []))
 
 def _get_user_row(request: Request):
     email = request.headers.get("X-Forwarded-Email") or "nigel.ng@ninjavan.co"
@@ -1204,8 +1213,8 @@ def _merge_role_visibility(cfg):
         for k, v in list(out.items()):
             if k != "new_user" and isinstance(v, list) and SCAN_PAGE not in v:
                 out[k] = list(v) + [SCAN_PAGE]
-    # Driver/Fleet can only ever use the Scanning App.
-    out[DRIVER_FLEET_ROLE] = [SCAN_PAGE]
+    # Driver/Fleet starts on the Scanning App only; a master admin may widen it.
+    out.setdefault(DRIVER_FLEET_ROLE, [SCAN_PAGE])
     live_vendors = set(vendor_role_names())
     for k in [k for k in out if k.startswith(VENDOR_ROLE_PREFIX)]:
         if k not in live_vendors:
@@ -1267,7 +1276,7 @@ async def set_role_visibility(request: Request):
         else:
             expanded[role] = list(pages)
     expanded[ROLE_LABELS_KEY] = labels
-    expanded[DRIVER_FLEET_ROLE] = [SCAN_PAGE]
+    expanded.setdefault(DRIVER_FLEET_ROLE, [SCAN_PAGE])
     expanded[SCAN_APP_MARKER] = True
     if LOCAL_MODE:
         _store["role_visibility"] = expanded
@@ -2159,7 +2168,14 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
         g["members"].append(r)
     trips = []
     for base, g in groups.items():
-        members = g["members"]
+        # Trip Utilisation reviews Delivered requests only; drops that are still
+        # open (or cancelled / foul) are left out of the figures.
+        everyone = [m for m in g["members"] if m.get("status_id") not in (5,)]
+        members = [m for m in g["members"] if m.get("status_id") == 4]
+        if not members:
+            continue
+        status_label = ("Delivered" if len(members) == len(everyone)
+                        else f"Delivered {len(members)} of {len(everyone)} drops")
         tt_name = next((m.get("truck_type_name") for m in members if m.get("truck_type_name")), "")
         cap = next((m.get("max_capacity_units") for m in members if m.get("max_capacity_units") is not None), None)
         initial_units = sum(to_base_units(m.get("initial_quantity") if m.get("initial_quantity") is not None else m.get("quantity"),
@@ -2169,6 +2185,7 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
         rev_pct = utilisation_pct(revised_units, cap)
         trips.append({
             "trip_id": base,
+            "status_name": status_label,
             "trip_ids": sorted({m.get("trip_id") for m in members if m.get("trip_id")}),
             "final_call_datetime": max((str(m.get("final_call_datetime") or "") for m in members), default=""),
             "request_count": len(members),
@@ -2326,7 +2343,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         add_distances_to_requests(reqs, coords)
         total = len(reqs)
         start = (page - 1) * per_page
-        return {"items": reqs[start:start + per_page], "total": total, "page": page, "per_page": per_page}
+        page_items = reqs[start:start + per_page]
+        _mark_trip_drivers(page_items)
+        return {"items": page_items, "total": total, "page": page, "per_page": per_page}
 
     wh, pa = ["1=1"], []
     if scope_vid is not None: wh.append("tr.vendor_id=%s"); pa.append(scope_vid)
@@ -2437,7 +2456,27 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         items.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
     coords = get_port_coords_map()
     add_distances_to_requests(items, coords)
+    _mark_trip_drivers(items)
     return {"items": items, "total": total, "page": page, "per_page": per_page}
+
+def _mark_trip_drivers(items):
+    """trip_has_driver: an Allocated request whose trip has a driver on any of its
+    requests - each of them gets the "remove driver" button, not only the ones that
+    carry the driver themselves."""
+    bases = {trip_base(i.get("trip_id")) for i in items if i.get("status_id") == 2 and i.get("trip_id")}
+    bases.discard(None)
+    with_driver = set()
+    if bases:
+        if LOCAL_MODE:
+            rows = [x for x in _store["truck_requests"]
+                    if x.get("status_id") == 2 and x.get("driver_account_id") and x.get("trip_id")]
+        else:
+            rows = db_q("""SELECT trip_id FROM truck_requests
+                WHERE status_id=2 AND driver_account_id IS NOT NULL AND trip_id IS NOT NULL""")
+        with_driver = {trip_base(x.get("trip_id")) for x in rows} & bases
+    for i in items:
+        i["trip_has_driver"] = bool(i.get("status_id") == 2 and (
+            i.get("driver_account_id") or (i.get("trip_id") and trip_base(i.get("trip_id")) in with_driver)))
 
 # ---------------------------------------------------------------------------
 # CSV bulk creation (New Request page)
@@ -2826,6 +2865,17 @@ def _request_view_extras(r):
         r["foul_trip_approved_by_name"] = (u or {}).get("name") or appr
     else:
         r["foul_trip_approved_by_name"] = ""
+    upd = r.get("updated_by") or ""
+    if upd:
+        uu = (next((x for x in _store["users"] if x.get("email") == upd), None) if LOCAL_MODE
+              else db_1("SELECT name FROM users WHERE email=%s", (upd,)))
+        r["updated_by_name"] = (uu or {}).get("name") or upd
+    else:
+        r["updated_by_name"] = ""
+    r["updated_at"] = to_gmt8(r.get("updated_at")) if r.get("updated_at") else None
+    r["pickup_scan_closed"] = bool(r.get("pickup_scan_closed_at"))
+    r["unload_scan_closed"] = bool(r.get("unload_scan_closed_at"))
+    r["scan_trip_base"] = trip_base(r.get("trip_id")) or f"req-{r.get('id')}"
     for k in ("trip_id", "drop_sequence", "late_reason", "special_instructions", "foul_trip_reason",
               "foul_trip_date", "foul_trip_count", "cancellation_date", "final_call_datetime"):
         r.setdefault(k, None)
@@ -2907,11 +2957,22 @@ async def update_request(rid: int, request: Request):
     body["updated_at"] = nows()
     if any(k in body for k in ("actual_cost",) + BULK_COST_FIELDS):
         body["cost_updated_by"] = user.get("email", "")
+        body["cost_updated_at"] = nows()
     if is_vendor_role(user.get("role", "")):
         for k in ("account_id", "department_id", "origin_port_id", "destination_port_id",
                   "international_mawb", "domestic_mawb", "call_datetime",
                   "customs_cleared_datetime", "final_call_datetime"):
             body.pop(k, None)
+        if body.get("status_id") is not None:
+            try:
+                want = int(body.get("status_id"))
+            except (TypeError, ValueError):
+                want = None
+            if want == 1:
+                cur_row = (next((x for x in _store["truck_requests"] if x["id"] == rid), None) if LOCAL_MODE
+                           else db_1("SELECT status_id FROM truck_requests WHERE id=%s", (rid,)))
+                if cur_row and cur_row.get("status_id") != 1:
+                    raise HTTPException(403, "Vendor roles cannot move a request back to Pending")
     for k in ("truck_type_id", "assigned_truck_id"):
         if k in body and body[k] in (0, "0", ""):
             body[k] = None
@@ -2925,7 +2986,7 @@ async def update_request(rid: int, request: Request):
               "foul_trip_date", "cancellation_date", "foul_trip_count",
               "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower", "toll",
               "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep",
-              "drop_sequence", "updated_by", "cost_updated_by", "updated_at")
+              "drop_sequence", "updated_by", "cost_updated_by", "cost_updated_at", "updated_at")
     new_status = body.get("status_id")
     if new_status == 4:
         validate_delivered_chronology(body)
@@ -6447,7 +6508,9 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
                 "pickup_datetime", "call_datetime", "final_call_datetime", "estimated_cost", "actual_cost", "assigned_truck_id", "status_id",
                 "foul_trip_reason", "foul_trip_date", "foul_trip_count", "cancellation_date", "booking_date", "international_mawb", "domestic_mawb",
                 "end_unloading_datetime", "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
-                "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep", "cost_updated_by")}
+                "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep", "cost_updated_by",
+                "cost_updated_at")}
+            rd["cost_updated_at"] = to_gmt8(rd.get("cost_updated_at")) if rd.get("cost_updated_at") else None
             rd["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
             rd["foul_trip_cost"] = foul_cost
             rd["fuel_surcharge_cost"] = fuel_cost
@@ -6544,6 +6607,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         else:
             i["trip_id"] = i.get("trip_id") or None
         i["delivered_date"] = (i.get("end_unloading_datetime") or "")[:10]
+        i["cost_updated_at"] = to_gmt8(i.get("cost_updated_at")) if i.get("cost_updated_at") else None
     coords = get_port_coords_map()
     add_distances_to_requests(reqs, coords)
     return {**cost_summary_stats(reqs), "requests": reqs}
@@ -6613,6 +6677,7 @@ async def bulk_cost_update(request: Request):
             for r in targets:
                 r[k] = round((r.get(k) or 0) + add, 2)
                 r["cost_updated_by"] = bulk_user.get("email", "")
+                r["cost_updated_at"] = nows()
         return {"ok": True, "updated": n, "field_amount": {k: (round(v / n, 2) if split else v) for k, v in amounts.items()}}
 
     wh = ["tr.status_id IN (4,7)", "(tr.status_id<>7 OR (tr.foul_trip_approved_by IS NOT NULL AND tr.foul_trip_approved_by<>''))",
@@ -6637,8 +6702,8 @@ async def bulk_cost_update(request: Request):
         add = round(add, 2)
         out_fields[k] = add
         db_x(f"UPDATE truck_requests SET {k}=COALESCE({k},0)+%s WHERE id IN ({marks})", tuple([add] + ids))
-    db_x(f"UPDATE truck_requests SET cost_updated_by=%s WHERE id IN ({marks})",
-         tuple([bulk_user.get("email", "")] + ids))
+    db_x(f"UPDATE truck_requests SET cost_updated_by=%s, cost_updated_at=%s WHERE id IN ({marks})",
+         tuple([bulk_user.get("email", ""), nows()] + ids))
     return {"ok": True, "updated": n, "field_amount": out_fields}
 
 # ---------------------------------------------------------------------------
