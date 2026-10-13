@@ -1174,6 +1174,7 @@
     "/api/dashboard": {
       "get": {
         "summary": "Dashboard",
+        "description": "Summary counts plus the request list. list_status_id (a clicked summary tile)\nnarrows only the list - the counts keep showing every status.",
         "operationId": "dashboard_api_dashboard_get",
         "parameters": [
           {
@@ -1302,6 +1303,22 @@
                 }
               ],
               "title": "Mawb"
+            }
+          },
+          {
+            "name": "list_status_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "List Status Id"
             }
           }
         ],

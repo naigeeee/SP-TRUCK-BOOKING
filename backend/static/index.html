@@ -75,6 +75,20 @@ tr:hover td{background:#F8FAFC}
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
 .mo.on{display:flex}
 .modal{background:var(--card);border-radius:16px;width:90%;max-width:650px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:10000;position:relative}
+.modal.wide{max-width:1400px;width:96%}
+.stat-click{cursor:pointer}
+.stat-click:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
+.stat-click.on{border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.stat-click:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.vw-sec{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--bdr)}
+.vw-sec:last-child{border-bottom:0}
+.vw-sec h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--pri);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.vw-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 18px}
+.vw-f label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px}
+.vw-f p{font-size:13.5px;margin:0;word-break:break-word}
+.vw-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(min-width:1200px){.vw-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.vw-cols{grid-template-columns:1fr 1fr 1fr}.modal.wide .modal-b{padding-top:12px}}
+@media(max-width:900px){.vw-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vw-cols{grid-template-columns:1fr}}
 .modal-h{padding:20px 24px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
 .modal-h h3{font-size:18px;font-weight:700}
 .mc-x{width:32px;height:32px;border-radius:8px;border:none;background:var(--bg);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
@@ -192,6 +206,7 @@ body.scan-mode .layout{display:none}
 <a class="nav-item vwr" onclick="showPage('new-request')" data-page="new-request"><i class="fas fa-plus-circle"></i> New Request</a>
 <a class="nav-item" onclick="showPage('masterlist')" data-page="masterlist"><i class="fas fa-list-alt"></i> Masterlist</a>
 <a class="nav-item vwr" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation to Vendors</a>
+<a class="nav-item" onclick="location.hash='#/scan'" data-page="scan-app"><i class="fas fa-barcode"></i> Scanning App</a>
 <div class="nav-div"></div><div class="nav-lbl">Operations</div>
 <a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet Management</a>
 <a class="nav-item nrm" onclick="showPage('vendor-trucks')" data-page="vendor-trucks" style="display:none"><i class="fas fa-truck-pickup"></i> Vendor Truck Assignment</a>
@@ -207,7 +222,6 @@ body.scan-mode .layout{display:none}
 <a class="nav-item madm" onclick="showPage('role-visibility')" data-page="role-visibility" style="display:none"><i class="fas fa-eye"></i> Role Visibility</a>
 <div class="nav-div"></div><div class="nav-lbl">Help</div>
 <a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide</a>
-<a class="nav-item" onclick="location.hash='#/scan'"><i class="fas fa-barcode"></i> Scanning App</a>
 </nav>
 <div class="sidebar-footer">
 <div class="user-row"><div class="u-av" id="uAv">N</div><div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole">...</div></div></div>
@@ -226,7 +240,7 @@ body.scan-mode .layout{display:none}
 <div class="fr3"><div class="fg"><label class="fl">Destination Port</label><select class="fs" id="dDst"></select></div><div class="fg"><label class="fl">MAWB</label><input type="text" class="fi" id="dMawb" placeholder="Int / Dom MAWB..."></div><div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-p" onclick="loadDash()"><i class="fas fa-search"></i> Apply Filters</button></div></div>
 </div></div>
 <div class="stats" id="dStats"></div>
-<div class="card"><div class="card-h"><h3><i class="fas fa-history"></i> Recent Requests</h3></div>
+<div class="card" id="dListCard"><div class="card-h"><h3 id="dListTitle"><i class="fas fa-history"></i> Recent Requests</h3><div class="acts" id="dListActs"></div></div>
 <div class="card-b"><div class="tw"><table><thead><tr><th>Request #</th><th>Requestor</th><th>Account</th><th>Department</th><th>Origin Port</th><th>Destination Port</th><th>International MAWB</th><th>Domestic MAWB</th><th>Packaging</th><th>Qty</th><th>Booking Date</th><th>Initial Call datetime (TBC)</th><th>Final Call Datetime</th><th style="cursor:pointer" onclick="sortDash('delivered_date')">Delivered Date <i class="fas fa-sort"></i></th><th>Foul Trip Date</th><th>Foul Trip Count Confirmation</th><th>Cancellation Date</th><th>Status</th></tr></thead><tbody id="dRecent"></tbody></table></div></div></div>
 </section>
 
@@ -235,10 +249,6 @@ body.scan-mode .layout{display:none}
 <div class="pg-hdr"><h1><i class="fas fa-plus-circle" style="color:var(--ok)"></i> New Truck Request</h1></div>
 <div class="card"><div class="card-b">
 <form id="reqForm" onsubmit="submitReq(event)">
-<label class="fl" style="margin-bottom:4px;font-weight:700">Common fields (apply to every request below)</label>
-<div class="fr"><div class="fg"><label class="fl">Booking Date</label><input type="date" class="fi" id="rBooking" readonly></div><div class="fg"><label class="fl">Department *</label><select class="fs" id="rDept" required></select></div><div class="fg"><label class="fl">Origin Port (optional)</label><select class="fs" id="rOrigin" onchange="syncCommonOrigin()"></select></div></div>
-<div class="fr"><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi" id="cImawb" maxlength="100" placeholder="e.g. 988-12345678" oninput="syncCommonMawb()"></div><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi" id="cDmawb" maxlength="100" placeholder="e.g. DOM-00123" oninput="syncCommonMawb()"></div></div>
-<div style="font-size:12px;color:var(--muted);margin:-6px 0 12px"><i class="fas fa-info-circle"></i> Fill a MAWB or Origin Port above to auto-apply it to the request below (per-request fields lock). Leave blank to enter them per request — Origin Port must be set for every request.</div>
 <div id="reqRows"></div>
 <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:16px;flex-wrap:wrap">
 <button type="button" class="btn btn-o" onclick="resetReqForm()"><i class="fas fa-undo"></i> Reset</button>
@@ -421,7 +431,8 @@ body.scan-mode .layout{display:none}
 <li>Use the <strong>Filters</strong> card: Final Call From / To, Account, Department, Status, Origin Port, Destination Port and MAWB.</li>
 <li>Click <strong>Apply Filters</strong> (or <strong>Refresh</strong> in the header) to refresh the figures and the list.</li>
 <li>Read the summary <strong>stat cards</strong> on top for request counts at a glance.</li>
-<li>Scroll down to <strong>Recent Requests</strong> for the latest activity; click the <strong>Delivered Date</strong> header to sort it.</li>
+<li><strong>Click a stat card</strong> (Pending, Allocated, In Transit, Delivered, Cancelled, Foul Trip) to list only those requests in the table below; click it again, click <strong>Total Requests</strong> or <strong>Show all requests</strong> to go back. <strong>Available Trucks</strong> opens Fleet Management.</li>
+<li>The table shows the latest 50 requests (up to 1,000 when a stat card is selected); click the <strong>Delivered Date</strong> header to sort it.</li>
 </ol>
 </div></div>
 
@@ -429,11 +440,10 @@ body.scan-mode .layout{display:none}
 <div class="card-h"><h3><i class="fas fa-plus-circle"></i> 3. Creating a truck request</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>New Request</strong> in the menu. The Booking Date is set automatically to today.</li>
-<li>Fill the <strong>common fields</strong>: Department (required), and optionally Origin Port, International MAWB and Domestic MAWB. Filling a MAWB or Origin Port here auto-applies it to the request below.</li>
-<li>The request needs: <strong>Account</strong>, <strong>Origin Port</strong> and <strong>Destination Port</strong> (they must be different), Packaging, Qty (at least 1), plus the dates and weights you want to track: Initial Call datetime (TBC), Customs Cleared, Pickup, Delivery, weight/volume and special instructions.</li>
+<li>Open <strong>New Request</strong> in the menu. The <strong>Booking Date</strong> at the top of the request is set automatically to today.</li>
+<li>The request needs: <strong>Department</strong>, <strong>Account</strong>, <strong>Origin Port</strong> and <strong>Destination Port</strong> (they must be different), Packaging, Qty (at least 1) and the <strong>Initial Call datetime (TBC)</strong>. Optional: International / Domestic MAWB, Customs Cleared, weight/volume and special instructions.</li>
 <li>Click <strong>Submit Request</strong> to save it. Any missing required field is pointed out in a message.</li>
-<li><strong>Creating many requests at once &mdash; CSV upload:</strong> click <strong>Download CSV template</strong> to get a CSV file with the exact columns and one example row showing the format. Fill it in Excel or Google Sheets &mdash; one row per request, any number of rows (up to a 10&nbsp;MB file) &mdash; then pick the file.</li>
+<li><strong>Creating many requests at once &mdash; CSV upload:</strong> click <strong>Download CSV template</strong> to get a CSV file with the exact columns and one example row showing the format. Fill it in Excel or Google Sheets &mdash; one row per request, any number of rows (up to a 10&nbsp;MB file) &mdash; then pick the file. <strong>Initial Call datetime (TBC)</strong> is required on every row. Dates can stay in whatever format Excel shows them, e.g. <em>15/10/2026 9:00</em>, <em>2026-10-15 09:00</em> or <em>15-Oct-2026 9:00</em> (day first).</li>
 <li>A <strong>preview</strong> appears with a summary (rows in file / ready to create / cannot create) and every problem explained per row. Fix problem rows in your file and upload again if needed, then click <strong>Create N requests</strong>.</li>
 <li>The <strong>creation summary</strong> reports how many requests were created and, for any row that could not be created, exactly why. Rows in a batch are independent &mdash; one bad row never blocks the others.</li>
 <li>After saving, find the new requests on the <strong>Masterlist</strong> with status <strong>Pending</strong> and on <strong>Pending Allocation to Vendors</strong>.</li>
@@ -453,7 +463,7 @@ body.scan-mode .layout{display:none}
 <li>For allocated requests you also see the <strong>Trip ID</strong>, the <strong>Drop #</strong> (use the up/down arrows to renumber drops within a trip) and the <strong>Distance (KM)</strong> in red.</li>
 <li>The <strong>Manifest</strong> column shows a red <strong>Missing Manifest</strong> when no manifest file has been uploaded for a request &mdash; click it to open Edit and upload one. Uploaded manifests show <strong>Uploaded</strong> in green with a <strong>Download CSV</strong> link containing the International MAWB, Domestic MAWB and every bag/carton/gunny/sack ID. Use the <strong>Manifest</strong> filter (Missing / Uploaded) or click the Manifest header to sort.</li>
 <li><strong>Uploading a manifest</strong>: open Edit (pencil icon) &rarr; Manifest section. One Excel file (.xlsx/.xlsm) per request, max 5&nbsp;MB; delete the current file first if you need to replace it. The key column (header containing bag, carton, gunny or sack, or a standard ID header) is extracted into unique IDs. The spreadsheet itself is never stored &mdash; it is converted on upload into a CSV holding the request's International MAWB, Domestic MAWB and those unique IDs, and that small CSV is what is kept and downloaded.</li>
-<li>Use the <strong>Actions</strong> column: <strong>View</strong> for full details and attachments, <strong>Edit</strong> (pencil) to update fields, status, quantity, truck plate, attachments and the manifest, and <strong>Delete</strong> (trash) when permitted.</li>
+<li>Use the <strong>Actions</strong> column: <strong>View</strong> opens a wide window with every detail of the request on one screen (route, MAWBs, trip ID, drop #, truck plate, vendor, driver and phone, instructions, late reason, all milestones, delivered date, foul trip details, cancellation, manifest and attachments) &mdash; ready for a single screenshot, <strong>Edit</strong> (pencil) to update fields, status, quantity, truck plate, attachments and the manifest, and <strong>Delete</strong> (trash) when permitted.</li>
 <li>The <strong>Updated At</strong> column shows when the request last changed. All times shown in the Masterlist are GMT+8.</li>
 <li>Click <strong>Export CSV</strong> to download the current list, use your browser's Print (Ctrl+P) for a PDF, and page through results with the buttons at the bottom. Master Admins additionally see <strong>Clear All</strong>.</li>
 </ol>
@@ -512,7 +522,8 @@ body.scan-mode .layout{display:none}
 <li>Admins also choose the <strong>Vendor</strong>. Vendors always create accounts for themselves.</li>
 <li>Choose the <strong>Truck</strong> this account drives. This is what gets assigned on the Vendor Truck Assignment page - one account, one truck.</li>
 <li>Untick <strong>Account is active</strong> to switch an account off without deleting it; existing scanning sessions stop working straight away.</li>
-<li>Use the pencil to edit (leave the password blank to keep the current one) and the bin to delete. Deleting clears the driver from any trip that still points at it.</li>
+<li>Set an <strong>Override code</strong> (4-32 letters or numbers) for each account. During the pickup scan, a bag that is not on the manifest is only accepted after the scanner types this code; it is never shown on the scan screen or QR code. The table shows whether a code is <strong>Set</strong>; edit the account to change or remove it.</li>
+<li>Use the pencil to edit (leave the password and override code blank to keep the current ones) and the bin to delete. Deleting clears the driver from any trip that still points at it.</li>
 <li>The <strong>Assigned Trips</strong> column lists every open trip ID on each account with its current status (Allocated / In Transit) and where the driver is in the trip (e.g. <em>Loading</em>, <em>Drop 2: unloading</em>).</li>
 </ol>
 </div></div>
@@ -520,20 +531,20 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-scan">
 <div class="card-h"><h3><i class="fas fa-barcode"></i> 9. Scanning app (Pickup Sort and Unloading)</h3></div>
 <div class="card-b">
-<p style="font-size:13.5px;line-height:1.9;margin-bottom:10px">A phone-first screen for drivers and warehouse staff. Open it from <strong>Scanning App</strong> in the menu, or go straight to <strong>#/scan</strong> in the address bar. Sign in with a driver / fleet account - the session lasts 30 days on that device.</p>
+<p style="font-size:13.5px;line-height:1.9;margin-bottom:10px">A phone-first screen for drivers and warehouse staff. Open it from <strong>Scanning App</strong> in the <strong>Main</strong> menu, or go straight to <strong>#/scan</strong> in the address bar. Sign in with a driver / fleet account - the session lasts 30 days on that device.</p>
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li><strong>My trips</strong> lists every trip assigned to the account. A driver works on <strong>one trip at a time</strong>: once Arrived at pickup is tapped on a trip, every other trip stays locked until that trip is finished to its last drop.</li>
 <li>Steps unlock <strong>strictly in order</strong> - a step cannot be opened until the step before it is done.</li>
 <li><strong>Step 1 - Arrived at pickup.</strong> A confirmation popup asks before the time is saved. If the final call time has already passed, the app asks for a <strong>late reason</strong> (up to 1000 characters).</li>
-<li><strong>Step 2 - Pickup scan.</strong> Type or camera-scan bag IDs. They are checked against the manifests of every request on the trip: success plays a chime; a bag not on the manifest or already scanned plays an <strong>error siren</strong> (a not-on-manifest bag can still be forced through with Override). The first accepted bag records <strong>Start Loading</strong>. The camera opens with the phone's normal (zoomed-out) photo view on the main lens (use <em>Switch camera</em> if needed) and records each barcode once.</li>
+<li><strong>Step 2 - Pickup scan.</strong> Type or camera-scan bag IDs. They are checked against the manifests of every request on the trip: success plays a chime; a bag not on the manifest or already scanned plays an <strong>error siren</strong> (a not-on-manifest bag can still be forced through: the scanner types the driver's <strong>override code</strong> for that bag). The first accepted bag records <strong>Start Loading</strong>. The camera opens with the phone's normal (zoomed-out) photo view on the main lens (use <em>Switch camera</em> if needed) and records each barcode once.</li>
 <li><strong>End pickup scan</strong> first shows a summary - total manifest IDs on the trip, original successful scans, manifest IDs not yet scanned and override scans. Press <strong>Confirm</strong> to end it; no more scans are possible after that.</li>
 <li><strong>Step 3 - End loading</strong> (needs the pickup scan ended), then <strong>Step 4 - Depart</strong>, which flips the trip to <strong>In Transit</strong>.</li>
 <li><strong>Each drop, in drop # order:</strong> (a) Arrived at destination - Drop #, (b) unloading scan, (c) optional photos, (d) Finish this drop. The next drop unlocks only when the one before it is finished.</li>
-<li><strong>Unloading scan:</strong> only bags pickup-scanned for that drop are accepted. A match plays a chime and shows the bag, account, destination and drop #. A bag that does not match plays the siren and shows a failed result; a bag already unloaded plays the siren and shows a duplicate result - neither is recorded. <strong>Start Unloading</strong> is recorded by the first bag scanned, not by a button.</li>
+<li><strong>Unloading scan:</strong> only bags pickup-scanned for that drop are accepted. A match plays a chime and shows the bag, account, destination and drop #. <strong>Override bags</strong> (forced through at pickup) can be unloaded at whichever drop they turn up at, but only once on the whole trip. A bag that does not match plays the siren and shows a failed result; a bag already unloaded plays the siren and shows a duplicate result - neither is recorded. <strong>Start Unloading</strong> is recorded by the first bag scanned, not by a button.</li>
 <li><strong>End Unloading Scan</strong> (anyone on the scan screen) shows a summary - pickup bags for the request, successful unloading scans and bags still remaining. Choose <strong>Resume scan</strong> or <strong>Confirm End Unloading Scan</strong> (asked once more to be sure). After that the unloading scan for that request cannot be opened again.</li>
 <li><strong>Photos</strong> (after Arrived at destination) can be taken with the camera or picked from the gallery. They are compressed on the phone before upload (max 8 files, 25MB total per request).</li>
 <li>Finishing the last drop completes the trip, and the next trip can be started.</li>
-<li>When a scan is ended, the <strong>Masterlist</strong> manifest column shows <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links (CSV: Bag ID, Account, Destination, Drop #, Remark).</li>
+<li>When a scan is ended, the <strong>Masterlist</strong> manifest column shows <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links (CSV: Bag ID, Trip ID, International MAWB, Domestic MAWB, Account, Origin, Destination, Drop #, Remark).</li>
 </ol>
 </div></div>
 
@@ -609,7 +620,7 @@ body.scan-mode .layout{display:none}
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>User Roles</strong> (Admin and Master Admin). Every signed-in user is listed with name, email and role.</li>
-<li>Change a user's access with the <strong>Role</strong> dropdown: Viewer, Normal User, Admin, Master Admin, New User (no access) or a Vendor role. The change takes effect on their next page load.</li>
+<li>Change a user's access with the <strong>Role</strong> dropdown: Viewer, Normal User, Admin, Master Admin, <strong>Driver/Fleet</strong> (Scanning App only), New User (no access) or a Vendor role. The change takes effect on their next page load.</li>
 <li>A Master Admin can also change <strong>their own</strong> role from the dropdown on their own row &mdash; the page reloads with the new permissions straight away. Note: once you switch away from Master Admin, only another Master Admin can switch you back.</li>
 <li>Admins cannot change their own role, and only Master Admins can assign the Master Admin role.</li>
 <li>Click a user's <strong>name</strong> to rename it (Admin+), or the red minus to remove the user.</li>
@@ -624,6 +635,7 @@ body.scan-mode .layout{display:none}
 <li>Tick the pages that role should see, then click <strong>Save Changes</strong>. Users pick up the change on their next page load.</li>
 <li>Click a role heading to rename how the role is displayed everywhere (e.g. rename "Normal User" to "Dispatcher").</li>
 <li><strong>New User</strong> always starts with no pages &mdash; that is the "waiting for access" state. The <strong>User Guide</strong> page is granted to every role automatically and cannot be switched off.</li>
+<li><strong>Scanning App</strong> is a page like the others and can be switched on or off per role. <strong>Driver/Fleet</strong> is fixed to the Scanning App only: users with that role open straight into it and cannot reach the rest of the app.</li>
 </ol>
 </div></div>
 
@@ -712,6 +724,13 @@ async function init(){
       const pg=n.dataset.page;
       n.style.display=(pg&&userPages.includes(pg))?'':'none';
     });
+    // A role whose only page is the Scanning App (Driver/Fleet) lives in the scanning app.
+    window.__scanOnly=userPages.length>0&&userPages.every(p=>p==='scan-app');
+    if(window.__scanOnly){
+      if(!/^#\/(scan|s\/)/.test(location.hash||''))location.hash='#/scan';
+      else scanRoute();
+      return;
+    }
     if(isMaster){const el=document.getElementById('mlClearAll');if(el)el.style.display='';}
     document.querySelectorAll('.adm:not(.nav-item)').forEach(e=>e.style.display=isAdmin?'':'none');
     document.querySelectorAll('.madm:not(.nav-item)').forEach(e=>e.style.display=isMaster?'':'none');
@@ -742,8 +761,6 @@ async function loadMaster(){
     fetch('/api/vendors').then(r=>r.json())
   ]);
   fetch('/api/capacity-conversion').then(r=>r.ok?r.json():null).then(c=>{if(c&&c.factors)ccCfg=c}).catch(()=>{});
-  popSel('rDept',depts,'id','name','Select Department');
-  popSel('rOrigin',ports,'id','name','Select Origin',true);
   popSel('mlSt',sts,'id','name','All Statuses',true);
   popSel('mlAcct',accts,'id','name','All Accounts',true);
   popSel('mlDept',depts,'id','name','All Depts',true);
@@ -828,6 +845,31 @@ function stBadge(name,color){return'<span class="badge" style="background:'+(col
 function tripBase(t){return String(t||'').replace(/-[A-Za-z]$/,'')}
 
 // Dashboard
+let dashTile=null;   // status id of the clicked summary tile (null = all requests)
+const DASH_TILES=[
+  {k:null,ico:'fa-clipboard-list',c:'bl',l:'Total Requests',f:'total_requests'},
+  {k:1,ico:'fa-hourglass-half',c:'yl',l:'Pending',f:'pending_allocation'},
+  {k:2,ico:'fa-clipboard-check',c:'bl',l:'Allocated',f:'allocated'},
+  {k:3,ico:'fa-truck',c:'pp',l:'In Transit',f:'in_transit'},
+  {k:4,ico:'fa-check-circle',c:'gn',l:'Delivered',f:'delivered'},
+  {k:5,ico:'fa-times-circle',c:'rd',l:'Cancelled',f:'cancelled'},
+  {k:7,ico:'fa-exclamation-triangle',c:'rd',l:'Foul Trip',f:'foul_trip'},
+  {k:'trucks',ico:'fa-truck',c:'gn',l:'Available Trucks',f:'available_trucks'}
+];
+function dashTileClick(i){
+  const t=DASH_TILES[i];if(!t)return;
+  if(t.k==='trucks'){
+    if(userPages.includes('fleet'))showPage('fleet');
+    else toast('Truck availability is listed on Fleet Management','error');
+    return;
+  }
+  dashTile=(t.k===null||dashTile===t.k)?null:t.k;
+  loadDash();
+  const card=document.getElementById('dListCard');if(card)card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function dashRowHtml(r){
+  return '<tr><td><strong>'+esc(r.request_number||'')+'</strong></td><td>'+esc(r.requestor_name||'')+'</td><td>'+esc(r.account_name||'')+'</td><td>'+esc(r.department_name||'')+'</td><td>'+esc(r.origin_port_name||'')+'</td><td>'+esc(r.destination_port_name||'')+'</td><td>'+esc(r.international_mawb||'-')+'</td><td>'+esc(r.domestic_mawb||'-')+'</td><td>'+esc(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date||(r.end_unloading_datetime||'').slice(0,10))+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+((r.foul_trip_count===1||r.foul_trip_count===2)?r.foul_trip_count:'-')+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>';
+}
 async function loadDash(){
   try{
     const bf=document.getElementById('dBookFrom')?.value||'';
@@ -843,22 +885,26 @@ async function loadDash(){
     if(a)p.set('account_id',a);if(d)p.set('department_id',d);
     if(st)p.set('status_id',st);if(o)p.set('origin_port_id',o);
     if(dst)p.set('destination_port_id',dst);if(mw)p.set('mawb',mw);
+    if(dashTile)p.set('list_status_id',dashTile);
     const qs=p.toString();
-    const dta=await(await fetch('/api/dashboard'+(qs?'?'+qs:''))).json();
+    const res=await fetch('/api/dashboard'+(qs?'?'+qs:''));
+    if(!res.ok)throw new Error(await apiErr(res));
+    const dta=await res.json();
     window.dashRows=(dta.recent_requests||[]).slice();
-    document.getElementById('dStats').innerHTML=[
-      {ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:dta.total_requests||0},
-      {ico:'fa-hourglass-half',c:'yl',l:'Pending',v:dta.pending_allocation||0},
-      {ico:'fa-truck',c:'pp',l:'In Transit',v:dta.in_transit||0},
-      {ico:'fa-check-circle',c:'gn',l:'Delivered',v:dta.delivered||0},
-      {ico:'fa-times-circle',c:'rd',l:'Cancelled',v:dta.cancelled||0},
-      {ico:'fa-exclamation-triangle',c:'rd',l:'Foul Trip',v:dta.foul_trip||0},
-      {ico:'fa-truck',c:'gn',l:'Available Trucks',v:dta.available_trucks||0},
-    ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+    document.getElementById('dStats').innerHTML=DASH_TILES.map((s,i)=>{
+      const on=(s.k!=='trucks')&&((s.k===null&&!dashTile)||(s.k!==null&&dashTile===s.k));
+      const tip=s.k==='trucks'?'Open Fleet Management':(s.k===null?'Show all requests':'Show '+s.l+' requests');
+      return '<div class="stat stat-click'+(on?' on':'')+'" role="button" tabindex="0" title="'+tip+'" onclick="dashTileClick('+i+')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();dashTileClick('+i+')}"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+(dta[s.f]||0)+'</div></div></div>';
+    }).join('');
+    const tile=DASH_TILES.find(t=>t.k===dashTile);
+    const ttl=document.getElementById('dListTitle');
+    if(ttl)ttl.innerHTML=dashTile?'<i class="fas fa-filter"></i> '+esc(tile?tile.l:'')+' requests <span style="font-weight:400;color:var(--muted);font-size:13px">('+(dta.list_total||0)+(dta.list_total>(dta.recent_requests||[]).length?', showing latest '+(dta.recent_requests||[]).length:'')+')</span>':'<i class="fas fa-history"></i> Recent Requests <span style="font-weight:400;color:var(--muted);font-size:13px">(latest '+((dta.recent_requests||[]).length)+')</span>';
+    const acts=document.getElementById('dListActs');
+    if(acts)acts.innerHTML=dashTile?'<button class="btn btn-sm btn-o" onclick="dashTile=null;loadDash()"><i class="fas fa-times"></i> Show all requests</button>':'';
     const tb=document.getElementById('dRecent');
     if(dta.recent_requests&&dta.recent_requests.length){
-      tb.innerHTML=dta.recent_requests.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date||(r.end_unloading_datetime||'').slice(0,10))+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+((r.foul_trip_count===1||r.foul_trip_count===2)?r.foul_trip_count:'-')+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
-    }else{tb.innerHTML='<tr><td colspan="18" class="empty"><i class="fas fa-inbox"></i><p>No requests yet</p></td></tr>'}
+      tb.innerHTML=dta.recent_requests.map(dashRowHtml).join('');
+    }else{tb.innerHTML='<tr><td colspan="18" class="empty"><i class="fas fa-inbox"></i><p>'+(dashTile?'No '+esc(tile?tile.l:'')+' requests':'No requests yet')+'</p></td></tr>'}
   }catch(e){console.error(e);toast('Dashboard load failed','error')}
 }
 let dashSortKey=null,dashSortDir='desc';
@@ -872,7 +918,7 @@ function sortDash(key){
     return dashSortDir==='desc'?y.localeCompare(x):x.localeCompare(y);
   });
   const tb=document.getElementById('dRecent');
-  if(tb)tb.innerHTML=rows.map(r=>'<tr><td><strong>'+(r.request_number||'')+'</strong></td><td>'+(r.requestor_name||'')+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.quantity||0)+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date||(r.end_unloading_datetime||'').slice(0,10))+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+((r.foul_trip_count===1||r.foul_trip_count===2)?r.foul_trip_count:'-')+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td></tr>').join('');
+  if(tb)tb.innerHTML=rows.map(dashRowHtml).join('');
 }
 
 // New Request (bulk)
@@ -880,10 +926,10 @@ let reqIdx=0;
 function selOpts(items,ph){return '<option value="">'+ph+'</option>'+items.map(i=>'<option value="'+i.id+'">'+i.name+'</option>').join('')}
 function reqRowHtml(i){
   return '<div class="req-row" data-i="'+i+'" style="border:1px solid var(--bdr);border-radius:8px;padding:14px 16px;margin-bottom:14px;background:var(--bg)">'
-  +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><strong class="req-row-t" style="font-size:14px;color:var(--pri)">Request '+(i+1)+'</strong></div>'
+  +'<div class="fr"><div class="fg"><label class="fl">Booking Date</label><input type="date" class="fi rBooking" id="rBooking" readonly value="'+todayLocal()+'"></div><div class="fg"><label class="fl">Department *</label><select class="fs rDept" id="rDept" required>'+selOpts(depts,'Select Department')+'</select></div><div class="fg"></div></div>'
   +'<div class="fr"><div class="fg"><label class="fl">Origin Port *</label><select class="fs rOrigin" required>'+selOpts(ports,'Select Origin')+'</select></div><div class="fg"><label class="fl">Account *</label><select class="fs rAcct" required>'+selOpts(accts,'Select Account')+'</select></div><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi rImawb" maxlength="100" placeholder="e.g. 988-12345678"></div></div>'
   +'<div class="fr"><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi rDmawb" maxlength="100" placeholder="e.g. DOM-00123"></div><div class="fg"><label class="fl">Destination Port *</label><select class="fs rDest" required>'+selOpts(ports,'Select Destination')+'</select></div><div class="fg"><label class="fl">Packaging Type *</label><select class="fs rPkg" required>'+selOpts(pkgs,'Select Packaging')+'</select></div></div>'
-  +'<div class="fr3"><div class="fg"><label class="fl">Quantity *</label><input type="number" class="fi rQty" value="1" min="1" required></div><div class="fg"><label class="fl">Initial Call datetime (TBC)</label><input type="datetime-local" class="fi rCall"></div><div class="fg"><label class="fl">Customs Cleared Date/Time</label><input type="datetime-local" class="fi rCustoms"></div></div>'
+  +'<div class="fr3"><div class="fg"><label class="fl">Quantity *</label><input type="number" class="fi rQty" value="1" min="1" required></div><div class="fg"><label class="fl">Initial Call datetime (TBC) *</label><input type="datetime-local" class="fi rCall" required></div><div class="fg"><label class="fl">Customs Cleared Date/Time</label><input type="datetime-local" class="fi rCustoms"></div></div>'
   +'<div class="fr"><div class="fg"><label class="fl">Weight (KG)</label><input type="number" step="0.01" class="fi rWt" value="0"></div><div class="fg"><label class="fl">Volume (CBM)</label><input type="number" step="0.01" class="fi rVol" value="0"></div><div class="fg"><label class="fl">Special Instructions</label><input type="text" class="fi rNotes" placeholder="Any special handling requirements..."></div></div>'
   +'</div>';
 }
@@ -891,49 +937,11 @@ function initReqRows(){
   const box=document.getElementById('reqRows');if(!box)return;
   if(!box.children.length){box.insertAdjacentHTML('beforeend',reqRowHtml(0));reqIdx=1}
   fillRowSelects();
-  syncCommonOrigin();
-  syncCommonMawb();
 }
-function syncCommonOrigin(){
-  const co=(document.getElementById('rOrigin')?.value||'').trim();
-  document.querySelectorAll('.req-row').forEach(row=>{
-    const ro=row.querySelector('.rOrigin');
-    if(!ro)return;
-    if(co){
-      if(!ro.disabled)ro.dataset.user=ro.value||'';
-      ro.value=co;ro.disabled=true;ro.title='Set by common fields — not editable per request';
-    }else if(ro.disabled){
-      ro.value=ro.dataset.user||'';ro.disabled=false;ro.title='';
-    }
-  });
-}
-function syncCommonMawb(){
-  const ci=(document.getElementById('cImawb')?.value||'').trim();
-  const cd=(document.getElementById('cDmawb')?.value||'').trim();
-  document.querySelectorAll('.req-row').forEach(row=>{
-    const ri=row.querySelector('.rImawb');
-    const rd=row.querySelector('.rDmawb');
-    if(ri){
-      if(ci){
-        if(!ri.disabled)ri.dataset.user=ri.value||'';
-        ri.value=ci;ri.disabled=true;ri.title='Set by common fields — not editable per request';
-      }else if(ri.disabled){
-        ri.value=ri.dataset.user||'';ri.disabled=false;ri.title='';
-      }
-    }
-    if(rd){
-      if(cd){
-        if(!rd.disabled)rd.dataset.user=rd.value||'';
-        rd.value=cd;rd.disabled=true;rd.title='Set by common fields — not editable per request';
-      }else if(rd.disabled){
-        rd.value=rd.dataset.user||'';rd.disabled=false;rd.title='';
-      }
-    }
-  });
-}
+function todayLocal(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fillRowSelects(){
   document.querySelectorAll('.req-row').forEach(row=>{
-    [['.rOrigin',ports,'Select Origin'],['.rAcct',accts,'Select Account'],['.rDest',ports,'Select Destination'],['.rPkg',pkgs,'Select Packaging']].forEach(([sel,items,ph])=>{
+    [['.rDept',depts,'Select Department'],['.rOrigin',ports,'Select Origin'],['.rAcct',accts,'Select Account'],['.rDest',ports,'Select Destination'],['.rPkg',pkgs,'Select Packaging']].forEach(([sel,items,ph])=>{
       const s=row.querySelector(sel);if(!s)return;
       const v=s.value;s.innerHTML=selOpts(items,ph);if(v)s.value=v;
     });
@@ -1022,15 +1030,15 @@ function resetReqForm(){
 }
 async function submitReq(e){
   e.preventDefault();
-  const dept=document.getElementById('rDept').value;
-  if(!dept){toast('Department is required','error');return}
   const rows=[...document.querySelectorAll('.req-row')];
   if(!rows.length){toast('Add at least one request','error');return}
-  const ci=(document.getElementById('cImawb')?.value||'').trim();
-  const cd=(document.getElementById('cDmawb')?.value||'').trim();
   const bodies=[];
   for(let i=0;i<rows.length;i++){
     const row=rows[i],n=i+1;
+    const dept=row.querySelector('.rDept')?.value||'';
+    const call=row.querySelector('.rCall')?.value||'';
+    if(!dept){toast('Department is required','error');return}
+    if(!call){toast('Initial Call datetime (TBC) is required','error');return}
     const rorg=row.querySelector('.rOrigin')?.value||'';
     const acct=row.querySelector('.rAcct')?.value||'';
     const dest=row.querySelector('.rDest')?.value||'';
@@ -1045,11 +1053,11 @@ async function submitReq(e){
     bodies.push({
       account_id:+acct,department_id:+dept,origin_port_id:+rorg,destination_port_id:+dest,
       packaging_type_id:+pkg,quantity:qty,
-      international_mawb:ci||(row.querySelector('.rImawb')?.value||''),
-      domestic_mawb:cd||(row.querySelector('.rDmawb')?.value||''),
-      call_datetime:row.querySelector('.rCall')?.value||null,
+      international_mawb:(row.querySelector('.rImawb')?.value||'').trim(),
+      domestic_mawb:(row.querySelector('.rDmawb')?.value||'').trim(),
+      call_datetime:call,
       customs_cleared_datetime:row.querySelector('.rCustoms')?.value||null,
-      booking_date:new Date().toISOString().slice(0,10),
+      booking_date:todayLocal(),
       weight_kg:+row.querySelector('.rWt')?.value||0,
       volume_cbm:+row.querySelector('.rVol')?.value||0,
       special_instructions:row.querySelector('.rNotes')?.value||'',
@@ -1071,8 +1079,7 @@ async function submitReq(e){
 }
 
 function initBookingDate(){
-  const bd=document.getElementById('rBooking');
-  if(bd)bd.value=new Date().toISOString().slice(0,10);
+  document.querySelectorAll('.rBooking').forEach(bd=>{bd.value=todayLocal()});
 }
 
 // Masterlist
@@ -1225,13 +1232,49 @@ async function reorderDrop(rid,oldSeq,newSeq){
 
 async function viewReq(id){
   try{
-    const r=await(await fetch('/api/requests/'+id)).json();
-    const atts=(r.attachments||[]).map(a=>'<div class="att-item"><div class="att-info"><i class="fas fa-file"></i><div><div class="att-nm">'+a.original_filename+'</div><div class="att-sz">'+fmtS(a.file_size)+'</div></div></div><a href="/api/attachments/'+a.id+'/download" class="btn btn-sm btn-p"><i class="fas fa-download"></i></a></div>').join('');
+    const res=await fetch('/api/requests/'+id);
+    if(!res.ok)throw new Error(await apiErr(res));
+    const r=await res.json();
+    const v=x=>(x===null||x===undefined||x==='')?'-':esc(x);
+    const f=(label,val)=>'<div class="vw-f"><label>'+label+'</label><p>'+val+'</p></div>';
+    const sec=(title,icon,fields)=>'<div class="vw-sec"><h4><i class="fas fa-'+icon+'"></i> '+title+'</h4><div class="vw-grid">'+fields.join('')+'</div></div>';
+    const atts=(r.attachments||[]).map(a=>'<div class="att-item"><div class="att-info"><i class="fas fa-file"></i><div><div class="att-nm">'+esc(a.original_filename)+'</div><div class="att-sz">'+fmtS(a.file_size)+'</div></div></div><a href="/api/attachments/'+a.id+'/download" class="btn btn-sm btn-p" title="Download"><i class="fas fa-download"></i></a></div>').join('');
+    const ftc=(r.foul_trip_count===1||r.foul_trip_count===2)?String(r.foul_trip_count):'-';
+    const appr=r.foul_trip_approved_by?(esc(r.foul_trip_approved_by_name||r.foul_trip_approved_by)+(r.foul_trip_approved_at?'<br><small style="color:var(--muted)">'+fmtD(r.foul_trip_approved_at)+'</small>':'')):'-';
     document.getElementById('mTitle').textContent=r.request_number;
-    document.getElementById('mBody').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px"><div><label class="fl">Requestor</label><p>'+(r.requestor_name||'')+' ('+(r.requestor_email||'')+')</p></div><div><label class="fl">Status</label><p>'+stBadge(r.status_name,r.status_color)+'</p></div><div><label class="fl">Account</label><p>'+(r.account_name||'')+'</p></div><div><label class="fl">Department</label><p>'+(r.department_name||'')+'</p></div><div><label class="fl">Origin</label><p>'+(r.origin_port_name||'')+'</p></div><div><label class="fl">Destination</label><p>'+(r.destination_port_name||'')+'</p></div><div><label class="fl">International MAWB</label><p>'+(r.international_mawb||'-')+'</p></div><div><label class="fl">Domestic MAWB</label><p>'+(r.domestic_mawb||'-')+'</p></div><div><label class="fl">Initial Call datetime (TBC)</label><p>'+fmtD(r.call_datetime)+'</p></div><div><label class="fl">Customs Cleared</label><p>'+fmtD(r.customs_cleared_datetime)+'</p></div><div><label class="fl">Booking Date</label><p>'+(r.booking_date||'-')+'</p></div><div><label class="fl">Truck Type</label><p>'+(r.truck_type_name||'')+'</p></div><div><label class="fl">Packaging</label><p>'+(r.packaging_type_name||'')+'</p></div><div><label class="fl">Initial Qty</label><p>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</p></div><div><label class="fl">Revised Qty</label><p>'+(r.quantity||0)+'</p></div><div><label class="fl">Weight</label><p>'+(r.weight_kg||0)+' KG</p></div><div><label class="fl">Volume</label><p>'+(r.volume_cbm||0)+' CBM</p></div></div>'+(r.special_instructions?'<div style="margin-top:16px"><label class="fl">Special Instructions</label><p>'+r.special_instructions+'</p></div>':'')+'<div style="margin-top:16px"><label class="fl">Manifest</label>'+(r.manifest?('<p style="font-size:13px"><i class="fas fa-file-csv" style="color:#16A34A"></i> <strong>'+esc(r.manifest.original_filename)+'</strong> &middot; '+fmtS(r.manifest.file_size)+' &middot; <strong>'+r.manifest.id_count+' IDs</strong><br><a href="/api/requests/'+id+'/manifest/download"><i class="fas fa-download"></i> Download manifest CSV</a></p>'):'<p style="font-size:13px;color:#DC2626;font-weight:700">Missing Manifest</p>')+'</div>'+'<div style="margin-top:16px"><label class="fl">Attachments ('+(r.attachments||[]).length+'/8)</label>'+(atts||'<p style="color:var(--muted);font-size:13px">No attachments</p>')+'</div>';
+    let h='';
+    h+=sec('Request','file-alt',[
+      f('Requestor',v(r.requestor_name)+(r.requestor_email?'<br><small style="color:var(--muted)">'+esc(r.requestor_email)+'</small>':'')),
+      f('Status',stBadge(r.status_name,r.status_color)),
+      f('Account',v(r.account_name)),f('Department',v(r.department_name)),
+      f('Booking Date',v(r.booking_date)),f('Initial Call datetime (TBC)',fmtD(r.call_datetime)),
+      f('Customs Cleared',fmtD(r.customs_cleared_datetime)),f('Final Call Datetime',fmtD(r.final_call_datetime))]);
+    h+=sec('Route &amp; cargo','boxes-stacked',[
+      f('Origin',v(r.origin_port_name)),f('Destination',v(r.destination_port_name)),
+      f('International MAWB',v(r.international_mawb)),f('Domestic MAWB',v(r.domestic_mawb)),
+      f('Packaging',v(r.packaging_type_name)),f('Initial Qty',v(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))),
+      f('Revised Qty',v(r.quantity||0)),f('Weight / Volume',(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM')]);
+    h+=sec('Trip, truck &amp; driver','truck',[
+      f('Trip ID',r.trip_id?'<span class="badge b-bl">'+esc(r.trip_id)+'</span>':'-'),f('Drop #',v(r.drop_sequence)),
+      f('Truck Type',v(r.truck_type_name)),f('Truck Plate #',v(r.plate_number)),
+      f('Vendor',v(r.vendor_name)),f('Driver',v(r.driver_username)),
+      f('Driver Name',v(r.driver_name)),f('Driver Phone',v(r.driver_phone))]);
+    h+=sec('Milestones','clock',[
+      f('Arrived Pickup',fmtD(r.arrived_pickup_datetime)),f('Start Loading',fmtD(r.start_loading_datetime)),
+      f('End Loading',fmtD(r.end_loading_datetime)),f('Arrived Destination',fmtD(r.arrived_dest_datetime)),
+      f('Start Unloading',fmtD(r.start_unloading_datetime)),f('End Unloading',fmtD(r.end_unloading_datetime)),
+      f('Delivered Date',fmtDDate(r.delivered_date)),f('Late Reason',v(r.late_reason))]);
+    h+=sec('Foul trip &amp; cancellation','flag',[
+      f('Foul Trip Reason',v(r.foul_trip_reason)),f('Foul Trip Date',fmtDDate(r.foul_trip_date)),
+      f('Foul Trip Count Confirmation',ftc),f('Foul Trip Approval',appr),
+      f('Cancellation Date',fmtDDate(r.cancellation_date))]);
+    h+='<div class="vw-cols"><div class="vw-sec"><h4><i class="fas fa-comment-alt"></i> Instructions</h4><p style="font-size:13.5px;white-space:pre-wrap">'+v(r.special_instructions)+'</p></div><div class="vw-sec"><h4><i class="fas fa-file-csv"></i> Manifest</h4>'+(r.manifest?('<p style="font-size:13px"><i class="fas fa-file-csv" style="color:#16A34A"></i> <strong>'+esc(r.manifest.original_filename)+'</strong> &middot; '+fmtS(r.manifest.file_size)+' &middot; <strong>'+r.manifest.id_count+' IDs</strong><br><a href="/api/requests/'+id+'/manifest/download"><i class="fas fa-download"></i> Download manifest CSV</a></p>'):'<p style="font-size:13px;color:#DC2626;font-weight:700">Missing Manifest</p>')+'</div>'+
+      '<div class="vw-sec"><h4><i class="fas fa-paperclip"></i> Attachments ('+(r.attachments||[]).length+'/8)</h4>'+(atts||'<p style="color:var(--muted);font-size:13px">No attachments</p>')+'</div></div>';
+    document.getElementById('mBody').innerHTML=h;
     document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Close</button>';
+    document.querySelector('#overlay .modal').classList.add('wide');
     document.getElementById('overlay').classList.add('on');
-  }catch(e){toast('Failed to load request','error')}
+  }catch(e){toast('Failed to load request'+(e&&e.message?': '+e.message:''),'error')}
 }
 
 let editOrigStatus=null;
@@ -1994,10 +2037,11 @@ async function loadDA(){
     ]);
     daRows=Array.isArray(a)?a:[];daTrucks=Array.isArray(b)?b:[];
     if(!daRows.length){body.innerHTML='<div class="empty" style="padding:30px"><i class="fas fa-id-card"></i><p>No driver accounts yet</p><p style="font-size:12.5px;color:var(--muted)">Click <strong>Add Account</strong> to create the first login for your drivers.</p></div>';return}
-    let html='<div class="tw"><table><thead><tr><th>Username</th><th>Driver Name</th><th>Phone</th><th>Vendor</th><th>Truck</th><th>Status</th><th>Assigned Trips (current status)</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+    let html='<div class="tw"><table><thead><tr><th>Username</th><th>Driver Name</th><th>Phone</th><th>Vendor</th><th>Override Code</th><th>Truck</th><th>Status</th><th>Assigned Trips (current status)</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
     daRows.forEach((d,i)=>{
       const badge=d.is_active?'<span class="badge" style="background:#DCFCE7;color:#166534"><i class="fas fa-check"></i> Active</span>':'<span class="badge" style="background:#FEE2E2;color:#991B1B"><i class="fas fa-ban"></i> Disabled</span>';
       html+='<tr><td><strong style="color:var(--pri)">'+esc(d.username)+'</strong></td><td>'+esc(d.driver_name||'-')+'</td><td>'+esc(d.driver_phone||'-')+'</td><td>'+esc(d.vendor_name||'-')+'</td>';
+      html+='<td>'+(d.has_override_code?'<span class="badge" style="background:#DCFCE7;color:#166534" title="Override code set"><i class="fas fa-key"></i> Set</span>':'<span class="badge" style="background:#FEF3C7;color:#92400E" title="No override code - bags not on the manifest cannot be forced through"><i class="fas fa-key"></i> Not set</span>')+'</td>';
       html+='<td>'+(d.plate_number?'<span class="badge b-bl">'+esc(d.plate_number)+'</span>'+(d.truck_type_name?'<br><small style="color:var(--muted)">'+esc(d.truck_type_name)+'</small>':''):'<span style="color:var(--muted);font-size:12.5px">No truck</span>')+'</td><td>'+badge+'</td>';
       const trips=d.trips||[];
       html+='<td style="min-width:260px">'+(trips.length?trips.map(t=>{
@@ -2037,6 +2081,9 @@ function showDAModal(d){
     '<div class="fg"><label class="fl">Password '+(d.id?'(leave blank to keep)':'* (min 4 characters)')+'</label><div class="peek-wrap"><input class="fi" id="daPass" type="password" maxlength="128" autocomplete="new-password" style="padding-right:40px"><button type="button" class="peek-btn" title="Show password" aria-label="Show password" onclick="peekPass(\'daPass\',this)"><i class="fas fa-eye"></i></button></div></div></div>'+
     '<div class="fr"><div class="fg"><label class="fl">Driver Name</label><input class="fi" id="daName" maxlength="255" value="'+esc(d.driver_name||'')+'"></div>'+
     '<div class="fg"><label class="fl">Driver Phone</label><input class="fi" id="daPhone" maxlength="50" value="'+esc(d.driver_phone||'')+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Override code '+(d.id?(d.has_override_code?'(set - leave blank to keep)':'(not set yet)'):'(4-32 letters or numbers)')+'</label><div class="peek-wrap"><input class="fi" id="daOv" type="password" maxlength="32" autocomplete="off" style="padding-right:40px" placeholder="Needed to force a bag that is not on the manifest"><button type="button" class="peek-btn" title="Show code" aria-label="Show code" onclick="peekPass(\'daOv\',this)"><i class="fas fa-eye"></i></button></div>'+
+    (d.id&&d.has_override_code?'<label class="fl" style="margin-top:6px;font-weight:400"><input type="checkbox" id="daOvClear"> Remove the override code</label>':'')+
+    '</div><div class="fg"><label class="fl">&nbsp;</label><small style="font-size:12px;color:var(--muted);display:block;padding-top:6px">During the pickup scan, a bag that is not on the manifest is only accepted after this code is typed in. It is never shown on the scan screen or QR code.</small></div></div>'+
     ven+
     '<div class="fr"><div class="fg"><label class="fl">Truck (driven by this account)</label><select class="fs" id="daTruck" data-cur="'+(d.truck_id||'')+'">'+daTruckOptions(vid,d.truck_id)+'</select></div>'+
     '<div class="fg" style="display:flex;align-items:flex-end"><label class="fl"><input type="checkbox" id="daActive" '+(d.id?(d.is_active?'checked':''):'checked')+'> Account is active</label></div></div>';
@@ -2064,6 +2111,10 @@ async function saveDA(id){
     is_active:document.getElementById('daActive').checked
   };
   const pass=document.getElementById('daPass').value;
+  const ov=(document.getElementById('daOv')?.value||'').trim();
+  const ovClear=document.getElementById('daOvClear')?.checked;
+  if(ov&&!/^[A-Za-z0-9]{4,32}$/.test(ov)){toast('Override code must be 4-32 letters or numbers','error');return}
+  if(ovClear)body.clear_override_code=true;else if(ov)body.override_code=ov;
   if(!body.username){toast('Username is required','error');return}
   if(pass)body.password=pass;
   else if(!id){toast('Password is required','error');return}
@@ -3022,6 +3073,7 @@ function roleBadge(r){
   if(r==='admin')return '<span class="badge b-bl"><i class="fas fa-shield-alt"></i> '+lbl+'</span>';
   if(m.kind==='vendor')return '<span class="badge b-gn"><i class="fas fa-truck"></i> '+lbl+'</span>';
   if(r==='new_user')return '<span class="badge b-yl"><i class="fas fa-user-plus"></i> '+lbl+'</span>';
+  if(r==='driver_fleet')return '<span class="badge b-gy"><i class="fas fa-barcode"></i> '+lbl+'</span>';
   if(r==='normal_user')return '<span class="badge b-gy"><i class="fas fa-user"></i> '+lbl+'</span>';
   return '<span class="badge b-gn"><i class="fas fa-eye"></i> '+lbl+'</span>';
 }
@@ -3033,7 +3085,7 @@ async function loadUsers(){
     const isMaster=user.role==='master_admin';
     const isAdmin=['master_admin','admin'].includes(user.role);
     const optsHtml=(sel,roles)=>roles.map(r=>{const m=roleMeta(r);return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+esc(m.label)+'</option>'}).join('');
-    const masterRoles=Array.isArray(roleList)&&roleList.length?roleList.map(x=>x.value):['viewer','normal_user','admin','master_admin','new_user'];
+    const masterRoles=Array.isArray(roleList)&&roleList.length?roleList.map(x=>x.value):['viewer','normal_user','admin','master_admin','driver_fleet','new_user'];
     const adminRoles=masterRoles.filter(r=>r!=='master_admin');
     tb.innerHTML=data.map(u=>{
       const nameDisplay=isAdmin?'<a href="#" onclick="editUserName('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\');return false" style="color:var(--pri);text-decoration:none;cursor:pointer" title="Edit name"><strong>'+u.name+'</strong> <i class="fas fa-pen" style="font-size:10px;opacity:0.5"></i></a>':'<strong>'+u.name+'</strong>';
@@ -3130,10 +3182,11 @@ const ALL_PAGES=[
   {key:'library',label:'Master Library'},
   {key:'users',label:'User Roles'},
   {key:'role-visibility',label:'Role Visibility'},
+  {key:'scan-app',label:'Scanning App'},
   {key:'user-guide',label:'User Guide'}
 ];
-const ROLE_LABELS={viewer:'Viewer',normal_user:'Normal User',admin:'Admin',master_admin:'Master Admin',new_user:'New User',vendor:'Vendor'};
-const ROLE_ORDER=['viewer','normal_user','admin','master_admin','new_user','vendor'];
+const ROLE_LABELS={viewer:'Viewer',normal_user:'Normal User',admin:'Admin',master_admin:'Master Admin',driver_fleet:'Driver/Fleet',new_user:'New User',vendor:'Vendor'};
+const ROLE_ORDER=['viewer','normal_user','admin','master_admin','driver_fleet','new_user','vendor'];
 let roleVisConfig={},roleLabelsSaved={};
 function rvLabel(r){
   if(roleLabelsSaved[r])return roleLabelsSaved[r];
@@ -3182,7 +3235,9 @@ function renderRoleVisibility(){
     html+='<tr><td style="padding:8px 12px;border-bottom:1px solid #F3F4F6;font-weight:600">'+p.label+'</td>';
     ROLE_ORDER.forEach(r=>{
       const checked=rvPages(r).includes(p.key);
-      html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+' style="width:16px;height:16px;cursor:pointer"></td>';
+      // Driver/Fleet is fixed to the Scanning App only.
+      const locked=r==='driver_fleet';
+      html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+(locked?' disabled title="Driver/Fleet can only use the Scanning App"':'')+' style="width:16px;height:16px;cursor:'+(locked?'not-allowed':'pointer')+'"></td>';
     });
     html+='</tr>';
   });
@@ -3215,7 +3270,7 @@ async function saveRoleVisibility(){
   }catch(e){toast('Failed to save','error')}
 }
 
-function closeM(){document.getElementById('overlay').classList.remove('on')}
+function closeM(){document.getElementById('overlay').classList.remove('on');const m=document.querySelector('#overlay .modal');if(m)m.classList.remove('wide')}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)e.stopPropagation()});
 
 /* ===================== Scanning app (mobile) ===================== */
@@ -3281,6 +3336,7 @@ function scanRoute(){
   const app=document.getElementById('scanApp');
   if(!app)return;
   scanStopCam();
+  if(window.__scanOnly&&h!=='scan'&&!m){location.hash='#/scan';return}
   if(h==='scan'||m){
     document.body.classList.add('scan-mode');
     app.style.display='block';
@@ -3288,7 +3344,7 @@ function scanRoute(){
     else{
       const q=(m[3]||'').replace(/^\?/,'');
       const qs=new URLSearchParams(q);
-      scanOv=qs.get('ov')||'';
+      scanOv='';
       scanKey(m[1],decodeURIComponent(m[2]));
     }
   }else{
@@ -3374,7 +3430,7 @@ function renderScanLogin(msg){
     '<label class="sc-hint">Username</label><input class="sc-in" id="scUser" autocomplete="username" autocapitalize="none" autocorrect="off">'+
     '<label class="sc-hint" style="display:block;margin-top:10px">Password</label><div class="peek-wrap"><input class="sc-in" id="scPass" type="password" autocomplete="current-password" style="padding-right:46px" onkeydown="if(event.key===\'Enter\')doScanLogin()"><button type="button" class="peek-btn" title="Show password" aria-label="Show password" onclick="peekPass(\'scPass\',this)"><i class="fas fa-eye"></i></button></div>'+
     '<button class="sc-btn" onclick="doScanLogin()"><i class="fas fa-sign-in-alt"></i> Sign in</button></div>',
-    scanBack('Back to app',"location.hash='#/dashboard'"));
+    window.__scanOnly?'':scanBack('Back to app',"location.hash='#/dashboard'"));
   const u=document.getElementById('scUser');if(u)u.focus();
 }
 async function doScanLogin(){
@@ -3711,7 +3767,7 @@ async function scanKey(kind,key){
   scanShell(title,'<div class="sc-card"><div class="sc-hint"><i class="fas fa-spinner fa-spin"></i> Loading scan session...</div></div>',
     scanBack('Back','scanLeave()'));
   try{
-    scanSum=await scanApi('/api/scan/'+kind+'/'+key+(scanOv&&kind==='pickup'?'?ov='+encodeURIComponent(scanOv):''));
+    scanSum=await scanApi('/api/scan/'+kind+'/'+key);
     renderScanKey(kind,key);
     if(!scanSum.closed)scanStartPoll(kind,key);
   }catch(e){scanShellErr(title,e.message,scanBack('Back','scanLeave()'))}
@@ -3722,7 +3778,7 @@ function scanStartPoll(kind,key){
   scanTimer=setInterval(async ()=>{
     if(document.getElementById('scModal'))return;
     try{
-      const s=await scanApi('/api/scan/'+kind+'/'+key+(scanOv&&kind==='pickup'?'?ov='+encodeURIComponent(scanOv):''));
+      const s=await scanApi('/api/scan/'+kind+'/'+key);
       const wasClosed=scanSum&&scanSum.closed,wasStarted=scanSum&&scanSum.started;
       scanSum=s;
       if(s.closed&&!wasClosed){scanStopCam();renderScanKey(kind,key);return}
@@ -3791,7 +3847,7 @@ function renderScanKey(kind,key){
     '<div class="sc-hint">Anyone with this link can scan for this session.</div>'+
     '<div id="scQR" class="sc-qr" style="margin-top:10px"></div>'+
     '<div class="sc-hint" style="margin-top:8px;word-break:break-all" id="scUrl"></div>'+
-    (kind==='pickup'&&s.override_code?'<div class="sc-hint" style="margin-top:8px">Override code: <strong>'+esc(s.override_code)+'</strong></div>':'')+
+
     '</div>';
   scanShell(title,body,scanBack('Back','scanLeave()'));
   const url=location.origin+location.pathname+'#/s/'+kind+'/'+key;
@@ -3830,22 +3886,24 @@ function scResultHtml(kind,r){
   return '<div class="sc-res bad"><div class="h"><i class="fas fa-times-circle"></i> '+(kind==='pickup'?'Not on manifest':'Scan failed - no match')+'</div><div class="bag">'+esc(r.bag_id)+'</div>'+
     '<div class="why">'+esc(r.detail||'')+'</div>'+
     (od?'<div class="sc-res-grid"><span>Loaded for</span><b>Drop '+esc(od.drop_sequence||'-')+'</b><span>Account</span><b>'+esc(od.account_name||'-')+'</b><span>Destination</span><b>'+esc(od.destination_port_name||'-')+'</b></div>':'')+
-    (kind==='pickup'&&r.result==='unknown'?'<button class="sc-btn warn" onclick="scOverride(\''+kind+'\',\''+encodeURIComponent(scanKeyCur)+'\',\''+String(r.bag_id).replace(/[\\'"<>]/g,'')+'\')"><i class="fas fa-unlock"></i> Scan it anyway (override)</button>':'')+
+    (kind==='pickup'&&r.result==='unknown'?scOvForm(r):'')+
     '</div>';
 }
 let scSending=false;
-async function scSend(kind,key,bag){
+async function scSend(kind,key,bag,ovCode){
   bag=String(bag||'').trim();
   if(!bag||scSending)return;
   scSending=true;
   const box=document.getElementById('scResult');
   try{
-    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:(kind==='pickup'&&scanOv)||undefined}});
+    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:(kind==='pickup'&&ovCode)||undefined}});
     scanSum=r;
     if(r.result==='success'){scanOkSound();scanFlash('#10B981')}
     else{scanSiren();scanFlash(r.result==='duplicate'?'#F59E0B':'#DC2626')}
     if(box)box.innerHTML=scResultHtml(kind,r);
     scanUpdate(kind);
+    const oc=document.getElementById('scOvCode');
+    if(oc){scSending=false;oc.focus();return}
   }catch(e){
     scanSiren();scanFlash('#DC2626');
     if(box)box.innerHTML='<div class="sc-res bad"><div class="h"><i class="fas fa-exclamation-triangle"></i> Not recorded</div><div class="bag">'+esc(bag)+'</div><div class="why">'+esc(e.message)+'</div></div>';
@@ -3854,13 +3912,26 @@ async function scSend(kind,key,bag){
   scSending=false;
   const i=document.getElementById('scBag');if(i){i.value='';if(!scanCam)i.focus()}
 }
-async function scOverride(kind,key,bag){
-  scanOv=scanSum&&scanSum.override_code?scanSum.override_code:'';
-  await scSend(kind,key,bag);
+/* A bag that is not on the manifest needs the driver's override code, typed for that bag. */
+let scOvBag='';
+function scOvForm(r){
+  scOvBag=String(r.bag_id||'');
+  if(scanSum&&scanSum.override_available===false)
+    return '<div class="why" style="margin-top:8px">No override code is set for this trip\'s driver / fleet account, so this bag cannot be forced through. Ask the dispatcher to set one on the Driver / Fleet Accounts page.</div>';
+  return '<div style="margin-top:10px"><label class="sc-hint" for="scOvCode" style="color:#FCD34D">Enter the override code to accept this bag anyway</label>'+
+    '<div class="peek-wrap"><input class="sc-in" id="scOvCode" type="password" inputmode="text" autocomplete="off" autocapitalize="none" maxlength="32" placeholder="Override code" style="margin-top:6px;padding-right:46px" onkeydown="if(event.key===\'Enter\')scOverride()"><button type="button" class="peek-btn" title="Show code" aria-label="Show code" onclick="peekPass(\'scOvCode\',this)"><i class="fas fa-eye"></i></button></div>'+
+    '<button class="sc-btn warn" onclick="scOverride()"><i class="fas fa-unlock"></i> Override and record this bag</button></div>';
+}
+async function scOverride(){
+  const el=document.getElementById('scOvCode');
+  const code=el?el.value.trim():'';
+  if(!code){if(el)el.focus();return}
+  if(!scOvBag)return;
+  await scSend(scanKind,encodeURIComponent(scanKeyCur),scOvBag,code);
 }
 /* End scan: show the summary first, end only after Confirm. */
 async function scEndAsk(kind,key){
-  try{scanSum=await scanApi('/api/scan/'+kind+'/'+key+(scanOv&&kind==='pickup'?'?ov='+encodeURIComponent(scanOv):''));scanUpdate(kind)}catch(e){}
+  try{scanSum=await scanApi('/api/scan/'+kind+'/'+key);scanUpdate(kind)}catch(e){}
   const s=scanSum||{};
   if(kind==='pickup'){
     const ok=await scanModal({title:'End pickup scan?',icon:'flag-checkered',ok:'Confirm',okClass:'danger',cancel:'Resume scanning',
@@ -3896,8 +3967,8 @@ async function scEnd(kind,key){
       const w=document.getElementById('scOvWrap');
       if(w){
         w.innerHTML='<div class="sc-card" style="margin-top:12px"><h5><i class="fas fa-unlock"></i> Override code needed</h5>'+
-          '<div class="sc-hint">Ending the pickup scan needs the override code from the trip, or a signed-in driver session on this phone.</div>'+
-          '<input class="sc-in" id="scOvIn" placeholder="Override code" autocapitalize="none" style="margin-top:10px">'+
+          '<div class="sc-hint">Ending the pickup scan needs the driver\'s override code, or the driver signed in on this phone.</div>'+
+          '<input class="sc-in" id="scOvIn" type="password" autocomplete="off" placeholder="Override code" autocapitalize="none" style="margin-top:10px">'+
           '<button class="sc-btn warn" onclick="scEndOv(\''+kind+'\',\''+encodeURIComponent(key)+'\')"><i class="fas fa-lock-open"></i> End now</button></div>';
         w.scrollIntoView({block:'center'});
       }

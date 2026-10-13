@@ -11,6 +11,7 @@ import uuid
 import math
 import hashlib
 import secrets
+import time
 from datetime import datetime, timezone, date, timedelta
 from urllib.parse import urlparse, unquote
 from typing import Optional
@@ -838,7 +839,21 @@ def is_hash_name(name):
     if not name or len(name) < 20: return False
     return all(c in "0123456789abcdef" for c in name)
 
+# The Driver/Fleet role only uses the Scanning App: these are the only app (SSO)
+# endpoints it may call. The scanning app itself signs in with a driver / fleet
+# account, so its /api/scan/* endpoints never go through get_user().
+DRIVER_FLEET_ROLE = "driver_fleet"
+DRIVER_FLEET_PATHS = {"/api/me", "/api/local-mode", "/api/role-visibility"}
+
 def get_user(request: Request):
+    u = _get_user_row(request)
+    if u and u.get("role") == DRIVER_FLEET_ROLE:
+        path = request.url.path
+        if path not in DRIVER_FLEET_PATHS and not path.startswith("/api/scan/"):
+            raise HTTPException(403, "The Driver/Fleet role can only use the Scanning App")
+    return u
+
+def _get_user_row(request: Request):
     email = request.headers.get("X-Forwarded-Email") or "nigel.ng@ninjavan.co"
     name = request.headers.get("X-Forwarded-User") or email
     if LOCAL_MODE:
@@ -885,8 +900,9 @@ def require_master(request):
 # ---------------------------------------------------------------------------
 
 VENDOR_ROLE_PREFIX = "Vendor - "
-BASE_ROLES = ("viewer", "normal_user", "admin", "master_admin", "new_user")
-DEFAULT_VENDOR_PAGES = ["dashboard", "masterlist", "vendor-trucks", "driver-accounts", "fleet", "user-guide"]
+BASE_ROLES = ("viewer", "normal_user", "admin", "master_admin", "new_user", "driver_fleet")
+SCAN_PAGE = "scan-app"
+DEFAULT_VENDOR_PAGES = ["dashboard", "masterlist", "vendor-trucks", "driver-accounts", "fleet", "scan-app", "user-guide"]
 # Simplified step-by-step user guide: shown to every role except New User.
 GUIDE_PAGE = "user-guide"
 # The Driver / Fleet Accounts page belongs beside Vendor Truck Assignment.
@@ -895,6 +911,7 @@ DA_PAGE = "driver-accounts"
 ROLE_LABELS_BASE = {
     "viewer": "Viewer", "normal_user": "Normal User", "admin": "Admin",
     "master_admin": "Master Admin", "new_user": "New User (no access)",
+    "driver_fleet": "Driver/Fleet",
 }
 # Master admins may rename roles; the amended names live beside the page grants
 # in the role_visibility config under this reserved key (never a role itself).
@@ -1044,7 +1061,7 @@ def list_roles(request: Request):
     get_user(request)
     labels = clean_role_labels((_load_role_visibility_cfg() or {}).get(ROLE_LABELS_KEY))
     roles = [{"value": r, "label": labels.get(r) or ROLE_LABELS_BASE[r], "kind": "base"}
-             for r in ("viewer", "normal_user", "admin", "master_admin", "new_user")]
+             for r in ("viewer", "normal_user", "admin", "master_admin", "driver_fleet", "new_user")]
     for v in all_vendors():
         name = v.get("name") or ""
         if not name: continue
@@ -1148,12 +1165,18 @@ async def remove_user(uid: int, request: Request):
     return {"ok": True}
 
 DEFAULT_ROLE_VISIBILITY = {
-    "viewer": ["dashboard", "masterlist", "user-guide"],
-    "normal_user": ["dashboard", "new-request", "masterlist", "pending", "user-guide"],
-    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "user-guide"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "user-guide"],
+    "viewer": ["dashboard", "masterlist", "scan-app", "user-guide"],
+    "normal_user": ["dashboard", "new-request", "masterlist", "pending", "scan-app", "user-guide"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "scan-app", "user-guide"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "scan-app", "user-guide"],
+    "driver_fleet": ["scan-app"],
     "new_user": [],
+    "_scan_app_v1": True,
 }
+# Marker stored with the config: once present, Scanning App is a normal page that a
+# master admin can switch on or off per role. Configs saved before the page existed
+# get it for every role that could already open the scanning app (everyone but New User).
+SCAN_APP_MARKER = "_scan_app_v1"
 
 def _load_role_visibility_cfg():
     """Stored config dict (pages per role + role_labels) or None when absent."""
@@ -1174,8 +1197,15 @@ def _merge_role_visibility(cfg):
     Reserved keys (role_labels) are kept but never treated as roles."""
     raw = cfg if isinstance(cfg, dict) else {}
     labels = clean_role_labels(raw.get(ROLE_LABELS_KEY))
-    out = {k: v for k, v in raw.items() if k != ROLE_LABELS_KEY}
+    upgraded = bool(raw.get(SCAN_APP_MARKER))
+    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER)}
     out.setdefault("new_user", [])
+    if not upgraded:
+        for k, v in list(out.items()):
+            if k != "new_user" and isinstance(v, list) and SCAN_PAGE not in v:
+                out[k] = list(v) + [SCAN_PAGE]
+    # Driver/Fleet can only ever use the Scanning App.
+    out[DRIVER_FLEET_ROLE] = [SCAN_PAGE]
     live_vendors = set(vendor_role_names())
     for k in [k for k in out if k.startswith(VENDOR_ROLE_PREFIX)]:
         if k not in live_vendors:
@@ -1185,7 +1215,7 @@ def _merge_role_visibility(cfg):
     # The User Guide is available to every role except New User, including
     # vendor keys that were written before it existed.
     for k in list(out):
-        if k == "new_user" or k == ROLE_LABELS_KEY:
+        if k in ("new_user", DRIVER_FLEET_ROLE) or k == ROLE_LABELS_KEY:
             continue
         v = out.get(k)
         if isinstance(v, list) and GUIDE_PAGE not in v:
@@ -1237,6 +1267,8 @@ async def set_role_visibility(request: Request):
         else:
             expanded[role] = list(pages)
     expanded[ROLE_LABELS_KEY] = labels
+    expanded[DRIVER_FLEET_ROLE] = [SCAN_PAGE]
+    expanded[SCAN_APP_MARKER] = True
     if LOCAL_MODE:
         _store["role_visibility"] = expanded
         return {"ok": True}
@@ -1873,8 +1905,12 @@ def archive_truck_requests(truck_id, email="system"):
 def dashboard(request: Request, final_call_from: Optional[str] = None, final_call_to: Optional[str] = None,
     account_id: Optional[int] = None, department_id: Optional[int] = None,
     status_id: Optional[int] = None, origin_port_id: Optional[int] = None,
-    destination_port_id: Optional[int] = None, mawb: Optional[str] = None):
+    destination_port_id: Optional[int] = None, mawb: Optional[str] = None,
+    list_status_id: Optional[int] = None):
+    """Summary counts plus the request list. list_status_id (a clicked summary tile)
+    narrows only the list - the counts keep showing every status."""
     scope_vid, _ = vendor_scope(request)
+    list_limit = 1000 if list_status_id else 50
     if LOCAL_MODE:
         reqs = _store["truck_requests"]
         flt = []
@@ -1897,7 +1933,8 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
         if scope_vid is not None:
             trucks = [t for t in trucks if t.get("vendor_id") == scope_vid]
         tc = sum(r.get("actual_cost", 0) or 0 for r in flt)
-        recent = [row2d(r) for r in flt][-50:][::-1]
+        listed = [r for r in flt if not list_status_id or r.get("status_id") == list_status_id]
+        recent = [row2d(r) for r in listed][-list_limit:][::-1]
         for r in recent:
             r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
             r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
@@ -1921,6 +1958,8 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
             "available_trucks": sum(1 for t in trucks if t.get("status") == "available"),
             "busy_trucks": sum(1 for t in trucks if t.get("status") == "busy"),
             "recent_requests": recent,
+            "list_status_id": list_status_id,
+            "list_total": len(listed),
         }
     wh, pa = [], []
     if scope_vid is not None: wh.append("tr.vendor_id=%s"); pa.append(scope_vid)
@@ -1950,6 +1989,11 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
         ts = db_1("""SELECT COUNT(*) as total_trucks,
             SUM(CASE WHEN status='available' THEN 1 ELSE 0 END) as available_trucks,
             SUM(CASE WHEN status='busy' THEN 1 ELSE 0 END) as busy_trucks FROM trucks WHERE is_active=1""")
+    lwh, lpa = list(wh), list(pa)
+    if list_status_id:
+        lwh.append("tr.status_id=%s"); lpa.append(list_status_id)
+    lws = (" WHERE " + " AND ".join(lwh)) if lwh else ""
+    lcount = db_1(f"SELECT COUNT(*) as c FROM truck_requests tr{lws}", tuple(lpa)) or {}
     recent = db_q(f"""SELECT tr.*, a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
         ts.name as status_name, ts.color as status_color,
@@ -1959,11 +2003,12 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN truck_statuses ts ON tr.status_id=ts.id
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
-        {ws} ORDER BY tr.created_at DESC LIMIT 50""", tuple(pa))
+        {lws} ORDER BY tr.created_at DESC LIMIT %s""", tuple(lpa) + (list_limit,))
     for r in recent:
         r["quantity"] = r.get("quantity") or 0
         r["requestor_name"] = r.get("requestor_name", "")
-    return {**(stats or {}), **(ts or {}), "recent_requests": recent}
+    return {**(stats or {}), **(ts or {}), "recent_requests": recent,
+            "list_status_id": list_status_id, "list_total": int(lcount.get("c") or 0)}
 
 # ---------------------------------------------------------------------------
 # Capacity Conversion: one base packaging unit, per-type factors, utilisation
@@ -2413,7 +2458,7 @@ BULK_HEADER_MAP = {
     "volumecbm": "volume_cbm", "volume": "volume_cbm",
     "specialinstructions": "special_instructions", "notes": "special_instructions", "remarks": "special_instructions",
 }
-BULK_REQUIRED = ("department", "origin_port", "account", "destination_port", "packaging", "quantity")
+BULK_REQUIRED = ("department", "origin_port", "account", "destination_port", "packaging", "quantity", "call_datetime")
 BULK_LABELS = {
     "department": "Department", "origin_port": "Origin Port", "account": "Account",
     "destination_port": "Destination Port", "packaging": "Packaging Type", "quantity": "Quantity",
@@ -2445,16 +2490,68 @@ def _bulk_ctx():
             "accounts": lc_map(db_q("SELECT id, name FROM accounts")),
             "packaging": lc_map(db_q("SELECT id, name FROM packaging_types"))}
 
+_BULK_MONTHS = {m: i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
+BULK_DT_HELP = ("not a valid date/time - use e.g. 2026-10-15 09:00, 15/10/2026 9:00 "
+                "or 15-Oct-2026 9:00")
+
 def _bulk_parse_dt(v):
-    s = _bulk_txt(v).replace("T", " ")
+    """Read a date/time the way people (and Excel) write it.
+
+    Excel re-saves the template's '2026-10-15 09:00' in the computer's own format,
+    e.g. '15/10/2026 9:00' or '10/15/2026 9:00 AM', so all of these are accepted:
+    YYYY-MM-DD / YYYY/MM/DD, DD/MM/YYYY (MM/DD/YYYY only when the second number
+    can only be a day, e.g. 10/15/2026), DD-Mon-YYYY, 2-digit years,
+    optional HH:MM[:SS] with AM/PM, and Excel serial numbers.
+    Day-first is used when both readings are possible (Philippine format)."""
+    s = _bulk_txt(v).replace("T", " ").replace(".", "/") if not re.fullmatch(r"\d+(\.\d+)?", _bulk_txt(v)) else _bulk_txt(v)
     if not s:
         return None, None
-    m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ ](\d{1,2}):(\d{2})(?::(\d{2}))?)?$", s)
+    # Excel serial date (days since 1899-12-30), with an optional time fraction.
+    if re.fullmatch(r"\d+(\.\d+)?", s):
+        try:
+            f = float(s)
+            if 20000 < f < 80000:
+                d = datetime(1899, 12, 30) + timedelta(days=f)
+                d = d.replace(second=0, microsecond=0) + timedelta(minutes=1 if d.second >= 30 else 0)
+                return (d.strftime("%Y-%m-%dT%H:%M") if f % 1 else d.strftime("%Y-%m-%d")), None
+        except (ValueError, OverflowError):
+            pass
+        return None, BULK_DT_HELP
+    m = re.match(r"^(\S+)(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?$", s)
     if not m:
-        return None, "not a valid date/time — use YYYY-MM-DD or YYYY-MM-DD HH:MM"
-    y, mo, dd, hh, mi, ss = m.groups()
+        return None, BULK_DT_HELP
+    dpart, hh, mi, ss, ampm = m.groups()
+    y = mo = dd = None
+    parts = re.split(r"[-/]", dpart)
+    if len(parts) != 3:
+        return None, BULK_DT_HELP
+    a, b, c = parts
     try:
-        d = datetime(int(y), int(mo), int(dd), int(hh or 0), int(mi or 0), int(ss or 0))
+        if re.fullmatch(r"\d{4}", a):                       # YYYY-MM-DD
+            y, mo, dd = int(a), int(b), int(c)
+        elif b.isalpha():                                    # 15-Oct-2026
+            mo = _BULK_MONTHS.get(b[:3].lower())
+            dd, y = int(a), int(c)
+        else:                                                # DD/MM/YYYY or MM/DD/YYYY
+            p1, p2, y = int(a), int(b), int(c)
+            if p1 > 12 or p2 <= 12:
+                dd, mo = p1, p2                              # day first (default)
+            else:
+                mo, dd = p1, p2                              # 10/15/2026 can only be month first
+        if y is not None and y < 100:
+            y += 2000
+    except ValueError:
+        return None, BULK_DT_HELP
+    if not (y and mo and dd):
+        return None, BULK_DT_HELP
+    h = int(hh) if hh is not None else 0
+    if ampm:
+        if h < 1 or h > 12:
+            return None, BULK_DT_HELP
+        h = (h % 12) + (12 if ampm.lower() == "pm" else 0)
+    try:
+        d = datetime(y, mo, dd, h, int(mi or 0), int(ss or 0))
     except ValueError:
         return None, "not a real calendar date"
     if hh is not None:
@@ -2537,6 +2634,8 @@ def _bulk_validate_row(data, ctx):
     call_dt, call_err = _bulk_parse_dt(data.get("call_datetime"))
     if call_err:
         issues.append(f'Initial Call datetime (TBC) {call_err}')
+    elif not call_dt:
+        issues.append("Initial Call datetime (TBC) is required")
     cust_dt, cust_err = _bulk_parse_dt(data.get("customs_cleared_datetime"))
     if cust_err:
         issues.append(f'Customs Cleared Date/Time {cust_err}')
@@ -2677,7 +2776,7 @@ def get_request(rid: int, request: Request):
                 if res.get("assigned_truck_id") and res.get("status_id") in (2, 3, 4, 5, 7):
                     peers = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == res["assigned_truck_id"]]
                     res["trip_id"] = resolve_trip_id(res, peers)
-                return res
+                return _request_view_extras(res)
         raise HTTPException(404, "Not found")
     item = db_1("""SELECT tr.*, a.name as account_name, d.name as department_name,
         po.name as origin_port_name, pd.name as destination_port_name,
@@ -2698,7 +2797,43 @@ def get_request(rid: int, request: Request):
             account_id, assigned_truck_id FROM truck_requests WHERE assigned_truck_id=%s""",
             (item["assigned_truck_id"],))
         item["trip_id"] = resolve_trip_id(item, peers)
-    return item
+    return _request_view_extras(row2d(item))
+
+def _request_view_extras(r):
+    """Fields the request view popup shows beside the stored columns: truck plate,
+    vendor, driver, delivered date and the foul-trip approver's name."""
+    r["plate_number"] = _truck_plate(r.get("assigned_truck_id")) if r.get("assigned_truck_id") else ""
+    vid = r.get("vendor_id")
+    if not vid and r.get("assigned_truck_id"):
+        t = (next((x for x in _store["trucks"] if x["id"] == r["assigned_truck_id"]), None) if LOCAL_MODE
+             else db_1("SELECT vendor_id FROM trucks WHERE id=%s", (r["assigned_truck_id"],)))
+        vid = (t or {}).get("vendor_id")
+    if vid:
+        v = (next((x for x in _store["vendors"] if x["id"] == vid), None) if LOCAL_MODE
+             else db_1("SELECT name FROM vendors WHERE id=%s", (vid,)))
+        r["vendor_name"] = (v or {}).get("name") or ""
+    else:
+        r["vendor_name"] = ""
+    d = _driver_row(r.get("driver_account_id")) if r.get("driver_account_id") else None
+    r["driver_username"] = (d or {}).get("username") or ""
+    r["driver_name"] = (d or {}).get("driver_name") or ""
+    r["driver_phone"] = (d or {}).get("driver_phone") or ""
+    r["delivered_date"] = (str(r.get("end_unloading_datetime") or ""))[:10]
+    appr = r.get("foul_trip_approved_by") or ""
+    if appr:
+        u = (next((x for x in _store["users"] if x.get("email") == appr), None) if LOCAL_MODE
+             else db_1("SELECT name FROM users WHERE email=%s", (appr,)))
+        r["foul_trip_approved_by_name"] = (u or {}).get("name") or appr
+    else:
+        r["foul_trip_approved_by_name"] = ""
+    for k in ("trip_id", "drop_sequence", "late_reason", "special_instructions", "foul_trip_reason",
+              "foul_trip_date", "foul_trip_count", "cancellation_date", "final_call_datetime"):
+        r.setdefault(k, None)
+    for k in ("final_call_datetime", "call_datetime", "customs_cleared_datetime", "foul_trip_approved_at",
+              *MILESTONE_FIELDS):
+        if r.get(k):
+            r[k] = to_gmt8(r[k])
+    return r
 
 def _insert_request(user, body):
     """Insert one validated truck request — shared by single create and CSV bulk."""
@@ -2751,6 +2886,8 @@ async def create_request(request: Request):
         for f in ("account_id", "department_id", "origin_port_id", "destination_port_id", "packaging_type_id"):
             if not body.get(f): raise HTTPException(400, f"{f} required")
         if body.get("quantity", 0) <= 0: raise HTTPException(400, "Quantity must be greater than 0")
+        if not str(body.get("call_datetime") or "").strip():
+            raise HTTPException(400, "Initial Call datetime (TBC) is required")
         if body.get("origin_port_id") == body.get("destination_port_id"):
             raise HTTPException(400, "Origin port cannot be the same as destination port")
         return _insert_request(user, body)
@@ -4461,11 +4598,6 @@ def _pw_ok(password, hashed, salt):
     except Exception:
         return False
 
-def _override_code(key):
-    """Second secret carried by the scan QR: it is what unlocks Override mode."""
-    if not key:
-        return None
-    return hashlib.sha1(("scan-ov:" + str(key)).encode("utf-8")).hexdigest()[:10]
 
 def _truck_plate(tid):
     if not tid:
@@ -4492,7 +4624,16 @@ def _driver_public(d):
             "driver_phone": d.get("driver_phone") or "", "vendor_name": d.get("vendor_name") or "",
             "truck_id": d.get("truck_id"), "plate_number": plate or "",
             "truck_type_id": d.get("truck_type_id"), "truck_type_name": d.get("truck_type_name") or "",
+            "has_override_code": bool(d.get("override_hash")),
             "is_active": bool(d.get("is_active", 1))}
+
+OVERRIDE_CODE_RE = re.compile(r"[A-Za-z0-9]{4,32}")
+
+def _clean_override_code(raw):
+    code = str(raw or "").strip()
+    if not OVERRIDE_CODE_RE.fullmatch(code):
+        raise HTTPException(400, "Override code must be 4-32 letters or numbers")
+    return code
 
 def _driver_rows(vid=None, active_only=False):
     if LOCAL_MODE:
@@ -4874,7 +5015,6 @@ def _scan_summary(kind, rows, key, trip_rows=None):
         started = bool(rows[0].get("arrived_dest_datetime"))
         mode = "pickup"
     return {"kind": kind, "trip_id": base, "key": key,
-            "override_code": _override_code(key) if kind == "pickup" else None,
             "mode": mode,
             "expected_count": (len(exp_set) if (exp_set or kind == "unload") else None),
             "scanned_count": len(scans),
@@ -4890,12 +5030,25 @@ def _scan_summary(kind, rows, key, trip_rows=None):
                           "destination_port_name": r.get("destination_port_name") or "",
                           "status_id": r.get("status_id")} for r in rows]}
 
+SCAN_CSV_HEADER = ["Bag ID", "Trip ID", "International MAWB", "Domestic MAWB", "Account",
+                   "Origin", "Destination", "Drop #", "Remark"]
+
 def _scan_csv(rows, scans, expected, label):
-    """Bag ID / Account / Destination / Drop # / Remark for a scan session."""
+    """One line per bag of a scan session: the bag, its trip, the MAWBs, account,
+    origin, destination and drop of the request it belongs to, and how it was scanned
+    (original / override / missing)."""
     by_id = {r.get("id"): r for r in rows}
+    base = _scan_base(rows) if rows else ""
+
+    def line(bag, owner, remark):
+        o = owner or {}
+        return [bag, o.get("trip_id") or base, o.get("international_mawb") or "", o.get("domestic_mawb") or "",
+                o.get("account_name") or "", o.get("origin_port_name") or "",
+                o.get("destination_port_name") or "", o.get("drop_sequence") or "", remark]
+
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["Bag ID", "Account", "Destination", "Drop #", "Remark"])
+    w.writerow(SCAN_CSV_HEADER)
     seen = set()
     for x in expected:
         k = str(x).lower()
@@ -4904,24 +5057,21 @@ def _scan_csv(rows, scans, expected, label):
         seen.add(k)
         owner = None
         for r in rows:
-            if str(x).lower() in {str(m).lower() for m in _manifest_ids_for(r.get("id"))}:
+            if k in {str(m).lower() for m in _manifest_ids_for(r.get("id"))}:
                 owner = r
                 break
         if owner is None and len(rows) == 1:
             owner = rows[0]
         kind = _scan_kind_of(scans, x)
-        remark = kind if kind else "missing"
-        w.writerow([x, (owner or {}).get("account_name") or "", (owner or {}).get("destination_port_name") or "",
-                    (owner or {}).get("drop_sequence") or "", remark])
+        w.writerow(line(x, owner, kind if kind else "missing"))
     for s in scans:
         b = str(s.get("bag_id") or "")
         if b.lower() in seen:
             continue
         seen.add(b.lower())
-        owner = by_id.get(s.get("request_id")) or (rows[0] if len(rows) == 1 else {})
-        w.writerow([b, owner.get("account_name") or "", owner.get("destination_port_name") or "",
-                    owner.get("drop_sequence") or "", s.get("scan_kind") or "original"])
-    data = buf.getvalue().encode("utf-8")
+        owner = by_id.get(s.get("request_id")) or (rows[0] if len(rows) == 1 else None)
+        w.writerow(line(b, owner, s.get("scan_kind") or "original"))
+    data = ("\ufeff" + buf.getvalue()).encode("utf-8")
     name = f"{label}-scan.csv"
     return Response(data, media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
@@ -5018,6 +5168,9 @@ async def create_driver_account(request: Request):
     if _driver_by_username(username):
         raise HTTPException(400, "That username is already in use")
     tid = _clean_truck(want_vid, body.get("truck_id"))
+    ov_hash = ov_salt = None
+    if str(body.get("override_code") or "").strip():
+        ov_hash, ov_salt = _pw_new(_clean_override_code(body.get("override_code")))
     hashed, salt = _pw_new(password)
     vals = (want_vid, username, hashed, salt,
             str(body.get("driver_name") or "").strip() or None,
@@ -5027,11 +5180,13 @@ async def create_driver_account(request: Request):
         d = {"id": nid("driver_accounts"), "vendor_id": vals[0], "username": vals[1],
              "password_hash": vals[2], "password_salt": vals[3], "driver_name": vals[4],
              "driver_phone": vals[5], "is_active": bool(vals[6]), "truck_id": vals[7],
+             "override_hash": ov_hash, "override_salt": ov_salt,
              "active_trip_id": None, "created_at": nows(), "updated_at": nows()}
         _store["driver_accounts"].append(d)
         return _driver_public(_driver_row(d["id"]))
     did = db_i("""INSERT INTO driver_accounts (vendor_id,username,password_hash,password_salt,
-        driver_name,driver_phone,is_active,truck_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""", vals)
+        driver_name,driver_phone,is_active,truck_id,override_hash,override_salt)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", vals + (ov_hash, ov_salt))
     return _driver_public(_driver_row(did))
 
 @app.put("/api/driver-accounts/{did}")
@@ -5055,6 +5210,11 @@ async def update_driver_account(did: int, request: Request):
             raise HTTPException(400, "Password must be at least 4 characters")
         hashed, salt = _pw_new(password)
         sets.extend(["password_hash=%s", "password_salt=%s"]); params.extend([hashed, salt])
+    if body.get("clear_override_code"):
+        sets.extend(["override_hash=%s", "override_salt=%s"]); params.extend([None, None])
+    elif str(body.get("override_code") or "").strip():
+        oh, osalt = _pw_new(_clean_override_code(body.get("override_code")))
+        sets.extend(["override_hash=%s", "override_salt=%s"]); params.extend([oh, osalt])
     if "driver_name" in body:
         sets.append("driver_name=%s"); params.append(str(body.get("driver_name") or "").strip() or None)
     if "driver_phone" in body:
@@ -5222,7 +5382,7 @@ def _trip_detail(driver, rows):
             "in_progress": _trip_started(rows),
             "total_drops": len(all_rows),
             "delivered_drops": sum(1 for r in all_rows if r.get("status_id") == 4),
-            "pickup": {"key": pk, "override_code": _override_code(pk),
+            "pickup": {"key": pk,
                        "mode": "manifest" if expected else "free",
                        "expected_count": (len(expected) if expected else None),
                        "scanned_count": len(scans),
@@ -5471,7 +5631,8 @@ def scan_pickup_get(key: str, ov: Optional[str] = None):
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
     s = _scan_summary("pickup", rows, key)
-    s["can_override"] = bool(ov) and ov == _override_code(key)
+    drv = _trip_driver(rows)
+    s["override_available"] = bool(drv and drv.get("override_hash"))
     return s
 
 @app.post("/api/scan/pickup/{key}")
@@ -5495,10 +5656,20 @@ async def scan_pickup_post(key: str, request: Request):
     actor = _scan_actor(request)
     kind = "original"
     if exp_set and bag.lower() not in exp_set:
-        if not _ov_ok(body, key):
-            return {"result": "unknown", "bag_id": bag,
+        # Already scanned (e.g. forced through earlier)? That is a duplicate, not unknown.
+        if _scan_kind_of(_pickup_scans(base), bag):
+            return {"result": "duplicate", "bag_id": bag,
+                    "detail": "Bag ID already scanned on this trip",
+                    **_scan_summary("pickup", rows, key)}
+        code = str(body.get("ov") or "").strip()
+        if not code:
+            return {"result": "unknown", "bag_id": bag, "needs_override": True,
                     "detail": "Bag ID is not on this trip manifest",
                     **_scan_summary("pickup", rows, key)}
+        err = _check_override(rows, key, code)
+        if err:
+            return {"result": "unknown", "bag_id": bag, "needs_override": True, "override_error": err,
+                    "detail": err, **_scan_summary("pickup", rows, key)}
         kind = "override"
     owner = next((r for r in rows
                   if str(bag).lower() in {str(m).lower() for m in _manifest_ids_for(r.get("id"))}), None)
@@ -5526,7 +5697,7 @@ async def scan_pickup_end(key: str, request: Request):
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
     if not _may_close(request, body, key):
-        raise HTTPException(403, "Closing the scan needs Override permission")
+        raise HTTPException(403, "Ending the pickup scan needs the driver's override code (or the driver signed in on this phone)")
     if any(r.get("pickup_scan_closed_at") for r in rows):
         return _scan_summary("pickup", rows, key)
     now = nows()
@@ -5539,9 +5710,7 @@ def scan_unload_get(key: str, ov: Optional[str] = None):
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
-    s = _scan_summary("unload", rows, key)
-    s["can_override"] = bool(ov) and ov == _override_code(key)
-    return s
+    return _scan_summary("unload", rows, key)
 
 @app.post("/api/scan/unload/{key}")
 async def scan_unload_post(key: str, request: Request):
@@ -5568,8 +5737,25 @@ async def scan_unload_post(key: str, request: Request):
         return {"result": "duplicate", "bag_id": bag, "drop": here,
                 "detail": "Bag ID already scanned at this drop",
                 **_scan_summary("unload", rows, key, trip_rows)}
-    ref = {str(x).lower() for x in _unload_reference(row, trip_rows)}
+    ref_list = _unload_reference(row, trip_rows)
+    ref = {str(x).lower() for x in ref_list}
+    kind = "original"
+    # Record the bag exactly as it was picked up (same letters/case).
+    bag = next((str(x) for x in ref_list if str(x).lower() == bag.lower()), bag)
     if bag.lower() not in ref:
+        pick = _pickup_scan_row(bag, _scan_base(trip_rows))
+        if pick and (pick.get("scan_kind") or "") == "override" and not pick.get("request_id"):
+            # A bag forced through at pickup belongs to no drop: it may be unloaded at
+            # whichever drop it turns up at - but only once on the whole trip.
+            where = next((r for r in _ordered(trip_rows)
+                          if r.get("id") != rid and _scan_kind_of(_unload_scans(r.get("id")), bag)), None)
+            if where:
+                return {"result": "duplicate", "bag_id": bag, "drop": _drop_info(where, trip_rows),
+                        "detail": f"Override bag already unloaded at drop {_drop_no(where, trip_rows)}",
+                        **_scan_summary("unload", rows, key, trip_rows)}
+            kind = "override"
+            bag = str(pick.get("bag_id") or bag)
+    if bag.lower() not in ref and kind != "override":
         owner, picked = _pickup_owner(bag, trip_rows)
         if owner and owner.get("id") != rid:
             why = (f"Bag ID belongs to drop {_drop_no(owner, trip_rows)} "
@@ -5582,7 +5768,7 @@ async def scan_unload_post(key: str, request: Request):
                 "other_drop": _drop_info(owner, trip_rows) if owner and owner.get("id") != rid else None,
                 "detail": why, **_scan_summary("unload", rows, key, trip_rows)}
     ok = _record_scan("scan_unload",
-                      {"bag_id": bag, "scan_kind": "original", "scanned_by": actor},
+                      {"bag_id": bag, "scan_kind": kind, "scanned_by": actor},
                       rid=rid, bag=bag)
     if not ok:
         return {"result": "duplicate", "bag_id": bag, "drop": here,
@@ -5591,7 +5777,7 @@ async def scan_unload_post(key: str, request: Request):
     if not row.get("start_unloading_datetime"):
         # The first accepted bag is what records Start Unloading.
         _set_milestones([row], "start_unloading_datetime", actor)
-    return {"result": "success", "bag_id": bag, "scan_kind": "original", "drop": here,
+    return {"result": "success", "bag_id": bag, "scan_kind": kind, "drop": here,
             **_scan_summary("unload", rows, key, trip_rows)}
 
 @app.post("/api/scan/unload/{key}/end")
@@ -5607,9 +5793,42 @@ async def scan_unload_end(key: str, request: Request):
     _write_fields(rows[0], {"unload_scan_closed_at": nows()})
     return _scan_summary("unload", _rows_by_unload_key(key), key)
 
-def _ov_ok(body, key):
-    want = str(body.get("ov") or "").strip()
-    return bool(want) and want == _override_code(key)
+OVERRIDE_MAX_FAILS = 8          # wrong codes allowed per scan session...
+OVERRIDE_LOCK_SECONDS = 900     # ...within this window before overrides are paused
+_OV_FAILS = {}
+
+def _trip_driver(rows):
+    did = next((r.get("driver_account_id") for r in rows if r.get("driver_account_id")), None)
+    return _driver_row(did) if did else None
+
+def _pickup_scan_row(bag, base):
+    k = str(bag).lower()
+    return next((x for x in _pickup_scans(base) if str(x.get("bag_id") or "").lower() == k), None)
+
+def _check_override(rows, key, code):
+    """None when `code` is the trip driver's override code, else a message."""
+    now = time.time()
+    fails = [t for t in _OV_FAILS.get(key, []) if now - t < OVERRIDE_LOCK_SECONDS]
+    _OV_FAILS[key] = fails
+    if len(fails) >= OVERRIDE_MAX_FAILS:
+        return "Too many wrong override codes - try again in 15 minutes"
+    drv = _trip_driver(rows)
+    if not drv or not drv.get("override_hash"):
+        return ("No override code is set for this trip's driver / fleet account - "
+                "set one on the Driver / Fleet Accounts page")
+    if _pw_ok(code, drv.get("override_hash"), drv.get("override_salt")):
+        _OV_FAILS.pop(key, None)
+        return None
+    fails.append(now)
+    _OV_FAILS[key] = fails
+    return "Wrong override code"
+
+def _ov_ok(body, key, rows=None):
+    code = str(body.get("ov") or "").strip()
+    if not code:
+        return False
+    rows = rows if rows is not None else _rows_by_pickup_key(key)
+    return bool(rows) and _check_override(rows, key, code) is None
 
 def _may_close(request, body, key):
     if _ov_ok(body, key):
@@ -5718,7 +5937,7 @@ async def assign_trip_driver(trip_id: str, request: Request):
     return {"ok": True, "trip_id": base, "assigned": len(rows),
             "driver_account_id": did, "truck_id": tid,
             "plate_number": _truck_plate(tid), "status_id": 2,
-            "pickup_scan_key": pk, "pickup_override_code": _override_code(pk)}
+            "pickup_scan_key": pk}
 
 def _restore_drop_order(ordered_ids):
     """Number a freed trip's requests 1..n in their previous order."""
