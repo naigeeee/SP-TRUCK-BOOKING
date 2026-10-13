@@ -76,6 +76,13 @@ tr:hover td{background:#F8FAFC}
 .mo.on{display:flex}
 .modal{background:var(--card);border-radius:16px;width:90%;max-width:650px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:10000;position:relative}
 .modal.wide{max-width:1400px;width:96%}
+.pg.locked > :not(.pg-lock){display:none!important}
+.pg-lock{display:flex;justify-content:center;padding:40px 0}
+.pg-lock-card{width:100%;max-width:420px;text-align:center}
+.pg-lock-card h2{font-size:18px;font-weight:800;margin:10px 0 6px}
+.pg-lock-card p{font-size:13px;color:var(--muted);margin-bottom:14px}
+.pg-lock-ico{width:56px;height:56px;border-radius:14px;background:#DBEAFE;color:var(--pri);display:inline-flex;align-items:center;justify-content:center;font-size:24px}
+.pg-lock-err{color:var(--err);font-size:12.5px;min-height:16px;margin-top:6px;text-align:left}
 .stat-click{cursor:pointer}
 .stat-click:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
 .stat-click.on{border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
@@ -114,6 +121,26 @@ tr:hover td{background:#F8FAFC}
 .att-nm{font-weight:500}.att-sz{color:var(--muted);font-size:11px}
 .m-toggle{display:none;position:fixed;top:12px;left:12px;z-index:150;width:40px;height:40px;border-radius:10px;background:var(--side);color:#fff;border:none;font-size:18px;cursor:pointer}
 @media(max-width:768px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0;padding:16px;padding-top:60px}.m-toggle{display:flex;align-items:center;justify-content:center}.fr,.fr3{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.fb{flex-direction:column;align-items:stretch}.s-input{width:100%}#pg-masterlist.on{display:block;height:auto}#pg-masterlist .card,#pg-masterlist .card-b{display:block;flex:none}#pg-masterlist .tw{min-height:0;overflow-x:auto}}
+@media(max-width:768px){
+  .card-b{padding:14px}.card-h{padding:12px 14px;flex-wrap:wrap;gap:8px}
+  .pg-hdr{margin-bottom:16px}.pg-hdr h1{font-size:20px}.pg-hdr .acts{flex-wrap:wrap;gap:6px}
+  .stats{gap:10px;margin-bottom:16px}.stat{padding:12px;gap:10px;min-width:0}.s-ico{width:36px;height:36px;font-size:15px;border-radius:10px}.s-val{font-size:19px;word-break:break-word}.s-lbl{font-size:11.5px}
+  .fb .fg2{width:100%}.fb .fg2 label{min-width:92px}.fb .fg2 .f-input,.fb .fg2 select,.fb .fg2 input{flex:1;min-width:0;width:100%}
+  .f-input{min-width:0}
+  th{padding:10px 12px}td{padding:10px 12px}table{font-size:12.5px}
+  .pg :not(.tw) > table{display:block;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+  .tw{-webkit-overflow-scrolling:touch}
+  .modal{width:96%;max-height:94vh;border-radius:12px}.modal-h{padding:14px 16px}.modal-h h3{font-size:16px}.modal-b{padding:16px}.modal-f{padding:12px 16px;flex-wrap:wrap}
+  .modal.wide{width:98%}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}.tab{white-space:nowrap;flex:0 0 auto}
+  .toast-c{left:12px;right:12px;top:12px}
+  #pg-user-guide [style*="columns:2"]{columns:1!important}
+  .port-map-wrap{height:240px}
+  .pg-lock{padding:16px 0}
+  .fb .s-input,.pg .s-input{width:100%!important}
+  .sidebar{width:min(280px,86vw)}
+  .main{overflow-x:hidden}
+}
 .port-map-wrap{width:100%;height:350px;border-radius:10px;overflow:hidden;margin-bottom:16px;border:1px solid var(--bdr)}
 .port-map-wrap-sm{width:100%;height:180px;border-radius:8px;overflow:hidden;border:1px solid var(--bdr);margin-top:8px;position:relative;z-index:1}
 .port-map-wrap-sm .leaflet-container,.port-map-wrap-sm .leaflet-pane,.port-map-wrap-sm .leaflet-tile-pane{z-index:1!important}
@@ -203,23 +230,25 @@ body.scan-mode .layout{display:none}
 <nav class="sidebar-nav">
 <div class="nav-lbl">Main</div>
 <a class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard"><i class="fas fa-chart-line"></i> Dashboard</a>
-<a class="nav-item vwr" onclick="showPage('new-request')" data-page="new-request"><i class="fas fa-plus-circle"></i> New Request</a>
 <a class="nav-item" onclick="showPage('masterlist')" data-page="masterlist"><i class="fas fa-list-alt"></i> Masterlist</a>
-<a class="nav-item vwr" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation to Vendors</a>
-<a class="nav-item" onclick="location.hash='#/scan'" data-page="scan-app"><i class="fas fa-barcode"></i> Scanning App</a>
 <div class="nav-div"></div><div class="nav-lbl">Operations</div>
-<a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet Management</a>
+<a class="nav-item vwr" onclick="showPage('new-request')" data-page="new-request"><i class="fas fa-plus-circle"></i> New Request</a>
+<a class="nav-item vwr" onclick="showPage('pending')" data-page="pending"><i class="fas fa-clock"></i> Pending Allocation to Vendors</a>
 <a class="nav-item nrm" onclick="showPage('vendor-trucks')" data-page="vendor-trucks" style="display:none"><i class="fas fa-truck-pickup"></i> Vendor Truck Assignment</a>
-<a class="nav-item nrm" onclick="showPage('driver-accounts')" data-page="driver-accounts" style="display:none"><i class="fas fa-id-card"></i> Driver / Fleet Accounts</a>
-<a class="nav-item adm" onclick="showPage('rates')" data-page="rates" style="display:none"><i class="fas fa-dollar-sign"></i> Rate Management</a>
+<a class="nav-item" onclick="location.hash='#/scan'" data-page="scan-app"><i class="fas fa-barcode"></i> Scanning App</a>
+<a class="nav-item adm" onclick="showPage('foul-trip-review')" data-page="foul-trip-review" style="display:none"><i class="fas fa-flag"></i> Foul Trip Approval</a>
+<div class="nav-div"></div><div class="nav-lbl">Reports</div>
 <a class="nav-item adm" onclick="showPage('evaluation')" data-page="evaluation" style="display:none"><i class="fas fa-star"></i> Vendor Speed Performance</a>
 <a class="nav-item adm" onclick="showPage('cost')" data-page="cost" style="display:none"><i class="fas fa-chart-pie"></i> Cost Analysis</a>
-<a class="nav-item adm" onclick="showPage('foul-trip-review')" data-page="foul-trip-review" style="display:none"><i class="fas fa-flag"></i> Foul Trip Review</a>
 <a class="nav-item adm" onclick="showPage('trip-utilisation')" data-page="trip-utilisation" style="display:none"><i class="fas fa-gauge-high"></i> Trip Utilisation Review</a>
 <div class="nav-div"></div><div class="nav-lbl">Administration</div>
+<a class="nav-item nrm" onclick="showPage('fleet')" data-page="fleet"><i class="fas fa-truck-moving"></i> Fleet Management</a>
+<a class="nav-item nrm" onclick="showPage('driver-accounts')" data-page="driver-accounts" style="display:none"><i class="fas fa-id-card"></i> Driver / Fleet Accounts</a>
+<a class="nav-item adm" onclick="showPage('rates')" data-page="rates" style="display:none"><i class="fas fa-dollar-sign"></i> Rate Management</a>
 <a class="nav-item adm" onclick="showPage('library')" data-page="library" style="display:none"><i class="fas fa-book"></i> Master Library</a>
 <a class="nav-item adm" onclick="showPage('users')" data-page="users" style="display:none"><i class="fas fa-users-cog"></i> User Roles</a>
 <a class="nav-item madm" onclick="showPage('role-visibility')" data-page="role-visibility" style="display:none"><i class="fas fa-eye"></i> Role Visibility</a>
+<a class="nav-item madm" onclick="showPage('page-security')" data-page="page-security" style="display:none"><i class="fas fa-lock"></i> Page Password &amp; Logs</a>
 <div class="nav-div"></div><div class="nav-lbl">Help</div>
 <a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide</a>
 </nav>
@@ -295,7 +324,7 @@ body.scan-mode .layout{display:none}
 <!-- Rates -->
 <section class="pg" id="pg-rates">
 <div class="pg-hdr"><h1><i class="fas fa-dollar-sign" style="color:var(--ok)"></i> Rate Management</h1><div class="acts"><button class="btn btn-p" onclick="showRateModal()"><i class="fas fa-plus"></i> Add Rate</button></div></div>
-<div class="fb"><input type="text" class="s-input" id="rSrch" placeholder="Search vendor..." oninput="loadRates()" style="width:200px"><div class="fg2"><label>Origin</label><select class="f-input" id="rOrg" onchange="loadRates()"></select></div><div class="fg2"><label>Dest</label><select class="f-input" id="rDst" onchange="loadRates()"></select></div></div>
+<div class="fb"><input type="text" class="s-input" id="rSrch" placeholder="Search vendor..." oninput="loadRates()" style="width:200px"><div class="fg2"><label>Origin</label><select class="f-input" id="rOrg" onchange="loadRates()"></select></div><div class="fg2"><label>Dest</label><select class="f-input" id="rDst" onchange="loadRates()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="rTT" onchange="loadRates()"></select></div></div>
 <div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Vendor</th><th>Truck Type</th><th>Origin Port</th><th>Destination Port</th><th>Rate/Trip</th><th>Effective</th><th>Expiry</th><th>Remark</th><th>Actions</th></tr></thead><tbody id="rTbl"></tbody></table></div></div></div>
 </section>
 
@@ -323,9 +352,9 @@ body.scan-mode .layout{display:none}
 </div>
 </section>
 
-<!-- Foul Trip Review -->
+<!-- Foul Trip Approval -->
 <section class="pg" id="pg-foul-trip-review">
-<div class="pg-hdr"><h1><i class="fas fa-flag" style="color:var(--err)"></i> Foul Trip Review</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="resetFTCols()" title="Restore default column order"><i class="fas fa-columns"></i> Reset Columns</button> <button class="btn btn-o btn-sm" onclick="loadFT()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
+<div class="pg-hdr"><h1><i class="fas fa-flag" style="color:var(--err)"></i> Foul Trip Approval</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="resetFTCols()" title="Restore default column order"><i class="fas fa-columns"></i> Reset Columns</button> <button class="btn btn-o btn-sm" onclick="exportShownTable('ftTbl','foul-trip-approval')"><i class="fas fa-download"></i> Export CSV</button> <button class="btn btn-o btn-sm" onclick="loadFT()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
 <div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> Review each Foul Trip and confirm its trip count, then press the green tick. Only approved foul trips appear in Cost Analysis.</div>
 <div class="stats" id="ftStats"></div>
 <div class="card"><div class="card-h"><h3><i class="fas fa-tasks"></i> Foul Trips</h3></div><div class="card-b">
@@ -366,6 +395,17 @@ body.scan-mode .layout{display:none}
 <div class="card"><div class="card-b" id="rvBody"><p>Loading...</p></div></div>
 </section>
 
+<!-- Page Password & Access Logs (master admin) -->
+<section class="pg" id="pg-page-security">
+<div class="pg-hdr"><h1><i class="fas fa-lock" style="color:var(--pri)"></i> Page Password &amp; Access Logs</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="loadSecurity()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
+<div style="font-size:13px;color:var(--muted);margin-bottom:14px"><i class="fas fa-info-circle"></i> One common password protects <strong>Driver / Fleet Accounts</strong> (not for Vendor roles), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>. Only the master admin can set, change or reset it. Every password change and every page unlock is logged below, and the log cannot be edited or deleted.</div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-key"></i> Page Password</h3><span id="psStatus"></span></div><div class="card-b" id="psForm"><p>Loading...</p></div></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-clipboard-list"></i> User Log</h3><div style="display:flex;gap:8px;align-items:center"><span id="plCnt" style="font-size:12px;color:var(--muted)"></span><button class="btn btn-o btn-sm" onclick="exportPageLogCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div><div class="card-b">
+<div class="fb"><div class="fg2"><label>Event</label><select class="f-input" id="plEvent" onchange="loadPageLogs()"><option value="">All events</option><option value="ACCESS_GRANTED">Page opened</option><option value="ACCESS_DENIED">Wrong password</option><option value="ACCESS_BLOCKED">Blocked (too many tries)</option><option value="PASSWORD_SET">Password set</option><option value="PASSWORD_CHANGED">Password changed</option><option value="PASSWORD_RESET">Password reset</option><option value="PASSWORD_CHANGE_FAILED">Change refused</option></select></div><div class="fg2"><label>Page</label><select class="f-input" id="plPage" onchange="loadPageLogs()"><option value="">All pages</option></select></div><div class="fg2"><label>From</label><input type="date" class="f-input" id="plFrom" onchange="loadPageLogs()"></div><div class="fg2"><label>To</label><input type="date" class="f-input" id="plTo" onchange="loadPageLogs()"></div><input type="text" class="s-input" id="plQ" placeholder="Search user name or email..." oninput="clearTimeout(window.__plT);window.__plT=setTimeout(loadPageLogs,300)" style="width:240px"></div>
+<div class="tw" style="max-height:calc(100vh - 420px);min-height:200px;overflow:auto"><table><thead><tr><th>Date / Time</th><th>Event</th><th>Page</th><th>User</th><th>Email</th><th>Role</th><th>Detail</th><th>IP Address</th></tr></thead><tbody id="plTbl"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody></table></div>
+</div></div>
+</section>
+
 <!-- Vendor Truck Assignment -->
 <section class="pg" id="pg-vendor-trucks">
 <div class="pg-hdr"><h1><i class="fas fa-truck-pickup" style="color:var(--pri)"></i> Vendor Truck Assignment</h1><div class="acts"><button class="btn btn-o" onclick="loadVT()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
@@ -401,13 +441,14 @@ body.scan-mode .layout{display:none}
 <a href="#g-rates">10. Rate Management</a><br>
 <a href="#g-eval">11. Vendor Speed Performance</a><br>
 <a href="#g-cost">12. Cost Analysis</a><br>
-<a href="#g-foul">13. Foul Trip Review</a><br>
+<a href="#g-foul">13. Foul Trip Approval</a><br>
 <a href="#g-tu">14. Trip Utilisation Review</a><br>
 <a href="#g-lib">15. Master Library</a><br>
 <a href="#g-users">16. User Roles</a><br>
 <a href="#g-rv">17. Role Visibility</a><br>
-<a href="#g-ref">18. Quick reference (colours, statuses, Trip IDs)</a><br>
-<a href="#g-faq">19. Testing tips and troubleshooting</a><br>
+<a href="#g-pw">18. Page Password &amp; Access Logs</a><br>
+<a href="#g-ref">19. Quick reference (colours, statuses, Trip IDs)</a><br>
+<a href="#g-faq">20. Testing tips and troubleshooting</a><br>
 </div>
 </div></div>
 
@@ -416,11 +457,11 @@ body.scan-mode .layout{display:none}
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open the app URL in your browser and sign in with your company Google account &mdash; there is no separate password.</li>
-<li>Look at the menu on the left. It shows only the pages your role is allowed to use, grouped under Main, Operations, Vendor Operations, Master Data and Administration. The <strong>User Guide</strong> page (this page) is available to every role except New User.</li>
+<li>Look at the menu on the left. It shows only the pages your role is allowed to use, grouped under <strong>Main</strong> (Dashboard, Masterlist), <strong>Operations</strong> (New Request, Pending Allocation to Vendors, Vendor Truck Assignment, Scanning App, Foul Trip Approval), <strong>Reports</strong> (Vendor Speed Performance, Cost Analysis, Trip Utilisation Review), <strong>Administration</strong> (Fleet Management, Driver / Fleet Accounts, Rate Management, Master Library, User Roles, Role Visibility, Page Password &amp; Logs) and <strong>Help</strong>. A heading with none of your pages under it is hidden. Pages marked with a padlock ask for the common page password (topic 18). The <strong>User Guide</strong> page (this page) is available to every role except New User.</li>
 <li>Your name, avatar and current role appear at the top right. Click the avatar to open <strong>Account</strong> or <strong>Sign out</strong>.</li>
 <li>Click any menu item to open that page. The Dashboard opens first.</li>
 <li>If you see an orange <strong>Local Mode &mdash; Data not saved</strong> badge, you are running the app on a computer with no database: everything works, but records disappear when the server restarts. On the deployed site, data is kept permanently.</li>
-<li>If a page you expect is missing, your role has not been granted it yet &mdash; a Master Admin can add it (see topic 15).</li>
+<li>If a page you expect is missing, your role has not been granted it yet &mdash; a Master Admin can add it (see topic 17).</li>
 </ol>
 </div></div>
 
@@ -462,10 +503,10 @@ body.scan-mode .layout{display:none}
 <li>Compare <strong>Initial Qty</strong> (what the trip was created with) against <strong>Revised Qty</strong> (the current value). Initial Qty never changes after creation.</li>
 <li>For allocated requests you also see the <strong>Trip ID</strong>, the <strong>Drop #</strong> (use the up/down arrows to renumber drops within a trip) and the <strong>Distance (KM)</strong> in red.</li>
 <li>The <strong>Manifest</strong> column shows a red <strong>Missing Manifest</strong> when no manifest file has been uploaded for a request &mdash; click it to open Edit and upload one. Uploaded manifests show <strong>Uploaded</strong> in green with a <strong>Download CSV</strong> link containing the International MAWB, Domestic MAWB and every bag/carton/gunny/sack ID. Use the <strong>Manifest</strong> filter (Missing / Uploaded) or click the Manifest header to sort.</li>
-<li><strong>Uploading a manifest</strong>: open Edit (pencil icon) &rarr; Manifest section. One Excel file (.xlsx/.xlsm) per request, max 5&nbsp;MB; delete the current file first if you need to replace it. The key column (header containing bag, carton, gunny or sack, or a standard ID header) is extracted into unique IDs. The spreadsheet itself is never stored &mdash; it is converted on upload into a CSV holding the request's International MAWB, Domestic MAWB and those unique IDs, and that small CSV is what is kept and downloaded.</li>
+<li><strong>Uploading a manifest</strong>: open Edit (pencil icon) &rarr; Manifest section. One Excel file (.xlsx/.xlsm) per request, max 10&nbsp;MB; delete the current file first if you need to replace it. The key column (header containing bag, carton, gunny or sack, or a standard ID header) is extracted into unique IDs. The spreadsheet itself is never stored &mdash; it is converted on upload into a CSV holding the request's International MAWB, Domestic MAWB and those unique IDs, and that small CSV is what is kept and downloaded.</li>
 <li>Use the <strong>Actions</strong> column: <strong>View</strong> opens a wide window with every detail of the request on one screen (route, MAWBs, trip ID, drop #, truck plate, vendor, driver and phone, instructions, late reason, all milestones, delivered date, foul trip details, cancellation, manifest and attachments) &mdash; ready for a single screenshot, <strong>Edit</strong> (pencil) to update fields, status, quantity, truck plate, attachments and the manifest, and <strong>Delete</strong> (trash) when permitted.</li>
 <li>The <strong>Updated At</strong> column shows when the request last changed. All times shown in the Masterlist are GMT+8.</li>
-<li>Click <strong>Export CSV</strong> to download the current list, use your browser's Print (Ctrl+P) for a PDF, and page through results with the buttons at the bottom. Master Admins additionally see <strong>Clear All</strong>.</li>
+<li>Click <strong>Export CSV</strong> to download every request matching the current filters (all pages) with the same columns, in the same order, as the table; use your browser's Print (Ctrl+P) for a PDF, and page through results with the buttons at the bottom. Master Admins additionally see <strong>Clear All</strong>.</li>
 </ol>
 <p style="font-size:12.5px;color:var(--mut);margin-top:8px"><i class="fas fa-info-circle"></i> Statuses: Pending &rarr; Allocated &rarr; In Transit &rarr; Delivered. You can also set On Hold, Cancelled or Foul Trip from Edit.</p>
 </div></div>
@@ -552,10 +593,16 @@ body.scan-mode .layout{display:none}
 <div class="card-h"><h3><i class="fas fa-dollar-sign"></i> 10. Rate Management</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Rates</strong> and click <strong>Add Rate</strong>.</li>
-<li>Choose the Vendor, Truck Type, Origin Port and (optionally) Destination Port, then enter Rate/Trip, the Foul Trip %, fuel surcharge and the Effective and Expiry dates.</li>
-<li>Use the search box and the Origin / Dest filters to find a rate; edit or delete it from the Actions column.</li>
-<li>Rates feed the vendor sorting on Pending Allocation (cheapest first), the cost estimates in Cost Analysis and the Foul Trip % shown on Foul Trip Review.</li>
+<li>Open <strong>Rate Management</strong> (Administration; asks for the page password when one is set) and click <strong>Add Rate</strong>.</li>
+<li>Choose the Vendor, Truck Type, Origin and <strong>Main Destination</strong>, then enter Rate/Trip, Default Rate, Foul Trip %, Fuel Surcharge % and the Effective and Expiry dates. <strong>Additional Destination Drops</strong> (up to 5) each have their own rate; a drop location <strong>cannot be the Main Destination</strong> (it is greyed out in the list) and cannot be listed twice.</li>
+<li>How a request is priced from its rate card (same vendor, truck type and origin):
+<ul style="padding-left:18px">
+<li><strong>Drop 1</strong> (or a single-drop trip) going to a card's <strong>Main Destination</strong> &rarr; that card's <strong>Rate/Trip</strong>;</li>
+<li><strong>Drop 2, 3, &hellip;</strong> are extra stops on the same trip, not separate trips: they are priced on the card of drop 1's destination &mdash; its <strong>Additional Destination Drop</strong> rate when the stop is listed there, otherwise its <strong>Default Rate</strong> (even when the stop is the Main Destination again). A later drop never gets Rate/Trip;</li>
+<li>a drop 1 whose destination has no card of its own &rarr; a card listing it as an Additional Destination Drop, otherwise the Default Rate.</li>
+</ul>The <strong>Foul Trip %</strong> and <strong>Fuel Surcharge %</strong> are applied to that same rate.</li>
+<li>Use the search box and the Origin, Dest and <strong>Truck Type</strong> filters to find a rate; edit or delete it from the Actions column. Rates are grouped by origin &rarr; destination, and the <strong>Remark</strong> column names the cheapest vendor per truck type.</li>
+<li>Rates feed the vendor sorting on Pending Allocation (cheapest first), the costs in Cost Analysis and the Foul Trip Cost on Foul Trip Approval.</li>
 </ol>
 </div></div>
 
@@ -575,19 +622,23 @@ body.scan-mode .layout{display:none}
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Open <strong>Cost</strong> and choose the <strong>Final Call From / To</strong> range (required), plus Account, Department, Origin, Destination, Vendor, Status or MAWB if needed.</li>
 <li>Click <strong>Generate Report</strong>. You get summary stat cards, a <strong>Vendor Share</strong> card showing each vendor's share of Delivered + Foul Trip requests, and the <strong>Detailed Breakdown</strong> table with every cost column (Actual Cost, Toll Fee, Management Fee, Fuel, Foul Trip Cost, Fuel Surcharge, Total Cost, ...).</li>
-<li>Only Delivered and approved Foul Trip requests count towards the figures &mdash; approve foul trips on Foul Trip Review first.</li>
-<li>Sort by clicking headers, drag column headers to reorder (remember &mdash; <strong>Reset Columns</strong> restores them), and click <strong>Export CSV</strong> to download. Admins also get <strong>Bulk Cost Update</strong> to fill cost fields for many requests at once.</li>
+<li>Only Delivered and approved Foul Trip requests count towards the figures &mdash; approve foul trips on Foul Trip Approval first.</li>
+<li>Click the <strong>Total Requests</strong>, <strong>Delivered</strong> or <strong>Foul Trip</strong> card to list only those requests in the table (click it again, or Total Requests, to show all). Export CSV follows what the table shows.</li>
+<li><strong>Actual Cost</strong> of a Delivered request is its rate from Rate Management: Rate/Trip for drop 1 when the origin and destination match the card's Main Destination; later drops of the same trip get the Additional Destination Drop rate or the Default Rate (topic 10). A <strong>Foul Trip has no Actual Cost</strong>: it is charged as the <strong>Foul Trip Cost</strong> = rate &times; Foul Trip % &times; Foul Trip Count Confirmation. The Fuel Surcharge Cost = rate &times; Fuel Surcharge %. An Actual Cost typed in by hand through Edit Costs is kept.</li>
+<li><strong>Bulk Cost Update</strong> (admins): pick the date range, vendor and truck type, then <strong>tick the truck requests</strong> (each shows its Trip ID) the amounts should go to. With <strong>Split amount equally</strong> ticked, each amount is divided equally between the ticked requests; untick it to add the full amount to each.</li>
+<li>Sort by clicking headers, drag column headers to reorder (remember &mdash; <strong>Reset Columns</strong> restores them), and click <strong>Export CSV</strong> to download the table as shown.</li>
 </ol>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-foul">
-<div class="card-h"><h3><i class="fas fa-flag"></i> 13. Foul Trip Review</h3></div>
+<div class="card-h"><h3><i class="fas fa-flag"></i> 13. Foul Trip Approval</h3></div>
 <div class="card-b">
 <ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
 <li>Set a request's status to <strong>Foul Trip</strong> from Edit on the Masterlist. You must fill <strong>Foul Trip Count Confirmation (1 or 2)</strong> &mdash; the save is refused without it.</li>
-<li>Open <strong>Foul Trip Review</strong>. The list shows all foul trips with the count confirmation, rate, foul trip %, date and reason.</li>
+<li>Open <strong>Foul Trip Approval</strong>. The list shows all foul trips with the count confirmation, rate, foul trip %, date and reason.</li>
 <li>Check the row, then press the <strong>green tick</strong> in the Approve column to approve it. Approved trips are the ones counted in Cost Analysis.</li>
-<li>Sort by any sortable column, use <strong>Refresh</strong> for the latest, and <strong>Reset Columns</strong> if you have dragged columns around.</li>
+<li>Click the <strong>Foul Trips</strong>, <strong>Awaiting Approval</strong> or <strong>Approved</strong> card to list only those foul trips.</li>
+<li>Sort by any sortable column, use <strong>Refresh</strong> for the latest, <strong>Reset Columns</strong> if you have dragged columns around, and <strong>Export CSV</strong> to download the table as shown.</li>
 </ol>
 </div></div>
 
@@ -598,7 +649,9 @@ body.scan-mode .layout{display:none}
 <li>Open <strong>Trip Utilisation Review</strong>. One row per trip with its Requests, Origin, Department, Vendor, Truck Type and <strong>Capacity (units)</strong>.</li>
 <li>Compare <strong>Initial Utilisation %</strong> (quantities when the trip was created) with <strong>Revised Utilisation %</strong> (current quantities). Both convert packaging to a single base unit using <strong>Master Library &rarr; Capacity Conversion</strong> and divide by the truck's max capacity.</li>
 <li>Colours: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>.</li>
-<li>Filter by Final Call From/To, Department, Origin Port, Vendor and Truck Type; the summary cards on top show the averages. Click headers to sort and <strong>Refresh</strong> to reload.</li>
+<li>Only trips with Delivered requests are listed, with a <strong>Status</strong> column.</li>
+<li>The summary cards show <strong>Trips</strong>, <strong>Green Trips</strong>, <strong>Yellow Trips</strong> and <strong>Red Trips</strong> (by Revised Utilisation %) plus the averages. Click a card to list only those trips; click it again (or Trips) to show all.</li>
+<li>Filter by Final Call From/To, Department, Origin Port, Vendor and Truck Type. Click headers to sort, <strong>Refresh</strong> to reload and <strong>Export CSV</strong> to download the table as shown.</li>
 </ol>
 </div></div>
 
@@ -639,8 +692,20 @@ body.scan-mode .layout{display:none}
 </ol>
 </div></div>
 
+<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-pw">
+<div class="card-h"><h3><i class="fas fa-lock"></i> 18. Page Password &amp; Access Logs</h3></div>
+<div class="card-b">
+<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
+<li>One common password protects <strong>Driver / Fleet Accounts</strong> (Vendor roles are not asked), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>.</li>
+<li>Opening one of these pages shows a padlock card: type the page password and press <strong>Unlock</strong>. The password is asked again every time you open the page. After 5 wrong tries the page is blocked for 15 minutes for that user.</li>
+<li>Only the <strong>Master Admin</strong> sets it, under <strong>Administration &rarr; Page Password &amp; Logs</strong>: <strong>Set password</strong> the first time, then <strong>Change password</strong> (needs the current one) or <strong>Reset password</strong> (when the current one is forgotten). At least 6 characters.</li>
+<li>The <strong>User Log</strong> on the same page records every password set / change / reset and every page access (opened, wrong password, blocked) with the user, role, date / time and IP address. Filter it and <strong>Export CSV</strong>. Log records cannot be edited or deleted.</li>
+<li>Until a password is set, the pages open without asking.</li>
+</ol>
+</div></div>
+
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ref">
-<div class="card-h"><h3><i class="fas fa-palette"></i> 18. Quick reference</h3></div>
+<div class="card-h"><h3><i class="fas fa-palette"></i> 19. Quick reference</h3></div>
 <div class="card-b">
 <div style="font-size:13.5px;line-height:1.9">
 <p style="margin:0 0 6px"><strong>Utilisation colours</strong> (Pending Allocation and Trip Utilisation Review): <span class="badge" style="background:#DC2626;color:#fff">&lt;70% red</span> under-filled &nbsp; <span class="badge" style="background:#D97706;color:#fff">70&ndash;85% yellow</span> OK &nbsp; <span class="badge" style="background:#16A34A;color:#fff">&gt;85% green</span> well loaded.</p>
@@ -652,13 +717,15 @@ body.scan-mode .layout{display:none}
 </div></div>
 
 <div class="card" style="margin-bottom:24px;scroll-margin-top:100px" id="g-faq">
-<div class="card-h"><h3><i class="fas fa-life-ring"></i> 19. Testing tips and troubleshooting</h3></div>
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 20. Testing tips and troubleshooting</h3></div>
 <div class="card-b">
 <ul style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li><strong>A page is missing from the menu</strong> &mdash; your role does not have it. A Master Admin grants it under Role Visibility (topic 15).</li>
+<li><strong>A page is missing from the menu</strong> &mdash; your role does not have it. A Master Admin grants it under Role Visibility (topic 17).</li>
 <li><strong>"No pages available"</strong> &mdash; your account is New User; ask an admin to change your role.</li>
 <li><strong>Orange Local Mode badge</strong> &mdash; the app is running on a test computer with no database; data resets on restart. On the live site this badge does not appear.</li>
 <li><strong>Attachments fail</strong> &mdash; limit is 8 files and 25&nbsp;MB per request.</li>
+<li><strong>Manifest upload refused</strong> &mdash; it must be an Excel file (.xlsx / .xlsm) of 10&nbsp;MB or less.</li>
+<li><strong>A page asks for a password</strong> &mdash; it is one of the protected pages; ask the Master Admin for the page password (topic 18).</li>
 <li><strong>No utilisation % on Pending</strong> &mdash; the truck type has no Max Capacity (Master Library &rarr; Truck Types) or a packaging type has no factor (Capacity Conversion tab).</li>
 <li><strong>No distance between drops</strong> &mdash; port coordinates are missing (Master Library &rarr; Ports &mdash; click the map to set them).</li>
 <li><strong>Cost Analysis shows no figures</strong> &mdash; check the required Final Call date range and remember only Delivered and approved Foul Trip requests count.</li>
@@ -720,10 +787,14 @@ async function init(){
       if(isAdmin)userPages.push('rates','evaluation','cost','foul-trip-review','trip-utilisation','library','users','vendor-trucks','driver-accounts');
       if(isMaster)userPages.push('role-visibility');
     }
+    if(isMaster&&!userPages.includes('page-security'))userPages.push('page-security');
+    if(!isMaster)userPages=userPages.filter(p=>p!=='page-security');
+    try{pageLock=await(await fetch('/api/page-lock')).json()}catch(e){pageLock={enabled:false,applies:[],pages:{}}}
     document.querySelectorAll('.nav-item[data-page]').forEach(n=>{
       const pg=n.dataset.page;
       n.style.display=(pg&&userPages.includes(pg))?'':'none';
     });
+    tidyNavSections();
     // A role whose only page is the Scanning App (Driver/Fleet) lives in the scanning app.
     window.__scanOnly=userPages.length>0&&userPages.every(p=>p==='scan-app');
     if(window.__scanOnly){
@@ -765,6 +836,7 @@ async function loadMaster(){
   popSel('mlAcct',accts,'id','name','All Accounts',true);
   popSel('mlDept',depts,'id','name','All Depts',true);
   popSel('rOrg',ports,'id','name','All Origins',true);
+  popSel('rTT',tts,'id','name','All Truck Types',true);
   popSel('rDst',ports,'id','name','All Destinations',true);
   popSel('cAcct',accts,'id','name','All Accounts',true);
   popSel('cDept',depts,'id','name','All Departments',true);
@@ -803,6 +875,8 @@ function popSel(id,items,vk,lk,ph,empty=false){
 
 function showPage(pg){
   if(userPages.length&&!userPages.includes(pg))return;
+  // Leaving a protected page locks it again: the password is asked each time it is opened.
+  document.querySelectorAll('.pg.on').forEach(s=>{const k=s.id.replace(/^pg-/,'');if(k!==pg&&pageTokens[k]){delete pageTokens[k]}});
   document.querySelectorAll('.pg').forEach(s=>s.classList.remove('on'));
   document.getElementById('pg-'+pg).classList.add('on');
   try{if(location.hash!=='#/'+pg)history.replaceState(null,'','#/'+pg)}catch(e){}
@@ -810,9 +884,129 @@ function showPage(pg){
   const nav=document.querySelector('.nav-item[data-page="'+pg+'"]');
   if(nav)nav.classList.add('active');
   document.querySelector('.sidebar').classList.remove('open');
-  const loaders={dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,'vendor-trucks':loadVT,'driver-accounts':loadDA,rates:loadRates,evaluation:loadEvals,cost:()=>{},'foul-trip-review':loadFT,'trip-utilisation':loadTU,library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers,'role-visibility':loadRoleVisibility};
+  const loaders=pageLoaders();
+  if(pageNeedsUnlock(pg)){showPageLock(pg);return}
+  hidePageLock(pg);
   if(loaders[pg])loaders[pg]();
 }
+/* Mobile: tapping outside the open menu closes it. */
+document.addEventListener('click',e=>{const sb=document.querySelector('.sidebar');if(sb&&sb.classList.contains('open')&&window.innerWidth<=768&&!e.target.closest('.sidebar')&&!e.target.closest('.m-toggle'))sb.classList.remove('open')});
+/* Hide a menu section heading (and its divider) when none of its pages is visible. */
+function tidyNavSections(){
+  document.querySelectorAll('.sidebar-nav .nav-lbl').forEach(lbl=>{
+    let n=lbl.nextElementSibling,any=false;
+    while(n&&!n.classList.contains('nav-lbl')&&!n.classList.contains('nav-div')){if(n.classList.contains('nav-item')&&n.style.display!=='none')any=true;n=n.nextElementSibling}
+    lbl.style.display=any?'':'none';
+    const prev=lbl.previousElementSibling;if(prev&&prev.classList.contains('nav-div'))prev.style.display=any?'':'none';
+  });
+}
+function pageLoaders(){return{dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,'vendor-trucks':loadVT,'driver-accounts':loadDA,rates:loadRates,evaluation:loadEvals,cost:()=>{},'foul-trip-review':loadFT,'trip-utilisation':loadTU,library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers,'role-visibility':loadRoleVisibility,'page-security':loadSecurity}}
+
+// ---- Protected pages (common page password) ---------------------------------
+let pageLock={enabled:false,applies:[],pages:{}},pageTokens={};
+const PAGE_API={'driver-accounts':/^\/api\/driver-accounts/,rates:/^\/api\/vendor-rates/,cost:/^\/api\/cost-summary/,'trip-utilisation':/^\/api\/trip-utilisation/,evaluation:/^\/api\/vendor-evaluations/};
+function pageNeedsUnlock(pg){return !!(pageLock&&pageLock.enabled&&(pageLock.applies||[]).includes(pg)&&!pageTokens[pg])}
+(function(){
+  const f0=window.fetch.bind(window);
+  window.fetch=function(u,o){
+    let pg=null;
+    try{
+      const url=typeof u==='string'?u:(u&&u.url)||'';
+      for(const k in PAGE_API){if(PAGE_API[k].test(url)){pg=k;break}}
+      if(pg&&pageTokens[pg]){o=Object.assign({},o||{});const h=new Headers(o.headers||{});h.set('X-Page-Token',pageTokens[pg]);o.headers=h}
+    }catch(e){}
+    return f0(u,o).then(r=>{
+      if(r.status===423&&pg){
+        delete pageTokens[pg];
+        if(pageLock){pageLock.enabled=true;if(!(pageLock.applies||[]).includes(pg))pageLock.applies=(pageLock.applies||[]).concat([pg])}
+        const sec=document.getElementById('pg-'+pg);if(sec&&sec.classList.contains('on'))showPageLock(pg);
+      }
+      return r;
+    });
+  };
+})();
+function showPageLock(pg){
+  const sec=document.getElementById('pg-'+pg);if(!sec)return;
+  sec.classList.add('locked');
+  let box=sec.querySelector(':scope > .pg-lock');
+  if(!box){box=document.createElement('div');box.className='pg-lock';sec.insertBefore(box,sec.firstChild)}
+  const name=(pageLock.pages&&pageLock.pages[pg])||pg;
+  box.innerHTML='<div class="card pg-lock-card"><div class="card-b"><div class="pg-lock-ico"><i class="fas fa-lock"></i></div><h2>'+esc(name)+'</h2><p>This page is password protected. Enter the page password to open it. Your access is recorded in the user log.</p><form onsubmit="event.preventDefault();unlockPage(\''+pg+'\')"><div class="peek-wrap"><input type="password" class="fi" id="plkPw_'+pg+'" placeholder="Page password" autocomplete="off" style="padding-right:38px"><button type="button" class="peek-btn" onclick="const i=this.previousElementSibling;i.type=i.type===\'password\'?\'text\':\'password\';this.firstChild.className=i.type===\'password\'?\'fas fa-eye\':\'fas fa-eye-slash\'" title="Show / hide"><i class="fas fa-eye"></i></button></div><div class="pg-lock-err" id="plkErr_'+pg+'"></div><button type="submit" class="btn btn-p" style="width:100%;justify-content:center;margin-top:10px"><i class="fas fa-unlock"></i> Unlock</button></form></div></div>';
+  setTimeout(()=>{const i=document.getElementById('plkPw_'+pg);if(i)i.focus()},50);
+}
+function hidePageLock(pg){const sec=document.getElementById('pg-'+pg);if(!sec)return;sec.classList.remove('locked');const b=sec.querySelector(':scope > .pg-lock');if(b)b.remove()}
+async function unlockPage(pg){
+  const inp=document.getElementById('plkPw_'+pg),err=document.getElementById('plkErr_'+pg);
+  const pw=inp?inp.value:'';
+  if(!pw){if(err)err.textContent='Enter the page password';return}
+  try{
+    const res=await fetch('/api/page-lock/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({page:pg,password:pw})});
+    if(!res.ok)throw new Error(await apiErr(res));
+    const d=await res.json();
+    if(d.token)pageTokens[pg]=d.token;
+    hidePageLock(pg);
+    const l=pageLoaders()[pg];if(l)l();
+  }catch(e){if(err)err.textContent=e.message||'Wrong password';if(inp){inp.value='';inp.focus()}}
+}
+
+// ---- Page Password & Access Logs page (master admin) ------------------------
+let pageLogRows=[];
+const PL_EVENTS={ACCESS_GRANTED:['Page opened','b-gn'],ACCESS_DENIED:['Wrong password','b-rd'],ACCESS_BLOCKED:['Blocked (too many tries)','b-rd'],PASSWORD_SET:['Password set','b-bl'],PASSWORD_CHANGED:['Password changed','b-bl'],PASSWORD_RESET:['Password reset','b-yl'],PASSWORD_CHANGE_FAILED:['Change refused','b-rd']};
+async function loadSecurity(){
+  try{pageLock=await(await fetch('/api/page-lock')).json()}catch(e){}
+  const sel=document.getElementById('plPage');
+  if(sel&&sel.options.length<=1)Object.entries(pageLock.pages||{}).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v;sel.appendChild(o)});
+  renderSecurityForm();
+  loadPageLogs();
+}
+function renderSecurityForm(){
+  const on=!!pageLock.enabled;
+  document.getElementById('psStatus').innerHTML=on?'<span class="badge b-gn"><i class="fas fa-lock"></i> Protection ON</span>':'<span class="badge b-yl"><i class="fas fa-lock-open"></i> No password set - pages are open</span>';
+  const pwIn=(id,ph)=>'<div class="peek-wrap"><input type="password" class="fi" id="'+id+'" placeholder="'+ph+'" autocomplete="new-password" style="padding-right:38px"><button type="button" class="peek-btn" onclick="const i=this.previousElementSibling;i.type=i.type===\'password\'?\'text\':\'password\'" title="Show / hide"><i class="fas fa-eye"></i></button></div>';
+  let h='';
+  if(on)h+='<p style="font-size:13px;margin-bottom:14px;color:var(--muted)">Last set by <strong>'+esc(pageLock.updated_by||'-')+'</strong> on '+(pageLock.updated_at?fmtD(pageLock.updated_at):'-')+'.</p>';
+  if(!on){
+    h+='<div class="fr"><div class="fg"><label class="fl">New password *</label>'+pwIn('psNew','At least 6 characters')+'</div><div class="fg"><label class="fl">Confirm new password *</label>'+pwIn('psConf','Type it again')+'</div></div><button class="btn btn-p" onclick="savePagePassword(\'set\')"><i class="fas fa-lock"></i> Set password</button>';
+  }else{
+    h+='<div class="tabs" id="psTabs"><button class="tab on" onclick="psTab(\'change\',this)">Change password</button><button class="tab" onclick="psTab(\'reset\',this)">Reset password</button></div>';
+    h+='<div id="psChange"><div class="fr3"><div class="fg"><label class="fl">Current password *</label>'+pwIn('psCur','Current page password')+'</div><div class="fg"><label class="fl">New password *</label>'+pwIn('psNew','At least 6 characters')+'</div><div class="fg"><label class="fl">Confirm new password *</label>'+pwIn('psConf','Type it again')+'</div></div><button class="btn btn-p" onclick="savePagePassword(\'change\')"><i class="fas fa-key"></i> Change password</button></div>';
+    h+='<div id="psReset" style="display:none"><div style="font-size:13px;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:10px 12px;border-radius:8px;margin-bottom:12px"><i class="fas fa-exclamation-triangle"></i> Use Reset when the current password is forgotten. Everyone currently inside a protected page will be asked for the new password.</div><div class="fr"><div class="fg"><label class="fl">New password *</label>'+pwIn('psRNew','At least 6 characters')+'</div><div class="fg"><label class="fl">Confirm new password *</label>'+pwIn('psRConf','Type it again')+'</div></div><button class="btn btn-d" onclick="savePagePassword(\'reset\')"><i class="fas fa-rotate"></i> Reset password</button></div>';
+  }
+  document.getElementById('psForm').innerHTML=h;
+}
+function psTab(t,btn){document.querySelectorAll('#psTabs .tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.getElementById('psChange').style.display=t==='change'?'':'none';document.getElementById('psReset').style.display=t==='reset'?'':'none'}
+async function savePagePassword(action){
+  const v=id=>(document.getElementById(id)||{}).value||'';
+  const body={action:action};
+  if(action==='reset'){body.new_password=v('psRNew');body.confirm_password=v('psRConf')}
+  else{body.new_password=v('psNew');body.confirm_password=v('psConf');if(action==='change')body.current_password=v('psCur')}
+  if(action==='change'&&!body.current_password){toast('Enter the current password','error');return}
+  if(body.new_password.length<6){toast('The new password must be at least 6 characters','error');return}
+  if(body.new_password!==body.confirm_password){toast('The new password and its confirmation do not match','error');return}
+  try{
+    const res=await fetch('/api/page-lock/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok)throw new Error(await apiErr(res));
+    toast(action==='set'?'Page password set':action==='change'?'Page password changed':'Page password reset');
+    pageTokens={};
+    loadSecurity();
+  }catch(e){toast(e.message,'error');loadPageLogs()}
+}
+async function loadPageLogs(){
+  const p=new URLSearchParams();
+  const g=id=>(document.getElementById(id)||{}).value||'';
+  if(g('plEvent'))p.set('event_type',g('plEvent'));if(g('plPage'))p.set('page',g('plPage'));
+  if(g('plFrom'))p.set('date_from',g('plFrom'));if(g('plTo'))p.set('date_to',g('plTo'));if(g('plQ').trim())p.set('q',g('plQ').trim());
+  const tb=document.getElementById('plTbl');if(!tb)return;
+  try{
+    const res=await fetch('/api/page-lock/logs?'+p.toString());
+    if(!res.ok)throw new Error(await apiErr(res));
+    pageLogRows=(await res.json()).items||[];
+  }catch(e){pageLogRows=[];toast(e.message||'Failed to load the user log','error')}
+  document.getElementById('plCnt').textContent=pageLogRows.length+' record(s)';
+  if(!pageLogRows.length){tb.innerHTML='<tr><td colspan="8" class="empty"><i class="fas fa-clipboard-list"></i><p>No log records for these filters</p></td></tr>';return}
+  tb.innerHTML=pageLogRows.map(r=>{const ev=PL_EVENTS[r.event_type]||[r.event_type,'b-gy'];return'<tr><td style="white-space:nowrap">'+fmtD(r.created_at)+'</td><td><span class="badge '+ev[1]+'">'+esc(ev[0])+'</span></td><td>'+esc(r.page_name||'-')+'</td><td>'+esc(r.user_name||'-')+'</td><td>'+esc(r.user_email||'-')+'</td><td>'+esc(roleName(r.user_role||'')||'-')+'</td><td>'+esc(r.detail||'-')+'</td><td>'+esc(r.ip_address||'-')+'</td></tr>'}).join('');
+}
+function exportPageLogCSV(){exportShownTable('plTbl','page-access-log')}
 
 function myVendorId(){
   if(!isVendor||!user)return null;
@@ -1084,8 +1278,37 @@ function initBookingDate(){
 
 // Masterlist
 let mlConsolData={};
-async function loadML(){
-  const p=new URLSearchParams({page:mlPg,per_page:50,sort_by:mlSort,sort_dir:mlDir});
+function mlRowHtml(r,mlItems){
+        const consolTag=!!r.is_consolidated;
+        const attInd=(r.attachments&&r.attachments.length)?'<i class="fas fa-paperclip" style="color:var(--pri)" title="'+r.attachments.length+' attachment(s)"></i> '+r.attachments.length:'-';
+        let mfCell=r.manifest
+          ?'<span style="color:#16A34A;font-weight:700;white-space:nowrap"><i class="fas fa-file-csv"></i> Uploaded</span><br><a href="/api/requests/'+r.id+'/manifest/download" style="font-size:11.5px" title="Download manifest CSV ('+r.manifest.id_count+' IDs)">Download CSV</a>'
+          :'<strong style="color:#DC2626;cursor:pointer;white-space:nowrap" onclick="editReq('+r.id+')" title="Upload the manifest Excel file for this request">Missing Manifest</strong>';
+        const scanLinks=[];
+        if(r.pickup_scan_closed){const pb=r.trip_id?tripBase(r.trip_id):('req-'+r.id);scanLinks.push('<a href="/api/trips/'+encodeURIComponent(pb)+'/pickup-scan/download" title="Download the pickup scan manifest CSV for trip '+esc(pb)+'" class="ml-scan-link"><i class="fas fa-barcode"></i> Pickup Scan Manifest</a>')}
+        if(r.unload_scan_closed)scanLinks.push('<a href="/api/requests/'+r.id+'/unload-scan/download" title="Download the unloading scan manifest CSV for '+esc(r.request_number||'')+'" class="ml-scan-link"><i class="fas fa-box-open"></i> Unloading Scan Manifest</a>');
+        if(scanLinks.length)mfCell+='<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">'+scanLinks.join('')+'</div>';
+        let dropCell='-';
+        const ftCnt=(r.foul_trip_count===1||r.foul_trip_count===2)?String(r.foul_trip_count):'-';
+        const ftEmail=r.foul_trip_approved_by_email||r.foul_trip_approved_by||'';
+        const ftName=r.foul_trip_approved_by_name||'';
+        const ftApr=ftEmail?((ftName&&ftName!==ftEmail)?ftName+'<br><small style="color:var(--muted)">'+ftEmail+'</small>':ftEmail):'-';
+        const multiDrop=r.active_trip_count>1;
+        if(r.trip_id&&r.status_id===2&&multiDrop){
+          const tbase=tripBase(r.trip_id);
+          const siblings=mlItems.filter(x=>x.status_id===2&&x.trip_id&&tripBase(x.trip_id)===tbase);
+          const maxDrop=Math.max(siblings.length,r.active_trip_count||0);
+          const curDrop=r.drop_sequence||0;
+          const canUp=curDrop>1;
+          const canDn=curDrop<maxDrop;
+          dropCell='<div style="display:flex;align-items:center;gap:4px"><button class="btn btn-sm btn-o" onclick="reorderDrop('+r.id+','+curDrop+','+(curDrop-1)+')" style="padding:2px 6px;font-size:10px"'+(canUp?'':' disabled')+'><i class="fas fa-chevron-up"></i></button><strong style="min-width:18px;text-align:center">'+curDrop+'</strong><button class="btn btn-sm btn-o" onclick="reorderDrop('+r.id+','+curDrop+','+(curDrop+1)+')" style="padding:2px 6px;font-size:10px"'+(canDn?'':' disabled')+'><i class="fas fa-chevron-down"></i></button></div>';
+        }else if(r.drop_sequence&&(multiDrop||r.status_id===7||r.status_id===4||r.status_id===5)){
+          dropCell='<strong>'+r.drop_sequence+'</strong>';
+        }
+        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&(r.driver_account_id||r.trip_has_driver)&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
+}
+function mlQuery(page,per){
+  const p=new URLSearchParams({page:page,per_page:per,sort_by:mlSort,sort_dir:mlDir});
   const s=document.getElementById('mlSrch').value,st=document.getElementById('mlSt').value,a=document.getElementById('mlAcct').value,d=document.getElementById('mlDept').value;
   const org=document.getElementById('mlOrg')?.value||'';
   const dst=document.getElementById('mlDst')?.value||'';
@@ -1119,6 +1342,10 @@ async function loadML(){
   if(tp)p.set('trip',tp);
   const man=document.getElementById('mlMan')?.value||'';
   if(man)p.set('manifest',man);
+  return p;
+}
+async function loadML(){
+  const p=mlQuery(mlPg,50);
   try{
     const data=await(await fetch('/api/requests?'+p.toString())).json();
     mlTotal=data.total||0;
@@ -1128,35 +1355,7 @@ async function loadML(){
     document.getElementById('mlNxt').disabled=mlPg*50>=mlTotal;
     const tb=document.getElementById('mlTbl');
     if(data.items&&data.items.length){
-      tb.innerHTML=data.items.map(r=>{
-        const consolTag=!!r.is_consolidated;
-        const attInd=(r.attachments&&r.attachments.length)?'<i class="fas fa-paperclip" style="color:var(--pri)" title="'+r.attachments.length+' attachment(s)"></i> '+r.attachments.length:'-';
-        let mfCell=r.manifest
-          ?'<span style="color:#16A34A;font-weight:700;white-space:nowrap"><i class="fas fa-file-csv"></i> Uploaded</span><br><a href="/api/requests/'+r.id+'/manifest/download" style="font-size:11.5px" title="Download manifest CSV ('+r.manifest.id_count+' IDs)">Download CSV</a>'
-          :'<strong style="color:#DC2626;cursor:pointer;white-space:nowrap" onclick="editReq('+r.id+')" title="Upload the manifest Excel file for this request">Missing Manifest</strong>';
-        const scanLinks=[];
-        if(r.pickup_scan_closed){const pb=r.trip_id?tripBase(r.trip_id):('req-'+r.id);scanLinks.push('<a href="/api/trips/'+encodeURIComponent(pb)+'/pickup-scan/download" title="Download the pickup scan manifest CSV for trip '+esc(pb)+'" class="ml-scan-link"><i class="fas fa-barcode"></i> Pickup Scan Manifest</a>')}
-        if(r.unload_scan_closed)scanLinks.push('<a href="/api/requests/'+r.id+'/unload-scan/download" title="Download the unloading scan manifest CSV for '+esc(r.request_number||'')+'" class="ml-scan-link"><i class="fas fa-box-open"></i> Unloading Scan Manifest</a>');
-        if(scanLinks.length)mfCell+='<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">'+scanLinks.join('')+'</div>';
-        let dropCell='-';
-        const ftCnt=(r.foul_trip_count===1||r.foul_trip_count===2)?String(r.foul_trip_count):'-';
-        const ftEmail=r.foul_trip_approved_by_email||r.foul_trip_approved_by||'';
-        const ftName=r.foul_trip_approved_by_name||'';
-        const ftApr=ftEmail?((ftName&&ftName!==ftEmail)?ftName+'<br><small style="color:var(--muted)">'+ftEmail+'</small>':ftEmail):'-';
-        const multiDrop=r.active_trip_count>1;
-        if(r.trip_id&&r.status_id===2&&multiDrop){
-          const tbase=tripBase(r.trip_id);
-          const siblings=data.items.filter(x=>x.status_id===2&&x.trip_id&&tripBase(x.trip_id)===tbase);
-          const maxDrop=Math.max(siblings.length,r.active_trip_count||0);
-          const curDrop=r.drop_sequence||0;
-          const canUp=curDrop>1;
-          const canDn=curDrop<maxDrop;
-          dropCell='<div style="display:flex;align-items:center;gap:4px"><button class="btn btn-sm btn-o" onclick="reorderDrop('+r.id+','+curDrop+','+(curDrop-1)+')" style="padding:2px 6px;font-size:10px"'+(canUp?'':' disabled')+'><i class="fas fa-chevron-up"></i></button><strong style="min-width:18px;text-align:center">'+curDrop+'</strong><button class="btn btn-sm btn-o" onclick="reorderDrop('+r.id+','+curDrop+','+(curDrop+1)+')" style="padding:2px 6px;font-size:10px"'+(canDn?'':' disabled')+'><i class="fas fa-chevron-down"></i></button></div>';
-        }else if(r.drop_sequence&&(multiDrop||r.status_id===7||r.status_id===4||r.status_id===5)){
-          dropCell='<strong>'+r.drop_sequence+'</strong>';
-        }
-        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&(r.driver_account_id||r.trip_has_driver)&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
-      }).join('');
+      tb.innerHTML=data.items.map(r=>mlRowHtml(r,data.items)).join('');
     }else{tb.innerHTML='<tr><td colspan="45" class="empty"><i class="fas fa-inbox"></i><p>No requests found</p></td></tr>'}
     [...tb.rows].forEach(row=>{if(row.children.length===ML_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=ML_KEYS[i]})});
     applyMLOrder();
@@ -1294,7 +1493,7 @@ async function editReq(id){
     const tripDateVal=(r.trip_date||'').slice(0,10);
     function toDT(v){if(!v)return'';const s=String(v).replace(' ','T').slice(0,16);return s}
     document.getElementById('mTitle').textContent='Edit '+r.request_number;
-    document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Account</label><select class="fs" id="eAcct"></select></div><div class="fg"><label class="fl">Department</label><select class="fs" id="eDept"></select></div></div><div class="fr"><div class="fg"><label class="fl">Origin</label><select class="fs" id="eOrg"></select></div><div class="fg"><label class="fl">Destination</label><select class="fs" id="eDst"></select></div></div><div class="fr"><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi" id="eImawb" maxlength="100" value="'+String(r.international_mawb||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi" id="eDmawb" maxlength="100" value="'+String(r.domestic_mawb||'').replace(/"/g,'&quot;')+'"></div></div><div class="fr"><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="eTT"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="eSt"></select></div></div><div class="fr"><div class="fg"><label class="fl">Truck Plate #</label><div id="ePlateWrap"></div></div><div class="fg"><label class="fl">Vendor</label><p id="eVname" style="font-size:13px;margin:0;padding-top:8px">-</p></div></div><div class="fr"><div class="fg"><label class="fl">Initial Call datetime (TBC)</label><input type="datetime-local" class="fi" id="eCall" value="'+toDT(r.call_datetime)+'"></div><div class="fg"><label class="fl">Customs Cleared</label><input type="datetime-local" class="fi" id="eCustoms" value="'+toDT(r.customs_cleared_datetime)+'"></div></div><div class="fr"><div class="fg"><label class="fl">Final Call Datetime</label><input type="datetime-local" class="fi" id="eFinal" value="'+toDT(r.final_call_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Qty</label><input type="number" class="fi" id="eQty" value="'+(r.quantity||0)+'"></div><div class="fg"><label class="fl">Weight</label><input type="number" step="0.01" class="fi" id="eWt" value="'+(r.weight_kg||0)+'"></div><div class="fg"><label class="fl">Volume</label><input type="number" step="0.01" class="fi" id="eVol" value="'+(r.volume_cbm||0)+'"></div></div><div class="fg"><label class="fl">Instructions</label><textarea class="ft" id="eNotes">'+(r.special_instructions||'')+'</textarea></div><hr style="margin:12px 0;border-color:var(--bdr)"><h4 style="font-size:14px;font-weight:600;margin-bottom:12px">Trip Details</h4><div class="fr"><div class="fg"><label class="fl">Foul Trip Date</label><input type="date" class="fi" id="eFoulDate" value="'+(r.foul_trip_date||'')+'"></div><div class="fg"><label class="fl">Foul Trip Reason</label><input class="fi" id="eFoul" value="'+(r.foul_trip_reason||'')+'" placeholder="Required if Foul Trip status"></div></div><div class="fr"><div class="fg"><label class="fl">Foul Trip Count Confirmation *</label><select class="fs" id="eFoulCount"><option value="">-- Select 1 or 2 --</option><option value="1">1</option><option value="2">2</option></select></div><div class="fg"><label class="fl">&nbsp;</label><small style="font-size:12px;color:var(--muted);display:block;padding-top:6px">Compulsory (1 or 2) when setting the status to Foul Trip. Used to work out the Foul Trip Cost.</small></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Pickup</label><input type="datetime-local" class="fi" id="eArrPickup" value="'+toDT(r.arrived_pickup_datetime)+'"></div><div class="fg"><label class="fl">Start Loading</label><input type="datetime-local" class="fi" id="eStartLoad" value="'+toDT(r.start_loading_datetime)+'"></div><div class="fg"><label class="fl">End Loading</label><input type="datetime-local" class="fi" id="eEndLoad" value="'+toDT(r.end_loading_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Destination</label><input type="datetime-local" class="fi" id="eArrDest" value="'+toDT(r.arrived_dest_datetime)+'"></div><div class="fg"><label class="fl">Start Unloading</label><input type="datetime-local" class="fi" id="eStartUnload" value="'+toDT(r.start_unloading_datetime)+'"></div><div class="fg"><label class="fl">End Unloading</label><input type="datetime-local" class="fi" id="eEndUnload" value="'+toDT(r.end_unloading_datetime)+'"></div></div><div class="fg"><label class="fl">Attachments ('+(r.attachments||[]).length+'/8)</label><div style="font-size:11px;color:var(--muted);margin:2px 0 4px"><i class="fas fa-info-circle"></i> Max 8 files, 25 MB total per request</div><div id="eAtts"></div><input type="file" class="fi" id="eFile" multiple accept="*/*" style="margin-top:8px"></div><div class="fr"><div class="fg"><label class="fl">Cancellation Date</label><input type="date" class="fi" id="eCancelDate" value="'+(r.cancellation_date||'')+'"></div><div class="fg"></div></div><div class="fr"><div class="fg" style="grid-column:1/-1"><label class="fl">Manifest (Excel)</label><div id="eManInfo"></div><input type="file" class="fi" id="eManFile" accept=".xlsx,.xlsm" style="margin-top:8px"><div style="font-size:11px;color:var(--muted);margin-top:4px"><i class="fas fa-info-circle"></i> Max 5 MB &middot; one manifest file per request &middot; the key column (bag/carton/gunny/sack) is read into unique IDs; the Excel file itself is not kept &mdash; it is converted straight into a CSV (the MAWBs plus those IDs), and that CSV is what gets stored and downloaded.</div></div></div>';
+    document.getElementById('mBody').innerHTML='<div class="fr"><div class="fg"><label class="fl">Account</label><select class="fs" id="eAcct"></select></div><div class="fg"><label class="fl">Department</label><select class="fs" id="eDept"></select></div></div><div class="fr"><div class="fg"><label class="fl">Origin</label><select class="fs" id="eOrg"></select></div><div class="fg"><label class="fl">Destination</label><select class="fs" id="eDst"></select></div></div><div class="fr"><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi" id="eImawb" maxlength="100" value="'+String(r.international_mawb||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi" id="eDmawb" maxlength="100" value="'+String(r.domestic_mawb||'').replace(/"/g,'&quot;')+'"></div></div><div class="fr"><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="eTT"></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="eSt"></select></div></div><div class="fr"><div class="fg"><label class="fl">Truck Plate #</label><div id="ePlateWrap"></div></div><div class="fg"><label class="fl">Vendor</label><p id="eVname" style="font-size:13px;margin:0;padding-top:8px">-</p></div></div><div class="fr"><div class="fg"><label class="fl">Initial Call datetime (TBC)</label><input type="datetime-local" class="fi" id="eCall" value="'+toDT(r.call_datetime)+'"></div><div class="fg"><label class="fl">Customs Cleared</label><input type="datetime-local" class="fi" id="eCustoms" value="'+toDT(r.customs_cleared_datetime)+'"></div></div><div class="fr"><div class="fg"><label class="fl">Final Call Datetime</label><input type="datetime-local" class="fi" id="eFinal" value="'+toDT(r.final_call_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Qty</label><input type="number" class="fi" id="eQty" value="'+(r.quantity||0)+'"></div><div class="fg"><label class="fl">Weight</label><input type="number" step="0.01" class="fi" id="eWt" value="'+(r.weight_kg||0)+'"></div><div class="fg"><label class="fl">Volume</label><input type="number" step="0.01" class="fi" id="eVol" value="'+(r.volume_cbm||0)+'"></div></div><div class="fg"><label class="fl">Instructions</label><textarea class="ft" id="eNotes">'+(r.special_instructions||'')+'</textarea></div><hr style="margin:12px 0;border-color:var(--bdr)"><h4 style="font-size:14px;font-weight:600;margin-bottom:12px">Trip Details</h4><div class="fr"><div class="fg"><label class="fl">Foul Trip Date</label><input type="date" class="fi" id="eFoulDate" value="'+(r.foul_trip_date||'')+'"></div><div class="fg"><label class="fl">Foul Trip Reason</label><input class="fi" id="eFoul" value="'+(r.foul_trip_reason||'')+'" placeholder="Required if Foul Trip status"></div></div><div class="fr"><div class="fg"><label class="fl">Foul Trip Count Confirmation *</label><select class="fs" id="eFoulCount"><option value="">-- Select 1 or 2 --</option><option value="1">1</option><option value="2">2</option></select></div><div class="fg"><label class="fl">&nbsp;</label><small style="font-size:12px;color:var(--muted);display:block;padding-top:6px">Compulsory (1 or 2) when setting the status to Foul Trip. Used to work out the Foul Trip Cost.</small></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Pickup</label><input type="datetime-local" class="fi" id="eArrPickup" value="'+toDT(r.arrived_pickup_datetime)+'"></div><div class="fg"><label class="fl">Start Loading</label><input type="datetime-local" class="fi" id="eStartLoad" value="'+toDT(r.start_loading_datetime)+'"></div><div class="fg"><label class="fl">End Loading</label><input type="datetime-local" class="fi" id="eEndLoad" value="'+toDT(r.end_loading_datetime)+'"></div></div><div class="fr3"><div class="fg"><label class="fl">Arrived Destination</label><input type="datetime-local" class="fi" id="eArrDest" value="'+toDT(r.arrived_dest_datetime)+'"></div><div class="fg"><label class="fl">Start Unloading</label><input type="datetime-local" class="fi" id="eStartUnload" value="'+toDT(r.start_unloading_datetime)+'"></div><div class="fg"><label class="fl">End Unloading</label><input type="datetime-local" class="fi" id="eEndUnload" value="'+toDT(r.end_unloading_datetime)+'"></div></div><div class="fg"><label class="fl">Attachments ('+(r.attachments||[]).length+'/8)</label><div style="font-size:11px;color:var(--muted);margin:2px 0 4px"><i class="fas fa-info-circle"></i> Max 8 files, 25 MB total per request</div><div id="eAtts"></div><input type="file" class="fi" id="eFile" multiple accept="*/*" style="margin-top:8px"></div><div class="fr"><div class="fg"><label class="fl">Cancellation Date</label><input type="date" class="fi" id="eCancelDate" value="'+(r.cancellation_date||'')+'"></div><div class="fg"></div></div><div class="fr"><div class="fg" style="grid-column:1/-1"><label class="fl">Manifest (Excel)</label><div id="eManInfo"></div><input type="file" class="fi" id="eManFile" accept=".xlsx,.xlsm" style="margin-top:8px"><div style="font-size:11px;color:var(--muted);margin-top:4px"><i class="fas fa-info-circle"></i> Max 10 MB &middot; one manifest file per request &middot; the key column (bag/carton/gunny/sack) is read into unique IDs; the Excel file itself is not kept &mdash; it is converted straight into a CSV (the MAWBs plus those IDs), and that CSV is what gets stored and downloaded.</div></div></div>';
     popSel('eAcct',accts,'id','name');popSel('eDept',depts,'id','name');popSel('eOrg',ports,'id','name');popSel('eDst',ports,'id','name');popSel('eTT',tts,'id','name');
     const validTrans={1:[1,2,3,4,5,6,7],2:[1,2,3,4,5,6,7],3:[3,4,5,6,7],4:[4,6],5:[5,6],6:[3,4,5,6,7],7:[6,7]};
     let allowed=validTrans[r.status_id]||[r.status_id];
@@ -1321,7 +1520,7 @@ async function editReq(id){
     renderMan();
     if(manFile)manFile.onchange=async()=>{
       const f=manFile.files[0];if(!f)return;
-      if(f.size>5*1024*1024){toast('Manifest file must be 5MB or smaller','error');manFile.value='';return}
+      if(f.size>10*1024*1024){toast('Manifest file must be 10MB or smaller','error');manFile.value='';return}
       const fd=new FormData();fd.append('file',f);
       let res,out;
       try{res=await fetch('/api/requests/'+id+'/manifest',{method:'POST',body:fd});out=await res.json().catch(()=>({}))}catch(e){toast('Upload failed','error');manFile.value='';return}
@@ -1439,8 +1638,63 @@ async function confirmClearAll(){
   }catch(e){toast(e.message||'Network error','error')}
 }
 
-function exportCSV(){
-  toast('Exporting... (use Print to save as PDF)','info');
+/* ---- CSV exports: every export is read from the table it belongs to, so the file has
+   exactly the table's columns, in the order shown on screen (dragged column order
+   included), and the same values. Action-only columns (buttons) are left out. ---- */
+const CSV_SKIP_HEADERS=['actions','action','approve',''];
+function csvCellText(el){
+  const c=el.cloneNode(true);
+  c.querySelectorAll('select').forEach(sel=>{const o=sel.options[sel.selectedIndex];sel.replaceWith(document.createTextNode(o&&o.value!==''?o.text:'-'))});
+  c.querySelectorAll('input').forEach(i=>i.replaceWith(document.createTextNode(i.type==='checkbox'?(i.checked?'Yes':'No'):i.value)));
+  c.querySelectorAll('button').forEach(b=>b.remove());
+  c.querySelectorAll('br').forEach(b=>b.replaceWith(document.createTextNode(' | ')));
+  c.querySelectorAll('div,p,li').forEach(d=>d.insertAdjacentText('beforebegin',' | '));
+  let t=c.textContent.replace(/\s+/g,' ').replace(/(\s*\|\s*)+/g,' | ').replace(/^\s*\|\s*|\s*\|\s*$/g,'').trim();
+  if(/^-?₱\s?-?[\d,]+(\.\d+)?$/.test(t))t=t.replace(/[₱,\s]/g,'');
+  return t;
+}
+/* rows from a header row + body rows (same column count as the header) */
+function csvFromTable(headTr,bodyRows,keys){
+  const ths=[...headTr.children];
+  const hk=ths.map((th,i)=>th.dataset.k||(keys?keys[i]:String(i)));
+  const keep=ths.map(th=>!CSV_SKIP_HEADERS.includes(csvCellText(th).toLowerCase()));
+  const out=[ths.filter((_,i)=>keep[i]).map(th=>csvCellText(th))];
+  bodyRows.forEach(row=>{
+    const cells=[...row.children];
+    if(cells.length!==ths.length)return;
+    const byKey={};
+    cells.forEach((c,i)=>{byKey[c.dataset.k||(keys?keys[i]:String(i))]=csvCellText(c)});
+    out.push(hk.map((k,i)=>keep[i]?(byKey[k]!=null?byKey[k]:''):null).filter(v=>v!==null));
+  });
+  return out;
+}
+/* Export the rows on screen of the table whose tbody has this id. */
+function exportShownTable(tbodyId,filename){
+  const tb=document.getElementById(tbodyId);
+  const tbl=tb&&tb.closest('table');
+  const head=tbl&&tbl.tHead&&tbl.tHead.rows[0];
+  if(!head){toast('Nothing to export','error');return}
+  const rows=csvFromTable(head,[...tb.rows]);
+  if(rows.length<2){toast('No data to export','error');return}
+  dlCSV(filename+'-'+todayLocal()+'.csv',rows);
+}
+/* Masterlist: every page of the current filter, built with the same row renderer. */
+async function exportCSV(){
+  try{
+    toast('Preparing the Masterlist export...','info');
+    let items=[],page=1,total=0;
+    do{
+      const res=await fetch('/api/requests?'+mlQuery(page,500).toString());
+      if(!res.ok)throw new Error(await apiErr(res));
+      const d=await res.json();
+      items=items.concat(d.items||[]);total=d.total||0;page++;
+      if(!(d.items||[]).length)break;
+    }while(items.length<total&&page<200);
+    if(!items.length){toast('No data to export','error');return}
+    const tmp=document.createElement('tbody');
+    tmp.innerHTML=items.map(r=>mlRowHtml(r,items)).join('');
+    dlCSV('masterlist-'+todayLocal()+'.csv',csvFromTable(mlHeadTr(),[...tmp.rows],ML_KEYS));
+  }catch(e){toast(e.message||'Export failed','error')}
 }
 
 // Pending Allocations
@@ -2233,6 +2487,8 @@ async function loadRates(){
     if(d)url+='destination_port_id='+d+'&';
     const data=await(await fetch(url)).json();
     data.forEach(r=>{if(typeof r.destination_drops==='string'){try{r.destination_drops=JSON.parse(r.destination_drops)}catch(e){r.destination_drops=[]}}});
+    const ttf=document.getElementById('rTT')?.value||'';
+    if(ttf){for(let i=data.length-1;i>=0;i--){if(String(data[i].truck_type_id)!==String(ttf))data.splice(i,1)}}
     const tb=document.getElementById('rTbl');
     const today=new Date().toISOString().slice(0,10);
     const rowHtml=(r,remark)=>'<tr><td><strong>'+esc(r.vendor_name||'')+'</strong></td><td>'+esc(r.truck_type_name||'')+'</td><td>'+esc(r.origin_port_name||'')+'</td><td>'+esc(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtDDate(r.effective_date)+'</td><td>'+fmtDDate(r.expiry_date)+'</td><td>'+(remark||'<span style="color:var(--muted)">-</span>')+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
@@ -2300,6 +2556,8 @@ function showRateModal(rate){
   if(r.origin_port_id)document.getElementById('rvOrg').value=r.origin_port_id;
   if(r.destination_port_id)document.getElementById('rvDst').value=r.destination_port_id;
   document.querySelectorAll('.drop-port').forEach(sel=>{popSelById(sel,ports,'id','name');const idx=sel.dataset.idx;const d=drops[idx];if(d&&d.port_id)sel.value=d.port_id});
+  document.getElementById('rvDst').addEventListener('change',syncDropOptions);
+  syncDropOptions();
   document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="saveRate('+(r.id||'null')+')"><i class="fas fa-save"></i> Save</button>';
   document.getElementById('overlay').classList.add('on');
 }
@@ -2312,6 +2570,15 @@ function addDropRow(){
   div.innerHTML='<div class="fg"><select class="fs drop-port" data-idx="'+cnt+'"></select></div><div class="fg"><input type="number" step="0.01" class="fi drop-rate" data-idx="'+cnt+'" placeholder="Rate/Trip (PHP)"></div><div class="fg" style="flex:0"><button class="btn btn-sm btn-d" onclick="this.closest(\'.fr\').remove()"><i class="fas fa-times"></i></button></div>';
   el.appendChild(div);
   popSelById(div.querySelector('.drop-port'),ports,'id','name');
+  syncDropOptions();
+}
+/* The Main Destination cannot also be an Additional Destination Drop location. */
+function syncDropOptions(){
+  const main=document.getElementById('rvDst')?.value||'';
+  document.querySelectorAll('.drop-port').forEach(sel=>{
+    [...sel.options].forEach(o=>{const same=!!main&&o.value===main;o.disabled=same;o.textContent=o.textContent.replace(/ \(Main Destination\)$/,'')+(same?' (Main Destination)':'')});
+    if(main&&sel.value===main){sel.value='';toast('Additional Destination Drop cleared - it cannot be the Main Destination','error')}
+  });
 }
 function removeDropRow(idx){const el=document.getElementById('dropRows');if(el.children[idx])el.children[idx].remove()}
 
@@ -2325,6 +2592,9 @@ async function saveRate(id){
     const pid=+dropEls[i].value;const rt=+rateEls[i].value||0;
     if(pid)drops.push({port_id:pid,rate_per_trip:rt});
   }
+  const mainDst=+document.getElementById('rvDst').value;
+  if(drops.some(d=>d.port_id===mainDst)){toast('An Additional Destination Drop location cannot be the same as the Main Destination','error');return}
+  if(new Set(drops.map(d=>d.port_id)).size!==drops.length){toast('The same Additional Destination Drop location is listed twice','error');return}
   const vendor_id=+document.getElementById('rvVendor').value;
   if(!vendor_id){toast('Vendor is required','error');return}
   const tt_id=+document.getElementById('rvTT').value;
@@ -2403,14 +2673,7 @@ function renderEvalTable(){
 function showEvalModal(){}
 async function saveEval(){}
 function delEval(id){}
-function exportEvalCSV(){
-  if(!evalData||!evalData.length){toast('No data to export','error');return}
-  const headers=['Request #','Trip ID','Drop #','Distance (KM)','Account','Department','Origin Port','Destination Port','International MAWB','Domestic MAWB','Truck Type','Truck Plate #','Vendor','Booking Date','Status','Final Call Datetime','Delivered Date','Customs to Arrival','Initial Call datetime (TBC) to Arrival','Arrival to Start Load','Start to End Load','End Load to Arrived Dest','Arrived to Start Unload','Start to End Unload','Full Leg'];
-  const rows=[headers];
-  evalData.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.drop_sequence||'',r.distance_km!=null?r.distance_km:'',r.account_name||'',r.department_name||'',r.origin_port_name||'',r.destination_port_name||'',r.international_mawb||'',r.domestic_mawb||'',r.truck_type_name||'',r.plate_number||'',r.vendor_name||'',r.booking_date||'',r.status_name||'',r.final_call_datetime||'',r.delivered_date||(r.end_unloading_datetime||'').slice(0,10),r.lt_customs_to_arrival||'',r.lt_pickup_to_arrival||'',r.lt_arrival_to_start_load||'',r.lt_start_load_to_end_load||'',r.lt_end_load_to_arrived_dest||'',r.lt_arrived_dest_to_start_unload||'',r.lt_start_unload_to_end_unload||'',r.lt_full_leg||''])});
-  let csv='';rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n'});
-  const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='vendor-speed-performance-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
-}
+function exportEvalCSV(){exportShownTable('evTbl','vendor-speed-performance')}
 
 // Cost Analysis
 let costData=null;
@@ -2430,15 +2693,8 @@ async function loadCost(){
     costData=data;
     costSortKey='';costSortDir='desc';
     document.getElementById('costRes').style.display='block';
-    document.getElementById('cStats').innerHTML=[
-      {ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:data.total_requests||0},
-      {ico:'fa-check-circle',c:'gn',l:'Delivered',v:data.delivered||0},
-      {ico:'fa-flag',c:'rd',l:'Foul Trip',v:data.foul_trip||0},
-      {ico:'fa-money-bill',c:'gn',l:'Actual Cost',v:'₱'+fmtN(data.total_actual_cost||0)},
-      {ico:'fa-exclamation-triangle',c:'yl',l:'Foul Trip Cost',v:'₱'+fmtN(data.total_foul_trip_cost||0)},
-      {ico:'fa-gas-pump',c:'yl',l:'Fuel Surcharge Cost',v:'₱'+fmtN(data.total_fuel_surcharge_cost||0)},
-      {ico:'fa-calculator',c:'pp',l:'Total Cost',v:'₱'+fmtN(data.total_cost||0)},
-    ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+    costFilter='';
+    renderCostStats();
     const vs=data.vendor_summary||[];
     const vh=document.getElementById('cVHdr');
     if(vs.length){
@@ -2453,15 +2709,24 @@ async function loadCost(){
     renderCostTable();
   }catch(e){toast('Failed to load cost data','error')}
 }
-function exportCostCSV(){
-  if(!costData||!costData.requests||!costData.requests.length){toast('No data to export','error');return}
-  const rows=[['Request #','Trip ID','Account','Department','Distance (KM)','Origin Port','Destination Port','International MAWB','Domestic MAWB','Truck Type','Vendor','Booking Date','Initial Call datetime (TBC)','Final Call Datetime','Delivered Date','Actual Cost','Toll Fee','Management Fee','Fuel','Parking','Miscellaneous','Manpower','Toll','Welfare','WH Rental','Toll Fee (Easytrip)','Toll Fee (Autosweep)','Foul Trip Cost','Fuel Surcharge Cost','Total Cost','Status','Foul Trip Date','Foul Trip Count Confirmation','Foul Trip Reason','Updated By','Updated At']];
-  costData.requests.forEach(r=>{rows.push([r.request_number||'',r.trip_id||'',r.account_name||'',r.department_name||'',r.distance_km!=null?r.distance_km:'',r.origin_port_name||'',r.destination_port_name||'',r.international_mawb||'',r.domestic_mawb||'',r.truck_type_name||'',r.vendor_name||'',r.booking_date||'',r.call_datetime||'',r.final_call_datetime||'',r.delivered_date||'',r.actual_cost||0,(r.toll_fee||0),(r.management_fee||0),(r.fuel||0),(r.parking||0),(r.miscellaneous||0),(r.manpower||0),(r.toll||0),(r.welfare||0),(r.wh_rental||0),(r.toll_fee_easytrip||0),(r.toll_fee_autosweep||0),(r.foul_trip_cost||0),(r.fuel_surcharge_cost||0),(r.total_cost||0),r.status_name||'',r.foul_trip_date||'',((r.foul_trip_count===1||r.foul_trip_count===2)?r.foul_trip_count:''),r.foul_trip_reason||'',(r.cost_updated_by_name&&r.cost_updated_by_email)?r.cost_updated_by_name+' ('+r.cost_updated_by_email+')':(r.cost_updated_by_email||r.cost_updated_by||''),r.cost_updated_at||''])});
-  let csv='';rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n'});
-  const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cost-analysis-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
-}
+function exportCostCSV(){exportShownTable('cTbl','cost-analysis')}
 
-let costSortKey='',costSortDir='desc';
+let costSortKey='',costSortDir='desc',costFilter='';
+function costView(){const rs=(costData&&costData.requests)||[];return costFilter==='delivered'?rs.filter(r=>r.status_id===4):costFilter==='foul'?rs.filter(r=>r.status_id===7):rs}
+function costFilterClick(k){costFilter=(costFilter===k)?'':k;renderCostStats();renderCostTable()}
+function renderCostStats(){
+  const data=costData||{};
+  document.getElementById('cStats').innerHTML=[
+      {k:'',ico:'fa-clipboard-list',c:'bl',l:'Total Requests',v:data.total_requests||0,tip:'Show all requests'},
+      {k:'delivered',ico:'fa-check-circle',c:'gn',l:'Delivered',v:data.delivered||0,tip:'Show Delivered requests only'},
+      {k:'foul',ico:'fa-flag',c:'rd',l:'Foul Trip',v:data.foul_trip||0,tip:'Show Foul Trip requests only'},
+    ].map(s=>statTileHtml(s,costFilter===s.k,"costFilterClick('"+s.k+"')")).join('')+[
+      {ico:'fa-money-bill',c:'gn',l:'Actual Cost',v:'₱'+fmtN(data.total_actual_cost||0)},
+      {ico:'fa-exclamation-triangle',c:'yl',l:'Foul Trip Cost',v:'₱'+fmtN(data.total_foul_trip_cost||0)},
+      {ico:'fa-gas-pump',c:'yl',l:'Fuel Surcharge Cost',v:'₱'+fmtN(data.total_fuel_surcharge_cost||0)},
+      {ico:'fa-calculator',c:'pp',l:'Total Cost',v:'₱'+fmtN(data.total_cost||0)},
+    ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+}
 function sortCost(key){
   if(costSortKey===key)costSortDir=costSortDir==='desc'?'asc':'desc';
   else{costSortKey=key;costSortDir='desc'}
@@ -2484,12 +2749,13 @@ function costRowHtml(r){
   const ubEmail=r.cost_updated_by_email||r.cost_updated_by||'';
   const ubName=r.cost_updated_by_name||'';
   const ub=ubEmail?(ubName?ubName+' ('+ubEmail+')':ubEmail):'-';
-  return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+act+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.department_name||'-')+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>₱'+fmtN(r.actual_cost||0)+'</td>'+costCells+addCells+'<td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+(r.foul_trip_reason||'-')+'</td><td>'+ub+'</td><td>'+(r.cost_updated_at?fmtD(r.cost_updated_at):'-')+'</td></tr>';
+  return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+act+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+(r.account_name||'-')+'</td><td>'+(r.department_name||'-')+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+(r.truck_type_name||'-')+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.status_id===7?'<span style="color:var(--muted)" title="No Actual Cost for a Foul Trip - see Foul Trip Cost">-</span>':'₱'+fmtN(r.actual_cost||0))+'</td>'+costCells+addCells+'<td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+(r.foul_trip_reason||'-')+'</td><td>'+ub+'</td><td>'+(r.cost_updated_at?fmtD(r.cost_updated_at):'-')+'</td></tr>';
 }
 function renderCostTable(){
   const tb=document.getElementById('cTbl');
-  if(!costData||!costData.requests||!costData.requests.length){tb.innerHTML='<tr><td colspan="37" class="empty"><i class="fas fa-inbox"></i><p>No data for selected filters</p></td></tr>';return}
-  tb.innerHTML=costData.requests.map(costRowHtml).join('');
+  const view=costView();
+  if(!view.length){tb.innerHTML='<tr><td colspan="37" class="empty"><i class="fas fa-inbox"></i><p>'+(costFilter==='delivered'?'No Delivered requests for selected filters':costFilter==='foul'?'No Foul Trip requests for selected filters':'No data for selected filters')+'</p></td></tr>';return}
+  tb.innerHTML=view.map(costRowHtml).join('');
   [...tb.rows].forEach(row=>{if(row.children.length===COST_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=COST_KEYS[i]})});
   applyCostOrder();
 }
@@ -2559,7 +2825,11 @@ function editCost(id){
   if(!r)return;
   document.getElementById('mTitle').textContent='Edit Costs — '+(r.request_number||(''+id));
   const num=(k)=>'<input type="number" step="0.01" min="0" class="fi" id="ec_'+k+'" value="'+(r[k]!=null?r[k]:0)+'">';
-  let html='<div class="fr"><div class="fg"><label class="fl">Actual Cost (PHP)</label><input type="number" step="0.01" min="0" class="fi" id="ec_actual_cost" value="'+(r.actual_cost!=null?r.actual_cost:0)+'"></div><div class="fg"></div></div>';
+  const isFoul=r.status_id===7;
+  const basisNote=r.rate_basis?'<small style="font-size:12px;color:var(--muted);display:block;padding-top:6px">Rate card: '+esc(r.rate_basis)+' ₱'+fmtN(r.rate_amount||0)+'</small>':'';
+  let html=isFoul
+    ?'<div class="fr"><div class="fg"><label class="fl">Actual Cost (PHP)</label><p style="font-size:13px;padding-top:8px;margin:0">No Actual Cost for a Foul Trip — it is charged as the Foul Trip Cost (₱'+fmtN(r.foul_trip_cost||0)+').</p></div><div class="fg">'+basisNote+'</div></div>'
+    :'<div class="fr"><div class="fg"><label class="fl">Actual Cost (PHP)</label><input type="number" step="0.01" min="0" class="fi" id="ec_actual_cost" value="'+(r.actual_cost!=null?r.actual_cost:0)+'"></div><div class="fg"><label class="fl">&nbsp;</label>'+basisNote+'</div></div>';
   for(let i=0;i<COST_FIELDS.length;i+=2){
     html+='<div class="fr"><div class="fg"><label class="fl">'+COST_FIELDS[i][1]+' (PHP)</label>'+num(COST_FIELDS[i][0])+'</div>';
     if(COST_FIELDS[i+1])html+='<div class="fg"><label class="fl">'+COST_FIELDS[i+1][1]+' (PHP)</label>'+num(COST_FIELDS[i+1][0])+'</div>';
@@ -2572,7 +2842,8 @@ function editCost(id){
   document.getElementById('overlay').classList.add('on');
 }
 async function saveCostEdit(id){
-  const body={actual_cost:+document.getElementById('ec_actual_cost').value||0};
+  const ac=document.getElementById('ec_actual_cost');
+  const body=ac?{actual_cost:+ac.value||0}:{};
   COST_FIELDS.forEach(f=>{body[f[0]]=+document.getElementById('ec_'+f[0]).value||0});
   try{
     const res=await fetch('/api/requests/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -2588,9 +2859,10 @@ function showBulkCostModal(){
   const ttOpts='<option value="">All truck types</option>'+tts.map(t=>'<option value="'+t.id+'">'+String(t.name).replace(/</g,'&lt;')+'</option>').join('');
   const cf=document.getElementById('cFrom')?.value||'';
   const ct=document.getElementById('cTo')?.value||'';
-  let html='<div style="font-size:13px;color:var(--mut);margin-bottom:10px">Adds the amounts below to every <strong>Delivered</strong> request and every <strong>approved Foul Trip</strong> request in the range. Matching uses the Delivered Date (End Unloading) or Foul Trip Date. A Foul Trip counts as approved once it has been green-lit on Foul Trip Review.</div>';
-  html+='<div class="fr3"><div class="fg"><label class="fl">Date From *</label><input type="date" class="fi" id="bcFrom" value="'+cf+'"></div><div class="fg"><label class="fl">Date To *</label><input type="date" class="fi" id="bcTo" value="'+ct+'"></div><div class="fg"><label class="fl">Vendor</label><select class="fs" id="bcVendor">'+vendorOpts+'</select></div></div>';
-  html+='<div class="fr3"><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="bcTT">'+ttOpts+'</select></div><div class="fg" style="display:flex;align-items:flex-end"><label style="font-size:13px;display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="bcSplit" checked> Split amount equally across matches</label></div><div class="fg"></div></div>';
+  let html='<div style="font-size:13px;color:var(--mut);margin-bottom:10px">Pick the date range, vendor and truck type, then tick the <strong>Delivered</strong> / <strong>approved Foul Trip</strong> truck requests the amounts should go to. Matching uses the Delivered Date (End Unloading) or Foul Trip Date. A Foul Trip counts as approved once it has been green-lit on Foul Trip Approval.</div>';
+  html+='<div class="fr3"><div class="fg"><label class="fl">Date From *</label><input type="date" class="fi" id="bcFrom" value="'+cf+'" onchange="bcLoadMatches()"></div><div class="fg"><label class="fl">Date To *</label><input type="date" class="fi" id="bcTo" value="'+ct+'" onchange="bcLoadMatches()"></div><div class="fg"><label class="fl">Vendor</label><select class="fs" id="bcVendor" onchange="bcLoadMatches()">'+vendorOpts+'</select></div></div>';
+  html+='<div class="fr3"><div class="fg"><label class="fl">Truck Type</label><select class="fs" id="bcTT" onchange="bcLoadMatches()">'+ttOpts+'</select></div><div class="fg" style="display:flex;align-items:flex-end;grid-column:span 2"><label style="font-size:13px;display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="bcSplit" checked> Split amount equally across the selected truck requests</label></div></div>';
+  html+='<div class="fg"><label class="fl" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>Truck requests to update *</span><span style="text-transform:none;letter-spacing:0;font-weight:500"><span id="bcSelCnt">0 selected</span> · <a href="javascript:void(0)" onclick="bcTickAll(true)">Tick all</a> · <a href="javascript:void(0)" onclick="bcTickAll(false)">Clear</a></span></label><div id="bcList" class="tw" style="max-height:240px;overflow:auto;border:1px solid var(--bdr);border-radius:8px"><div class="empty" style="padding:16px">Pick a date range to list the truck requests</div></div></div>';
   html+='<hr style="margin:10px 0;border-color:var(--bdr)">';
   for(let i=0;i<COST_FIELDS.length;i+=2){
     html+='<div class="fr"><div class="fg"><label class="fl">'+COST_FIELDS[i][1]+'</label><input type="number" step="0.01" min="0" class="fi" id="bc_'+COST_FIELDS[i][0]+'" placeholder="0"></div>';
@@ -2598,11 +2870,35 @@ function showBulkCostModal(){
     else html+='<div class="fg"></div>';
     html+='</div>';
   }
-  html+='<div style="font-size:12px;color:var(--muted)"><i class="fas fa-info-circle"></i> Leave a field blank to skip it. With Split on, the amount is divided equally across the matching requests; with Split off, the full amount is added to each.</div>';
+  html+='<div style="font-size:12px;color:var(--muted)"><i class="fas fa-info-circle"></i> Leave a field blank to skip it. With Split on, each amount is divided equally across the truck requests you ticked; with Split off, the full amount is added to each ticked request.</div>';
   document.getElementById('mBody').innerHTML=html;
   document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="applyBulkCost()"><i class="fas fa-check"></i> Apply</button>';
   document.getElementById('overlay').classList.add('on');
+  bcLoadMatches();
 }
+let bcMatchSeq=0;
+async function bcLoadMatches(){
+  const box=document.getElementById('bcList');if(!box)return;
+  const f=document.getElementById('bcFrom').value,t=document.getElementById('bcTo').value;
+  if(!f||!t){box.innerHTML='<div class="empty" style="padding:16px">Pick a date range to list the truck requests</div>';bcCount();return}
+  const body={date_from:f,date_to:t};
+  const v=document.getElementById('bcVendor').value,tt=document.getElementById('bcTT').value;
+  if(v)body.vendor_id=+v;if(tt)body.truck_type_id=+tt;
+  const my=++bcMatchSeq;
+  box.innerHTML='<div class="empty" style="padding:16px"><i class="fas fa-spinner fa-spin" style="font-size:18px"></i></div>';
+  try{
+    const res=await fetch('/api/cost-summary/bulk-matches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok)throw new Error(await apiErr(res));
+    const items=(await res.json()).items||[];
+    if(my!==bcMatchSeq)return;
+    if(!items.length){box.innerHTML='<div class="empty" style="padding:16px">No Delivered / approved Foul Trip requests match these filters</div>';bcCount();return}
+    box.innerHTML='<table><thead><tr><th style="width:34px"></th><th>Request #</th><th>Trip ID</th><th>Status</th><th>Date</th><th>Vendor</th><th>Truck Type</th><th>Destination</th></tr></thead><tbody>'+items.map(r=>'<tr><td><input type="checkbox" class="bc-pick" value="'+r.id+'" onchange="bcCount()"></td><td><strong style="color:var(--pri)">'+esc(r.request_number||'')+'</strong></td><td>'+(r.trip_id?'<span class="badge b-bl">'+esc(r.trip_id)+'</span>':'-')+'</td><td>'+(r.status_id===7?'<span class="badge b-rd">Foul Trip</span>':'<span class="badge b-gn">Delivered</span>')+'</td><td>'+esc(r.match_date||'-')+'</td><td>'+esc(r.vendor_name||'-')+'</td><td>'+esc(r.truck_type_name||'-')+'</td><td>'+esc(r.destination_port_name||'-')+'</td></tr>').join('')+'</tbody></table>';
+  }catch(e){if(my===bcMatchSeq)box.innerHTML='<div class="empty" style="padding:16px;color:var(--err)">'+esc(e.message||'Failed to load requests')+'</div>'}
+  bcCount();
+}
+function bcPicked(){return[...document.querySelectorAll('#bcList .bc-pick:checked')].map(c=>+c.value)}
+function bcCount(){const el=document.getElementById('bcSelCnt');if(el){const all=document.querySelectorAll('#bcList .bc-pick').length;el.textContent=bcPicked().length+' of '+all+' selected'}}
+function bcTickAll(on){document.querySelectorAll('#bcList .bc-pick').forEach(c=>c.checked=on);bcCount()}
 let bcConfirmed=false;
 function bulkFoot(){document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" onclick="applyBulkCost()"><i class="fas fa-check"></i> Apply</button>'}
 function cancelBulkConfirm(){bcConfirmed=false;const w=document.getElementById('bcWarn');if(w)w.remove();bulkFoot()}
@@ -2619,7 +2915,9 @@ async function applyBulkCost(){
   });
   if(invalid)return;
   if(Object.keys(amounts).length===0){toast('Enter at least one amount','error');return}
-  const payload={date_from:date_from,date_to:date_to,split:document.getElementById('bcSplit').checked,amounts:amounts};
+  const picked=bcPicked();
+  if(!picked.length){toast('Tick at least one truck request','error');return}
+  const payload={date_from:date_from,date_to:date_to,split:document.getElementById('bcSplit').checked,amounts:amounts,request_ids:picked};
   const vid=document.getElementById('bcVendor').value;const ttid=document.getElementById('bcTT').value;
   if(vid)payload.vendor_id=+vid;
   if(ttid)payload.truck_type_id=+ttid;
@@ -2629,7 +2927,7 @@ async function applyBulkCost(){
       const warn=document.createElement('div');
       warn.id='bcWarn';
       warn.style.cssText='display:flex;gap:8px;align-items:flex-start;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:10px 12px;border-radius:8px;margin-bottom:10px;font-size:13px';
-      warn.innerHTML='<i class="fas fa-exclamation-triangle" style="color:#D97706;margin-top:2px"></i><div><strong>Split amount is OFF.</strong> The full amount will be added to <strong>each</strong> matching truck request instead of being divided. Confirm to continue.</div>';
+      warn.innerHTML='<i class="fas fa-exclamation-triangle" style="color:#D97706;margin-top:2px"></i><div><strong>Split amount is OFF.</strong> The full amount will be added to <strong>each</strong> of the '+picked.length+' selected truck request(s) instead of being divided. Confirm to continue.</div>';
       bd.insertBefore(warn,bd.firstChild);
       document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="cancelBulkConfirm()"><i class="fas fa-arrow-left"></i> Go back</button><button class="btn btn-d" onclick="bcConfirmYes()"><i class="fas fa-exclamation-triangle"></i> Yes, add to each request</button>';
     }
@@ -2644,18 +2942,24 @@ async function applyBulkCost(){
   }catch(e){toast(e.message,'error')}
 }
 
-// Foul Trip Review
-let ftData=[],ftSortKey='foul_trip_date',ftSortDir='desc';
+// Foul Trip Approval
+let ftData=[],ftSortKey='foul_trip_date',ftSortDir='desc',ftFilter='',ftCounts={pending:0,approved:0};
+function ftView(){return ftFilter==='approved'?ftData.filter(r=>!!r.foul_trip_approved_by):ftFilter==='pending'?ftData.filter(r=>!r.foul_trip_approved_by):ftData}
+function ftFilterClick(k){ftFilter=(ftFilter===k)?'':k;renderFTStats();renderFTTable()}
+function renderFTStats(){
+  document.getElementById('ftStats').innerHTML=[
+    {k:'',ico:'fa-flag',c:'rd',l:'Foul Trips',v:ftData.length,tip:'Show all foul trips'},
+    {k:'pending',ico:'fa-hourglass-half',c:'yl',l:'Awaiting Approval',v:ftCounts.pending,tip:'Show foul trips awaiting approval'},
+    {k:'approved',ico:'fa-check-circle',c:'gn',l:'Approved',v:ftCounts.approved,tip:'Show approved foul trips'},
+  ].map(s=>statTileHtml(s,ftFilter===s.k,"ftFilterClick('"+s.k+"')")).join('');
+}
 const FT_KEYS=['request_number','actions','trip_id','account_name','department_name','distance_km','origin_port_name','destination_port_name','international_mawb','domestic_mawb','truck_type_name','plate_number','vendor_name','booking_date','call_datetime','final_call_datetime','rate_per_trip','foul_trip_pct','foul_trip_date','foul_trip_count','foul_trip_cost','foul_trip_reason','status_name','foul_trip_approval','approved_at'];
 async function loadFT(){
   try{
     const d=await(await fetch('/api/foul-trip-review')).json();
     ftData=d.items||[];
-    document.getElementById('ftStats').innerHTML=[
-      {ico:'fa-flag',c:'rd',l:'Foul Trips',v:ftData.length},
-      {ico:'fa-hourglass-half',c:'yl',l:'Awaiting Approval',v:d.pending||0},
-      {ico:'fa-check-circle',c:'gn',l:'Approved',v:d.approved||0},
-    ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+    ftCounts={pending:d.pending||0,approved:d.approved||0};
+    renderFTStats();
     renderFTTable();
   }catch(e){toast('Failed to load foul trips','error')}
 }
@@ -2690,8 +2994,9 @@ function ftRowHtml(r){
 }
 function renderFTTable(){
   const tb=document.getElementById('ftTbl');
-  if(!ftData.length){tb.innerHTML='<tr><td colspan="25" class="empty"><i class="fas fa-flag"></i><p>No foul trips found</p></td></tr>';return}
-  tb.innerHTML=ftData.map(ftRowHtml).join('');
+  const view=ftView();
+  if(!view.length){tb.innerHTML='<tr><td colspan="25" class="empty"><i class="fas fa-flag"></i><p>'+(ftFilter==='pending'?'No foul trips awaiting approval':ftFilter==='approved'?'No approved foul trips':'No foul trips found')+'</p></td></tr>';return}
+  tb.innerHTML=view.map(ftRowHtml).join('');
   [...tb.rows].forEach(row=>{if(row.children.length===FT_KEYS.length)[...row.children].forEach((c,i)=>{if(!c.dataset.k)c.dataset.k=FT_KEYS[i]})});
   applyFTOrder();
 }
@@ -2714,7 +3019,13 @@ async function approveFT(id){
   }catch(e){toast(e.message,'error')}
 }
 // Trip Utilisation Review
-let tuData=[],tuSortKey=null,tuSortDir='desc',tuSelectsReady=false;
+let tuData=[],tuSortKey=null,tuSortDir='desc',tuSelectsReady=false,tuTier='';
+function tuView(){if(!tuTier)return tuData;return tuData.filter(t=>t.max_capacity_units!=null&&+t.max_capacity_units>0&&utilTier(t.revised_utilisation)===tuTier)}
+function tuTierClick(k){tuTier=(tuTier===k)?'':k;renderTU()}
+/* Clickable summary tile (shared by Trip Utilisation, Foul Trip Approval and Cost Analysis). */
+function statTileHtml(s,on,js){
+  return '<div class="stat stat-click'+(on?' on':'')+'" role="button" tabindex="0" title="'+esc(s.tip||'Click to list these')+'" onclick="'+js+'" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'+js+'}"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>';
+}
 async function loadTU(){
   if(!tuSelectsReady&&typeof depts!=='undefined'){
     popSel('tuDept',depts||[],'id','name','All Departments',true);
@@ -2760,13 +3071,7 @@ function dlCSV(filename,rows){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
   document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
 }
-function exportTUCSV(){
-  if(!tuData||!tuData.length){toast('No data to export','error');return}
-  const rows=[['Trip ID','Final Call Datetime','Status','Requests','Origin Port','Department','Vendor','Truck Type','Capacity (units)','Initial Qty (units)','Initial Utilisation %','Initial Tier','Revised Qty (units)','Revised Utilisation %','Revised Tier']];
-  const tier=p=>{const t=utilTier(p);return t?t.toUpperCase():''};
-  tuData.forEach(r=>rows.push([r.trip_id||'',r.final_call_datetime||'',r.status_name||'Delivered',r.request_count||0,r.origin_port_name||'',r.department_name||'',r.vendor_name||'',r.truck_type_name||'',r.max_capacity_units!=null?r.max_capacity_units:'',Math.round((r.initial_units||0)*100)/100,r.initial_utilisation!=null?Math.round(r.initial_utilisation*10)/10:'',tier(r.initial_utilisation),Math.round((r.revised_units||0)*100)/100,r.revised_utilisation!=null?Math.round(r.revised_utilisation*10)/10:'',tier(r.revised_utilisation)]));
-  dlCSV('trip-utilisation-'+todayLocal()+'.csv',rows);
-}
+function exportTUCSV(){exportShownTable('tuTbl','trip-utilisation')}
 function tuPctCell(pct){
   if(pct==null)return'<span style="color:var(--muted)">—</span>';
   const t=utilTier(pct);
@@ -2780,19 +3085,25 @@ function renderTU(){
     const vals=arr.map(x=>x[k]).filter(v=>v!=null);
     return vals.length?(Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10):null;
   };
-  const under=withCap.filter(t=>t.revised_utilisation!=null&&t.revised_utilisation<70).length;
-  document.getElementById('tuStats').innerHTML=[
-    {ico:'fa-route',c:'bl',l:'Trips',v:tuData.length},
-    {ico:'fa-gauge',c:'gn',l:'Avg Initial Utilisation %',v:withCap.length?(avg(withCap,'initial_utilisation')!=null?avg(withCap,'initial_utilisation')+'%':'—'):'—'},
-    {ico:'fa-gauge',c:'yl',l:'Avg Revised Utilisation %',v:withCap.length?(avg(withCap,'revised_utilisation')!=null?avg(withCap,'revised_utilisation')+'%':'—'):'—'},
-    {ico:'fa-arrow-trend-down',c:'rd',l:'Trips under 70%',v:withCap.length?under:'—'},
-  ].map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
-  document.getElementById('tuCnt').textContent=tuData.length+' trip(s)';
-  if(!tuData.length){
-    tb.innerHTML='<tr><td colspan="13" class="empty"><i class="fas fa-gauge"></i><p>No delivered trips found for these filters</p></td></tr>';
+  const tierOf=t=>(t.max_capacity_units!=null&&+t.max_capacity_units>0)?utilTier(t.revised_utilisation):null;
+  const cnt=k=>tuData.filter(t=>tierOf(t)===k).length;
+  const tiles=[
+    {k:'',ico:'fa-route',c:'bl',l:'Trips',v:tuData.length,tip:'Show all trips'},
+    {k:'green',ico:'fa-circle-check',c:'gn',l:'Green Trips (above 85%)',v:withCap.length?cnt('green'):'—',tip:'Show trips whose revised utilisation is GREEN'},
+    {k:'yellow',ico:'fa-circle-half-stroke',c:'yl',l:'Yellow Trips (70% - 85%)',v:withCap.length?cnt('yellow'):'—',tip:'Show trips whose revised utilisation is YELLOW'},
+    {k:'red',ico:'fa-arrow-trend-down',c:'rd',l:'Red Trips (under 70%)',v:withCap.length?cnt('red'):'—',tip:'Show trips whose revised utilisation is RED'},
+  ];
+  document.getElementById('tuStats').innerHTML=tiles.map(s=>statTileHtml(s,tuTier===s.k,"tuTierClick('"+s.k+"')")).join('')+
+    [{ico:'fa-gauge',c:'gn',l:'Avg Initial Utilisation %',v:withCap.length?(avg(withCap,'initial_utilisation')!=null?avg(withCap,'initial_utilisation')+'%':'—'):'—'},
+     {ico:'fa-gauge',c:'yl',l:'Avg Revised Utilisation %',v:withCap.length?(avg(withCap,'revised_utilisation')!=null?avg(withCap,'revised_utilisation')+'%':'—'):'—'}]
+    .map(s=>'<div class="stat"><div class="s-ico '+s.c+'"><i class="fas '+s.ico+'"></i></div><div class="s-info"><div class="s-lbl">'+s.l+'</div><div class="s-val">'+s.v+'</div></div></div>').join('');
+  const rowsShown=tuView();
+  document.getElementById('tuCnt').textContent=rowsShown.length+' trip(s)'+(tuTier?' · '+tuTier.toUpperCase()+' only':'');
+  if(!rowsShown.length){
+    tb.innerHTML='<tr><td colspan="13" class="empty"><i class="fas fa-gauge"></i><p>'+(tuTier?'No '+tuTier+' trips for these filters':'No delivered trips found for these filters')+'</p></td></tr>';
     return;
   }
-  tb.innerHTML=tuData.map(r=>'<tr><td><span class="badge b-bl">'+esc(r.trip_id||'')+'</span></td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+stBadge(esc(r.status_name||'Delivered'),'#10B981')+'</td><td>'+(r.request_count||0)+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.department_name||'-')+'</td><td>'+esc(r.vendor_name||'-')+'</td><td>'+esc(r.truck_type_name||'-')+'</td><td>'+(r.max_capacity_units!=null?('<strong>'+r.max_capacity_units+'</strong> '+esc(ccBaseName())):'<span style="color:var(--muted)">not set</span>')+'</td><td>'+(Math.round((r.initial_units||0)*100)/100)+'</td><td>'+tuPctCell(r.initial_utilisation)+'</td><td>'+(Math.round((r.revised_units||0)*100)/100)+'</td><td>'+tuPctCell(r.revised_utilisation)+'</td></tr>').join('');
+  tb.innerHTML=rowsShown.map(r=>'<tr><td><span class="badge b-bl">'+esc(r.trip_id||'')+'</span></td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+stBadge(esc(r.status_name||'Delivered'),'#10B981')+'</td><td>'+(r.request_count||0)+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.department_name||'-')+'</td><td>'+esc(r.vendor_name||'-')+'</td><td>'+esc(r.truck_type_name||'-')+'</td><td>'+(r.max_capacity_units!=null?('<strong>'+r.max_capacity_units+'</strong> '+esc(ccBaseName())):'<span style="color:var(--muted)">not set</span>')+'</td><td>'+(Math.round((r.initial_units||0)*100)/100)+'</td><td>'+tuPctCell(r.initial_utilisation)+'</td><td>'+(Math.round((r.revised_units||0)*100)/100)+'</td><td>'+tuPctCell(r.revised_utilisation)+'</td></tr>').join('');
 }
 let ftDragTh=null,ftDragBound=false,ftHeaderOrdered=false;
 function ftHeadTr(){const t=document.getElementById('ftTbl');return t&&t.parentElement&&t.parentElement.tHead?t.parentElement.tHead.rows[0]:null}
@@ -2859,19 +3170,7 @@ function resetFTCols(){localStorage.removeItem('ftColOrder');location.reload()}
 let currentLibTab='ports';
 let portMap=null,portMarkers=[];
 const libRowsCache={};
-function exportLibCSV(tbl){
-  const data=libRowsCache[tbl]||[];
-  if(!data.length){toast('No data to export','error');return}
-  if(tbl==='ports'){
-    const rows=[['Name','Code','Address','Latitude','Longitude','Active']];
-    data.forEach(r=>rows.push([r.name||'',r.code||'',r.location||'',r.latitude!=null?r.latitude:'',r.longitude!=null?r.longitude:'',r.is_active===false||r.is_active===0?'No':'Yes']));
-    dlCSV('master-library-ports-'+todayLocal()+'.csv',rows);
-  }else if(tbl==='accounts'){
-    const rows=[['Name','Code','Active']];
-    data.forEach(r=>rows.push([r.name||'',r.code||'',r.is_active===false||r.is_active===0?'No':'Yes']));
-    dlCSV('master-library-accounts-'+todayLocal()+'.csv',rows);
-  }
-}
+function exportLibCSV(tbl){exportShownTable('libTbl','master-library-'+String(tbl).replace(/_/g,'-'))}
 async function libTab(tbl,btn){
   currentLibTab=tbl;
   document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('on'));
@@ -2895,7 +3194,7 @@ async function libTab(tbl,btn){
       else{html+='<th>Name</th><th>Code</th>';}
       if(tbl==='truck_statuses')html+='<th>Color</th>';
       if(tbl==='truck_types')html+='<th>Max KG</th><th>Max CBM</th><th>Max Capacity (units)</th>';
-      html+='<th>Actions</th></tr></thead><tbody>';
+      html+='<th>Actions</th></tr></thead><tbody id="libTbl">';
       data.forEach(r=>{
         if(tbl==='vendors'){
           html+='<tr><td><strong>'+r.name+'</strong></td><td>'+(r.contact_person||'-')+'</td><td>'+(r.phone||'-')+'</td><td>'+(r.email||'-')+'</td><td>'+(r.address||'-')+'</td>';
@@ -3258,7 +3557,7 @@ const ALL_PAGES=[
   {key:'rates',label:'Rate Management'},
   {key:'evaluation',label:'Vendor Speed Performance'},
   {key:'cost',label:'Cost Analysis'},
-  {key:'foul-trip-review',label:'Foul Trip Review'},
+  {key:'foul-trip-review',label:'Foul Trip Approval'},
   {key:'trip-utilisation',label:'Trip Utilisation Review'},
   {key:'library',label:'Master Library'},
   {key:'users',label:'User Roles'},

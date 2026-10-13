@@ -2661,6 +2661,172 @@
         }
       }
     },
+    "/api/page-lock": {
+      "get": {
+        "summary": "Page Lock Status",
+        "operationId": "page_lock_status_api_page_lock_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/page-lock/unlock": {
+      "post": {
+        "summary": "Page Lock Unlock",
+        "operationId": "page_lock_unlock_api_page_lock_unlock_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/page-lock/password": {
+      "post": {
+        "summary": "Page Lock Set Password",
+        "operationId": "page_lock_set_password_api_page_lock_password_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/page-lock/logs": {
+      "get": {
+        "summary": "Page Lock Logs",
+        "operationId": "page_lock_logs_api_page_lock_logs_get",
+        "parameters": [
+          {
+            "name": "event_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Type"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 2000,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/driver-accounts": {
       "get": {
         "summary": "List Driver Accounts",
@@ -4069,6 +4235,22 @@
         }
       }
     },
+    "/api/cost-summary/bulk-matches": {
+      "post": {
+        "summary": "Bulk Cost Matches",
+        "operationId": "bulk_cost_matches_api_cost_summary_bulk_matches_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/cost-summary/bulk-update": {
       "post": {
         "summary": "Bulk Cost Update",
@@ -4089,22 +4271,6 @@
       "get": {
         "summary": "Sync Masterlist",
         "operationId": "sync_masterlist_api_sync_masterlist_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sync/fleet": {
-      "get": {
-        "summary": "Sync Fleet",
-        "operationId": "sync_fleet_api_sync_fleet_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4153,6 +4319,70 @@
       "get": {
         "summary": "Sync Cost",
         "operationId": "sync_cost_api_sync_cost_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/foul-trips": {
+      "get": {
+        "summary": "Sync Foul Trips",
+        "operationId": "sync_foul_trips_api_sync_foul_trips_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/trip-utilisation": {
+      "get": {
+        "summary": "Sync Trip Utilisation",
+        "operationId": "sync_trip_utilisation_api_sync_trip_utilisation_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/capacity-conversion": {
+      "get": {
+        "summary": "Sync Capacity Conversion",
+        "operationId": "sync_capacity_conversion_api_sync_capacity_conversion_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/fleet": {
+      "get": {
+        "summary": "Sync Fleet",
+        "operationId": "sync_fleet_api_sync_fleet_get",
         "responses": {
           "200": {
             "description": "Successful Response",

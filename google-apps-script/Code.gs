@@ -3,194 +3,255 @@
 // ============================================================
 // SETUP:
 // 1. Open Google Sheets → Extensions → Apps Script
-// 2. Paste this entire script into Code.gs
+// 2. Paste this entire script into Code.gs (replace what is there)
 // 3. Set BACKEND_URL below to your deployed backend URL
-// 4. Run setupSheets() once to create all tabs
+// 4. Run setupSheets() once to create all tabs (re-run it after updating this
+//    script to add the new tabs: Foul Trip Approval, Trip Utilisation Review and
+//    Capacity Conversion)
 // 5. Run installTrigger() once to enable hourly auto-sync
+//
+// Each tab mirrors the matching page in the app: the backend /api/sync/* endpoints
+// return the same rows the page shows, and the column headers below follow the
+// page's table. Headers are refreshed automatically on every sync.
 // ============================================================
 
 var BACKEND_URL = "https://sp-truck-booking--dev.ninjavan.apps.substrait.build";
 
 var SECTIONS = [
-  { key: "masterlist",    sheet: "Masterlist",           endpoint: "/api/sync/masterlist" },
-  { key: "fleet",         sheet: "Fleet",                endpoint: "/api/sync/fleet" },
-  { key: "rates",         sheet: "Rate Management",      endpoint: "/api/sync/rates" },
-  { key: "evaluation",    sheet: "Vendor Speed Performance", endpoint: "/api/sync/evaluation" },
-  { key: "cost",          sheet: "Cost Analysis",        endpoint: "/api/sync/cost" },
-  { key: "ports",         sheet: "Ports",                endpoint: "/api/sync/ports" },
-  { key: "accounts",      sheet: "Accounts",             endpoint: "/api/sync/accounts" },
-  { key: "departments",   sheet: "Departments",          endpoint: "/api/sync/departments" },
-  { key: "packaging",     sheet: "Packaging",            endpoint: "/api/sync/packaging" },
-  { key: "statuses",      sheet: "Statuses",             endpoint: "/api/sync/statuses" },
-  { key: "truck-types",   sheet: "Truck Types",          endpoint: "/api/sync/truck-types" },
-  { key: "vendors",       sheet: "Vendors",              endpoint: "/api/sync/vendors" }
+  { key: "masterlist",          sheet: "Masterlist",               endpoint: "/api/sync/masterlist" },
+  { key: "fleet",               sheet: "Fleet",                    endpoint: "/api/sync/fleet" },
+  { key: "rates",               sheet: "Rate Management",          endpoint: "/api/sync/rates" },
+  { key: "evaluation",          sheet: "Vendor Speed Performance", endpoint: "/api/sync/evaluation" },
+  { key: "cost",                sheet: "Cost Analysis",            endpoint: "/api/sync/cost" },
+  { key: "foul-trips",          sheet: "Foul Trip Approval",       endpoint: "/api/sync/foul-trips" },
+  { key: "trip-utilisation",    sheet: "Trip Utilisation Review",  endpoint: "/api/sync/trip-utilisation" },
+  { key: "ports",               sheet: "Ports",                    endpoint: "/api/sync/ports" },
+  { key: "accounts",            sheet: "Accounts",                 endpoint: "/api/sync/accounts" },
+  { key: "departments",         sheet: "Departments",              endpoint: "/api/sync/departments" },
+  { key: "packaging",           sheet: "Packaging",                endpoint: "/api/sync/packaging" },
+  { key: "statuses",            sheet: "Statuses",                 endpoint: "/api/sync/statuses" },
+  { key: "truck-types",         sheet: "Truck Types",              endpoint: "/api/sync/truck-types" },
+  { key: "vendors",             sheet: "Vendors",                  endpoint: "/api/sync/vendors" },
+  { key: "capacity-conversion", sheet: "Capacity Conversion",      endpoint: "/api/sync/capacity-conversion" }
 ];
 
-var HEADERS = {
+// Column header -> field name in the /api/sync/* response, per tab (order = column order).
+var FIELDS = {
   "Masterlist": [
-    "Request #","Requestor Name","Requestor Email","Account","Department",
-    "Origin Port","Destination Port","International MAWB","Domestic MAWB","Truck Type","Packaging","Quantity",
-    "Vendor","Truck Plate #","Final Call datetime (TBC)","Trip ID","Drop #","Distance (KM)",
-    "Booking Date","Initial Call datetime (TBC)","Customs Cleared","Instructions",
-    "Arrived Pickup","Start Loading","End Loading",
-    "Arrived Destination","Start Unloading","End Unloading",
-    "Foul Trip Reason","Status","Est. Cost","Actual Cost",
-    "Attachments","Updated By","Updated By Email","Updated At","Created At"
+    ["Request #", "request_number"],
+    ["Requestor Name", "requestor_name"],
+    ["Requestor Email", "requestor_email"],
+    ["Manifest", "manifest_status"],
+    ["Status", "status_name"],
+    ["Account", "account_name"],
+    ["Department", "department_name"],
+    ["Origin Port", "origin_port_name"],
+    ["Destination Port", "destination_port_name"],
+    ["International MAWB", "international_mawb"],
+    ["Domestic MAWB", "domestic_mawb"],
+    ["Truck Type", "truck_type_name"],
+    ["Truck Plate #", "plate_number"],
+    ["Packaging", "packaging_type_name"],
+    ["Initial Qty", "initial_qty"],
+    ["Revised Qty", "revised_qty_out"],
+    ["Vendor", "vendor_name"],
+    ["Final Call Datetime", "final_call_datetime"],
+    ["Trip ID", "trip_id"],
+    ["Driver", "driver_username"],
+    ["Driver Name", "driver_name"],
+    ["Driver Phone", "driver_phone"],
+    ["Drop #", "drop_sequence"],
+    ["Distance (KM)", "distance_km"],
+    ["Booking Date", "booking_date"],
+    ["Initial Call datetime (TBC)", "call_datetime"],
+    ["Customs Cleared", "customs_cleared_datetime"],
+    ["Instructions", "special_instructions"],
+    ["Arrived Pickup", "arrived_pickup_datetime"],
+    ["Late Reason", "late_reason"],
+    ["Start Loading", "start_loading_datetime"],
+    ["End Loading", "end_loading_datetime"],
+    ["Arrived Destination", "arrived_dest_datetime"],
+    ["Start Unloading", "start_unloading_datetime"],
+    ["End Unloading", "end_unloading_datetime"],
+    ["Delivered Date", "delivered_date"],
+    ["Foul Trip Reason", "foul_trip_reason"],
+    ["Foul Trip Date", "foul_trip_date"],
+    ["Foul Trip Count Confirmation", "foul_trip_count"],
+    ["Foul Trip Approval", "foul_trip_approved"],
+    ["Cancellation Date", "cancellation_date"],
+    ["Consol", "consolidated"],
+    ["Est. Cost", "estimated_cost"],
+    ["Actual Cost", "actual_cost"],
+    ["Attachments", "attachments"],
+    ["Updated By", "updated_by_name"],
+    ["Updated By Email", "updated_by_email"],
+    ["Updated At", "updated_at"],
+    ["Created At", "created_at"]
   ],
   "Fleet": [
-    "Plate #","Truck Type","Vendor","Driver Name","Driver Phone","Helper Name",
-    "Status","Capacity","Is Active","Current Requests","History Count","Created At"
+    ["Plate #", "plate_number"],
+    ["Truck Type", "truck_type_name"],
+    ["Vendor", "vendor_name"],
+    ["Driver Name", "driver_name"],
+    ["Driver Phone", "driver_phone"],
+    ["Helper Name", "helper_name"],
+    ["Status", "status"],
+    ["Capacity", "capacity"],
+    ["Is Active", "is_active"],
+    ["Current Requests", "active_requests"],
+    ["History Count", "history_count"],
+    ["Created At", "created_at"]
   ],
   "Rate Management": [
-    "Vendor","Truck Type","Origin Port","Destination Port",
-    "Rate/Trip","Default Rate","Effective Date","Expiry Date","Is Active","Created At"
+    ["Vendor", "vendor_name"],
+    ["Truck Type", "truck_type_name"],
+    ["Origin Port", "origin_port_name"],
+    ["Destination Port", "destination_port_name"],
+    ["Rate/Trip", "rate_per_trip"],
+    ["Default Rate", "default_rate"],
+    ["Additional Destination Drops", "additional_drops"],
+    ["Foul Trip %", "foul_trip_pct"],
+    ["Fuel Surcharge %", "fuel_surcharge_pct"],
+    ["Effective Date", "effective_date"],
+    ["Expiry Date", "expiry_date"],
+    ["Is Active", "is_active"],
+    ["Created At", "created_at"]
   ],
   "Vendor Speed Performance": [
-    "Request #","Trip ID","Drop #","Distance (KM)","Account","Department",
-    "Origin Port","Destination Port","International MAWB","Domestic MAWB","Truck Type","Vendor",
-    "Booking Date","Status","Final Call datetime (TBC)",
-    "Customs to Arrival","Initial Call datetime (TBC) to Arrival",
-    "Arrival to Start Load","Start to End Load",
-    "End Load to Arrived Dest","Arrived to Start Unload",
-    "Start to End Unload","Full Leg"
+    ["Request #", "request_number"],
+    ["Trip ID", "trip_id"],
+    ["Drop #", "drop_sequence"],
+    ["Distance (KM)", "distance_km"],
+    ["Account", "account_name"],
+    ["Department", "department_name"],
+    ["Origin Port", "origin_port_name"],
+    ["Destination Port", "destination_port_name"],
+    ["International MAWB", "international_mawb"],
+    ["Domestic MAWB", "domestic_mawb"],
+    ["Truck Type", "truck_type_name"],
+    ["Truck Plate #", "plate_number"],
+    ["Vendor", "vendor_name"],
+    ["Booking Date", "booking_date"],
+    ["Status", "status_name"],
+    ["Final Call Datetime", "final_call_datetime"],
+    ["Delivered Date", "delivered_date"],
+    ["Customs to Arrival", "lt_customs_to_arrival"],
+    ["Initial Call datetime (TBC) to Arrival", "lt_pickup_to_arrival"],
+    ["Arrival to Start Load", "lt_arrival_to_start_load"],
+    ["Start to End Load", "lt_start_load_to_end_load"],
+    ["End Load to Arrived Dest", "lt_end_load_to_arrived_dest"],
+    ["Arrived to Start Unload", "lt_arrived_dest_to_start_unload"],
+    ["Start to End Unload", "lt_start_unload_to_end_unload"],
+    ["Full Leg", "lt_full_leg"]
   ],
   "Cost Analysis": [
-    "Request #","Trip ID","Account","Department","Distance (KM)","Origin Port","Destination Port","International MAWB","Domestic MAWB",
-    "Truck Type","Vendor",
-    "Booking Date","Initial Call datetime (TBC)","Final Call datetime (TBC)",
-    "Est. Cost","Actual Cost","Status","Foul Trip Reason"
+    ["Request #", "request_number"],
+    ["Trip ID", "trip_id"],
+    ["Account", "account_name"],
+    ["Department", "department_name"],
+    ["Distance (KM)", "distance_km"],
+    ["Origin Port", "origin_port_name"],
+    ["Destination Port", "destination_port_name"],
+    ["International MAWB", "international_mawb"],
+    ["Domestic MAWB", "domestic_mawb"],
+    ["Truck Type", "truck_type_name"],
+    ["Vendor", "vendor_name"],
+    ["Booking Date", "booking_date"],
+    ["Initial Call datetime (TBC)", "call_datetime"],
+    ["Final Call Datetime", "final_call_datetime"],
+    ["Delivered Date", "delivered_date"],
+    ["Rate Basis", "rate_basis"],
+    ["Rate Amount", "rate_amount"],
+    ["Actual Cost", "actual_cost"],
+    ["Toll Fee", "toll_fee"],
+    ["Management Fee", "management_fee"],
+    ["Fuel", "fuel"],
+    ["Parking", "parking"],
+    ["Miscellaneous", "miscellaneous"],
+    ["Manpower", "manpower"],
+    ["Toll", "toll"],
+    ["Welfare", "welfare"],
+    ["WH Rental", "wh_rental"],
+    ["Toll Fee (Easytrip)", "toll_fee_easytrip"],
+    ["Toll Fee (Autosweep)", "toll_fee_autosweep"],
+    ["Foul Trip Cost", "foul_trip_cost"],
+    ["Fuel Surcharge Cost", "fuel_surcharge_cost"],
+    ["Total Cost", "total_cost"],
+    ["Status", "status_name"],
+    ["Foul Trip Date", "foul_trip_date"],
+    ["Foul Trip Count Confirmation", "foul_trip_count"],
+    ["Foul Trip Reason", "foul_trip_reason"],
+    ["Updated By", "cost_updated_by_email"],
+    ["Updated At", "cost_updated_at"]
   ],
-  "Ports":        ["ID","Name","Code","Address","Latitude","Longitude","Is Active","Created At"],
-  "Accounts":     ["ID","Name","Code","Is Active","Created At"],
-  "Departments":  ["ID","Name","Code","Is Active","Created At"],
-  "Packaging":    ["ID","Name","Code","Is Active","Created At"],
-  "Statuses":     ["ID","Name","Color","Is Active","Created At"],
-  "Truck Types":  ["ID","Name","Code","Max KG","Max CBM","Capacities","Is Active","Created At"],
-  "Vendors":      ["ID","Name","Contact Person","Phone","Email","Address","Is Active","Created At"]
+  "Foul Trip Approval": [
+    ["Request #", "request_number"],
+    ["Trip ID", "trip_id"],
+    ["Account", "account_name"],
+    ["Department", "department_name"],
+    ["Distance (KM)", "distance_km"],
+    ["Origin Port", "origin_port_name"],
+    ["Destination Port", "destination_port_name"],
+    ["International MAWB", "international_mawb"],
+    ["Domestic MAWB", "domestic_mawb"],
+    ["Truck Type", "truck_type_name"],
+    ["Truck Plate #", "plate_number"],
+    ["Vendor", "vendor_name"],
+    ["Booking Date", "booking_date"],
+    ["Initial Call datetime (TBC)", "call_datetime"],
+    ["Final Call Datetime", "final_call_datetime"],
+    ["Rate Basis", "rate_basis"],
+    ["Rate/Trip", "rate_per_trip"],
+    ["Foul Trip %", "foul_trip_pct"],
+    ["Foul Trip Date", "foul_trip_date"],
+    ["Foul Trip Count Confirmation", "foul_trip_count"],
+    ["Foul Trip Cost", "foul_trip_cost"],
+    ["Foul Trip Reason", "foul_trip_reason"],
+    ["Status", "status_name"],
+    ["Approval Status", "approval_status"],
+    ["Approved By", "foul_trip_approved_by_email"],
+    ["Approved At", "foul_trip_approved_at"]
+  ],
+  "Trip Utilisation Review": [
+    ["Trip ID", "trip_id"],
+    ["Final Call Datetime", "final_call_datetime"],
+    ["Status", "status_name"],
+    ["Requests", "request_count"],
+    ["Origin Port", "origin_port_name"],
+    ["Department", "department_name"],
+    ["Vendor", "vendor_name"],
+    ["Truck Type", "truck_type_name"],
+    ["Capacity (units)", "max_capacity_units"],
+    ["Initial Qty (units)", "initial_units"],
+    ["Initial Utilisation %", "initial_utilisation"],
+    ["Initial Tier", "initial_tier"],
+    ["Revised Qty (units)", "revised_units"],
+    ["Revised Utilisation %", "revised_utilisation"],
+    ["Revised Tier", "revised_tier"]
+  ],
+  "Ports":        [["ID", "id"], ["Name", "name"], ["Code", "code"], ["Address", "location"], ["Latitude", "latitude"], ["Longitude", "longitude"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Accounts":     [["ID", "id"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Departments":  [["ID", "id"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Packaging":    [["ID", "id"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Statuses":     [["ID", "id"], ["Name", "name"], ["Color", "color"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Truck Types":  [["ID", "id"], ["Name", "name"], ["Code", "code"], ["Max KG", "max_capacity_kg"], ["Max CBM", "max_capacity_cbm"], ["Max Capacity (units)", "max_capacity_units"], ["Capacities", "capacities"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Vendors":      [["ID", "id"], ["Name", "name"], ["Contact Person", "contact_person"], ["Phone", "phone"], ["Email", "email"], ["Address", "address"], ["Is Active", "is_active"], ["Created At", "created_at"]],
+  "Capacity Conversion": [
+    ["Packaging Type", "packaging_type"],
+    ["Code", "code"],
+    ["Base Packaging Unit", "base_unit"],
+    ["Is Base Unit", "is_base"],
+    ["Factor (base units per 1 unit)", "factor"],
+    ["Inverse", "inverse"]
+  ]
 };
 
-var NESTED_FIELDS = {
-  "Masterlist": {
-    "Request #": "request_number",
-    "Requestor Name": "requestor_name",
-    "Requestor Email": "requestor_email",
-    "Account": "account_name",
-    "Department": "department_name",
-    "Origin Port": "origin_port_name",
-    "Destination Port": "destination_port_name",
-    "International MAWB": "international_mawb",
-    "Domestic MAWB": "domestic_mawb",
-    "Truck Type": "truck_type_name",
-    "Packaging": "packaging_type_name",
-    "Quantity": "quantity",
-    "Vendor": "vendor_name",
-    "Truck Plate #": "plate_number",
-    "Final Call datetime (TBC)": "final_call_datetime",
-    "Trip ID": "trip_id",
-    "Drop #": "drop_sequence",
-    "Distance (KM)": "distance_km",
-    "Booking Date": "booking_date",
-    "Initial Call datetime (TBC)": "call_datetime",
-    "Customs Cleared": "customs_cleared_datetime",
-    "Instructions": "special_instructions",
-    "Arrived Pickup": "arrived_pickup_datetime",
-    "Start Loading": "start_loading_datetime",
-    "End Loading": "end_loading_datetime",
-    "Arrived Destination": "arrived_dest_datetime",
-    "Start Unloading": "start_unloading_datetime",
-    "End Unloading": "end_unloading_datetime",
-    "Foul Trip Reason": "foul_trip_reason",
-    "Status": "status_name",
-    "Est. Cost": "estimated_cost",
-    "Actual Cost": "actual_cost",
-    "Attachments": "attachments",
-    "Updated By": "updated_by_name",
-    "Updated By Email": "updated_by_email",
-    "Updated At": "updated_at",
-    "Created At": "created_at"
-  },
-  "Fleet": {
-    "Plate #": "plate_number",
-    "Truck Type": "truck_type_name",
-    "Vendor": "vendor_name",
-    "Driver Name": "driver_name",
-    "Driver Phone": "driver_phone",
-    "Helper Name": "helper_name",
-    "Status": "status",
-    "Capacity": "capacity",
-    "Is Active": "is_active",
-    "Current Requests": "active_requests",
-    "History Count": "history_count",
-    "Created At": "created_at"
-  },
-  "Rate Management": {
-    "Vendor": "vendor_name",
-    "Truck Type": "truck_type_name",
-    "Origin Port": "origin_port_name",
-    "Destination Port": "destination_port_name",
-    "Rate/Trip": "rate_per_trip",
-    "Default Rate": "default_rate",
-    "Effective Date": "effective_date",
-    "Expiry Date": "expiry_date",
-    "Is Active": "is_active",
-    "Created At": "created_at"
-  },
-  "Vendor Speed Performance": {
-    "Request #": "request_number",
-    "Trip ID": "trip_id",
-    "Drop #": "drop_sequence",
-    "Distance (KM)": "distance_km",
-    "Account": "account_name",
-    "Department": "department_name",
-    "Origin Port": "origin_port_name",
-    "Destination Port": "destination_port_name",
-    "International MAWB": "international_mawb",
-    "Domestic MAWB": "domestic_mawb",
-    "Truck Type": "truck_type_name",
-    "Vendor": "vendor_name",
-    "Booking Date": "booking_date",
-    "Status": "status_name",
-    "Final Call datetime (TBC)": "final_call_datetime",
-    "Customs to Arrival": "lt_customs_to_arrival",
-    "Initial Call datetime (TBC) to Arrival": "lt_pickup_to_arrival",
-    "Arrival to Start Load": "lt_arrival_to_start_load",
-    "Start to End Load": "lt_start_load_to_end_load",
-    "End Load to Arrived Dest": "lt_end_load_to_arrived_dest",
-    "Arrived to Start Unload": "lt_arrived_dest_to_start_unload",
-    "Start to End Unload": "lt_start_unload_to_end_unload",
-    "Full Leg": "lt_full_leg"
-  },
-  "Cost Analysis": {
-    "Request #": "request_number",
-    "Trip ID": "trip_id",
-    "Account": "account_name",
-    "Department": "department_name",
-    "Distance (KM)": "distance_km",
-    "Origin Port": "origin_port_name",
-    "Destination Port": "destination_port_name",
-    "International MAWB": "international_mawb",
-    "Domestic MAWB": "domestic_mawb",
-    "Truck Type": "truck_type_name",
-    "Vendor": "vendor_name",
-    "Booking Date": "booking_date",
-    "Initial Call datetime (TBC)": "call_datetime",
-    "Final Call datetime (TBC)": "final_call_datetime",
-    "Est. Cost": "estimated_cost",
-    "Actual Cost": "actual_cost",
-    "Status": "status_name",
-    "Foul Trip Reason": "foul_trip_reason"
-  },
-  "Ports":    { "ID": "id", "Name": "name", "Code": "code", "Address": "location", "Latitude": "latitude", "Longitude": "longitude", "Is Active": "is_active" },
-  "Accounts": { "ID": "id", "Name": "name", "Code": "code", "Is Active": "is_active" },
-  "Departments": { "ID": "id", "Name": "name", "Code": "code", "Is Active": "is_active" },
-  "Packaging":   { "ID": "id", "Name": "name", "Code": "code", "Is Active": "is_active" },
-  "Statuses":    { "ID": "id", "Name": "name", "Color": "color", "Is Active": "is_active" },
-  "Truck Types": { "ID": "id", "Name": "name", "Code": "code", "Max KG": "max_capacity_kg", "Max CBM": "max_capacity_cbm", "Capacities": "capacities", "Is Active": "is_active" },
-  "Vendors":     { "ID": "id", "Name": "name", "Contact Person": "contact_person", "Phone": "phone", "Email": "email", "Address": "address", "Is Active": "is_active" }
-};
+function headersFor(sheetName) {
+  return (FIELDS[sheetName] || []).map(function(f) { return f[0]; });
+}
 
 // ============================================================
-// SETUP — run once
+// SETUP — run once (and again after updating this script)
 // ============================================================
 
 function setupSheets() {
@@ -201,7 +262,7 @@ function setupSheets() {
     if (!sh) {
       sh = ss.insertSheet(s.sheet);
     }
-    var hdrs = HEADERS[s.sheet] || [];
+    var hdrs = headersFor(s.sheet);
     if (hdrs.length) {
       sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
       sh.getFrozenRows() === 0 && sh.setFrozenRows(1);
@@ -228,6 +289,27 @@ function syncAll() {
   Logger.log("Sync complete at " + new Date().toISOString());
 }
 
+function cellValue(header, val) {
+  if (val === undefined || val === null) return "";
+  if (header === "Attachments" && Array.isArray(val)) {
+    return val.map(function(a) {
+      var name = a.original_filename || a.filename || a.name || "";
+      return a.download_url ? name + " (" + BACKEND_URL + a.download_url + ")" : name;
+    }).join(", ");
+  }
+  if (header === "Current Requests" && Array.isArray(val)) {
+    return val.map(function(r) { return r.request_number || ""; }).join(", ");
+  }
+  if (header === "Capacities" && Array.isArray(val)) {
+    return val.map(function(c) { return (c.packaging_type_name || "") + ": " + (c.max_quantity || 0); }).join("; ");
+  }
+  if (typeof val === "boolean") return val ? "Yes" : "No";
+  if (Array.isArray(val)) return val.map(function(x) { return typeof x === "object" ? JSON.stringify(x) : String(x); }).join(", ");
+  if (typeof val === "object") return JSON.stringify(val);
+  if (typeof val === "number") return val;
+  return String(val);
+}
+
 function syncSection(section) {
   var url = BACKEND_URL + section.endpoint;
   var options = { "method": "get", "muteHttpExceptions": true, "followRedirects": true };
@@ -245,67 +327,39 @@ function syncSection(section) {
     sh = ss.insertSheet(section.sheet);
   }
 
-  var hdrs = HEADERS[section.sheet] || [];
+  var fields = FIELDS[section.sheet] || [];
+  var hdrs = headersFor(section.sheet);
 
-  if (data.length === 0) {
-    if (sh.getLastRow() > 1) {
-      sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
-    }
-    Logger.log(section.sheet + ": cleared (no data)");
-    return;
-  }
-
-  var nested = NESTED_FIELDS[section.sheet] || {};
-
-  var rows = data.map(function(row) {
-    return hdrs.map(function(h) {
-      var key = nested[h] || h.toLowerCase().replace(/ /g, "_");
-      var val = row[key];
-      if (val === undefined || val === null) return "";
-      if (h === "Attachments" && Array.isArray(val)) {
-        return val.map(function(a) {
-          var name = a.original_filename || a.filename || a.name || "";
-          if (a.download_url) {
-            return name + " (" + BACKEND_URL + a.download_url + ")";
-          }
-          return name;
-        }).join(", ");
-      }
-      if (h === "Current Requests" && Array.isArray(val)) {
-        return val.map(function(r) { return r.request_number || ""; }).join(", ");
-      }
-      if (h === "Capacities" && Array.isArray(val)) {
-        return val.map(function(c) { return (c.packaging_type_name || "") + ": " + (c.max_quantity || 0); }).join("; ");
-      }
-      return String(val);
-    });
-  });
-
-  if (sh.getLastRow() === 0 || sh.getRange(1, 1).getValue() === "") {
-    if (hdrs.length) {
-      sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
-      sh.setFrozenRows(1);
-    }
-  } else if (hdrs.length) {
-    var curHdr = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), hdrs.length)).getValues()[0];
-    var needsUpdate = hdrs.length !== curHdr.length;
-    if (!needsUpdate) {
-      for (var hi = 0; hi < hdrs.length; hi++) {
-        if (String(curHdr[hi] || "") !== hdrs[hi]) { needsUpdate = true; break; }
-      }
+  // Keep the header row in line with this script (new / renamed columns).
+  if (hdrs.length) {
+    var lastCol = Math.max(sh.getLastColumn(), hdrs.length);
+    var curHdr = sh.getLastRow() > 0 ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+    var needsUpdate = sh.getLastColumn() > hdrs.length;
+    for (var hi = 0; !needsUpdate && hi < hdrs.length; hi++) {
+      if (String(curHdr[hi] || "") !== hdrs[hi]) needsUpdate = true;
     }
     if (needsUpdate) {
-      sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
       if (sh.getLastColumn() > hdrs.length) {
-        sh.getRange(1, hdrs.length + 1, 1, sh.getLastColumn() - hdrs.length).clearContent();
+        sh.getRange(1, hdrs.length + 1, Math.max(sh.getLastRow(), 1), sh.getLastColumn() - hdrs.length).clearContent();
       }
+      sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]).setFontWeight("bold");
+      if (sh.getFrozenRows() === 0) sh.setFrozenRows(1);
       Logger.log(section.sheet + ": headers refreshed");
     }
   }
 
   if (sh.getLastRow() > 1) {
-    sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
+    sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(sh.getLastColumn(), 1)).clearContent();
   }
+
+  if (!data.length) {
+    Logger.log(section.sheet + ": cleared (no data)");
+    return;
+  }
+
+  var rows = data.map(function(row) {
+    return fields.map(function(f) { return cellValue(f[0], row[f[1]]); });
+  });
 
   if (rows.length > 0 && hdrs.length) {
     sh.getRange(2, 1, rows.length, hdrs.length).setValues(rows);
