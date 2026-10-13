@@ -83,6 +83,20 @@ tr:hover td{background:#F8FAFC}
 .pg-lock-card p{font-size:13px;color:var(--muted);margin-bottom:14px}
 .pg-lock-ico{width:56px;height:56px;border-radius:14px;background:#DBEAFE;color:var(--pri);display:inline-flex;align-items:center;justify-content:center;font-size:24px}
 .pg-lock-err{color:var(--err);font-size:12.5px;min-height:16px;margin-top:6px;text-align:left}
+.g-shots{display:grid;gap:14px;margin-top:14px}
+.g-shot{margin:0;max-width:960px;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;background:#fff;box-shadow:var(--sh)}
+.g-shot.g-phone{max-width:620px}
+.g-shot img{display:block;width:100%;height:auto}
+.g-shot figcaption{font-size:12.5px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--bdr);line-height:1.5}
+.g-shot figcaption i{color:var(--pri);margin-right:4px}
+@media print{.g-shot{break-inside:avoid;box-shadow:none}}
+.rate-lows{margin:4px 0 0 18px}
+.rate-low{color:#166534;font-weight:500;line-height:1.7}
+.rate-low i{font-size:10.5px;margin-right:2px}
+.pend-vsug{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:-4px;margin-bottom:4px}
+.pend-vsug small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.pend-vsug.ok{background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46}.pend-vsug.ok i{color:#D97706;margin-top:2px}
+.pend-vsug.muted{background:var(--bg);border:1px solid var(--bdr);color:var(--txt)}.pend-vsug.muted i{color:var(--muted);margin-top:2px}
 .stat-click{cursor:pointer}
 .stat-click:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
 .stat-click.on{border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
@@ -423,7 +437,7 @@ body.scan-mode .layout{display:none}
 <!-- User Guide -->
 <section class="pg" id="pg-user-guide">
 <div class="pg-hdr"><h1><i class="fas fa-book-open" style="color:var(--pri)"></i> User Guide</h1><div class="acts"><button class="btn btn-o" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div></div>
-<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> A simplified, step-by-step guide to the SP PH Truck Booking Centralised Operations template, written for user testing. It covers every feature currently in the app. Every role except New User can open this page. Click a topic below to jump straight to it.</div>
+<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> A simplified, step-by-step guide (with screenshots &mdash; click any picture to open it full size) to the SP PH Truck Booking Centralised Operations template, written for user testing. It covers every feature currently in the app. Every role except New User can open this page. Click a topic below to jump straight to it.</div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-topics">
 <div class="card-h"><h3><i class="fas fa-list"></i> What is inside this guide</h3></div>
@@ -463,6 +477,7 @@ body.scan-mode .layout{display:none}
 <li>If you see an orange <strong>Local Mode &mdash; Data not saved</strong> badge, you are running the app on a computer with no database: everything works, but records disappear when the server restarts. On the deployed site, data is kept permanently.</li>
 <li>If a page you expect is missing, your role has not been granted it yet &mdash; a Master Admin can add it (see topic 17).</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/01-start.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/01-start.jpg" alt="The menu on the left (outlined in red) only shows the pages your role can open, grouped into Main, Operations, Reports, Administration and H" loading="lazy"></a><figcaption><i class="fas fa-image"></i> The menu on the left (outlined in red) only shows the pages your role can open, grouped into Main, Operations, Reports, Administration and Help.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-dash">
@@ -475,6 +490,7 @@ body.scan-mode .layout{display:none}
 <li><strong>Click a stat card</strong> (Pending, Allocated, In Transit, Delivered, Cancelled, Foul Trip) to list only those requests in the table below; click it again, click <strong>Total Requests</strong> or <strong>Show all requests</strong> to go back. <strong>Available Trucks</strong> opens Fleet Management.</li>
 <li>The table shows the latest 50 requests (up to 1,000 when a stat card is selected); click the <strong>Delivered Date</strong> header to sort it.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/02-dashboard.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/02-dashboard.jpg" alt="Summary cards on the Dashboard. Click a card  for example Delivered  to list only those requests below." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Summary cards on the Dashboard. Click a card &mdash; for example <strong>Delivered</strong> &mdash; to list only those requests below.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-new">
@@ -490,6 +506,7 @@ body.scan-mode .layout{display:none}
 <li>After saving, find the new requests on the <strong>Masterlist</strong> with status <strong>Pending</strong> and on <strong>Pending Allocation to Vendors</strong>.</li>
 <li>To attach documents (e.g. proof of delivery): open the request from Masterlist, use <strong>Edit</strong> (pencil icon) and add files in the attachments section &mdash; up to 8 files, 25&nbsp;MB in total.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/03-new-request.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/03-new-request.jpg" alt="New Truck Request form. Fields marked * are required  including Initial Call datetime (TBC) (outlined)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> New Truck Request form. Fields marked * are required &mdash; including <strong>Initial Call datetime (TBC)</strong> (outlined).</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ml">
@@ -509,6 +526,7 @@ body.scan-mode .layout{display:none}
 <li>Click <strong>Export CSV</strong> to download every request matching the current filters (all pages) with the same columns, in the same order, as the table; use your browser's Print (Ctrl+P) for a PDF, and page through results with the buttons at the bottom. Master Admins additionally see <strong>Clear All</strong>.</li>
 </ol>
 <p style="font-size:12.5px;color:var(--mut);margin-top:8px"><i class="fas fa-info-circle"></i> Statuses: Pending &rarr; Allocated &rarr; In Transit &rarr; Delivered. You can also set On Hold, Cancelled or Foul Trip from Edit.</p>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/04-masterlist.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04-masterlist.jpg" alt="Masterlist: the Actions column (outlined) has View, Edit and Delete." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Masterlist: the <strong>Actions</strong> column (outlined) has View, Edit and Delete.</figcaption></figure><figure class="g-shot"><a href="/guide/04b-view.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04b-view.jpg" alt="The View window shows every detail of a request, including the scan manifest download links at the bottom." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The <strong>View</strong> window shows every detail of a request, including the scan manifest download links at the bottom.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-pending">
@@ -520,11 +538,12 @@ body.scan-mode .layout{display:none}
 <li>Watch the <strong>Consolidation suggestion</strong> banners: for each time window the app looks for requests that can share a truck and picks the truck type that brings the load into <strong style="color:#16A34A">green (&gt;85%)</strong> &mdash; it does not have to be 100%. When several green trucks are possible they are listed as Suggestion 1, 2, ... If no combination reaches green, the best yellow/red option is shown in amber. Click <strong>Select these</strong> to take a suggestion.</li>
 <li><strong>Step 1 &mdash; Drop order</strong> (appears when destinations differ): drops are suggested automatically by shortest distance; the distance between stops is shown in red. Change any number manually or click <strong>Re-suggest order</strong>.</li>
 <li><strong>Step 2 &mdash; Truck type</strong>: pick the truck. The <strong>Trip Utilisation</strong> box shows the load against the truck's max capacity: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>. Weight (KG) and volume (CBM) are not checked against the truck's maximums.</li>
-<li><strong>Step 3 &mdash; Vendor</strong>: vendors are pre-sorted with the cheapest matching rate first. If a truck type has no max capacity set, add it in Master Library &rarr; Truck Types.</li>
+<li><strong>Step 3 &mdash; Vendor</strong>: once a truck type is picked, the green box under the vendor list shows the <strong>suggested vendor</strong> &mdash; the vendor with the lowest rate in Rate Management for this trip (same origin, the drop 1 destination as the main destination, later drops priced as extra stops, this truck type). It is pre-selected and marked <em>&#9733; lowest rate (suggested)</em> in the list; vendors without a rate for the route are marked <em>(no rate for this route)</em>. Rate amounts are never shown on this page. You can still choose any other vendor. The suggestion updates when you change the requests, drop order or truck type.</li>
 <li><strong>Step 4 &mdash; Final Call datetime</strong>: required. Pick the date/time.</li>
 <li>Click <strong>Allocate to Vendor</strong>. You get a confirmation with the new Trip ID, the requests get drop numbers, and they leave this page.</li>
 <li>Changed your mind? Edit a request on Masterlist and set its status back to <strong>Pending</strong> &mdash; it returns here and the remaining drops renumber automatically.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/05-pending.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/05-pending.jpg" alt="Pending Allocation: a consolidation suggestion. Select these (outlined) ticks the suggested requests for you." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Pending Allocation: a consolidation suggestion. <strong>Select these</strong> (outlined) ticks the suggested requests for you.</figcaption></figure><figure class="g-shot"><a href="/guide/05b-vendor-suggestion.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/05b-vendor-suggestion.jpg" alt="Route to Vendor: the suggested lowest-rate vendor is pre-selected; no rate amounts are shown." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Route to Vendor: the <strong>suggested vendor</strong> (outlined) has the lowest rate for this trip and is pre-selected &mdash; no rate amounts are shown. You can still pick another vendor.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-fleet">
@@ -537,6 +556,7 @@ body.scan-mode .layout{display:none}
 <li>Use the Actions column to edit a truck or flip its <strong>Availability</strong> (Available / Not Available). Allocated trucks can be released by setting them available again after their requests are done.</li>
 <li>The <strong>Current Requests</strong> column shows how many open requests each truck is carrying.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/06-fleet.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/06-fleet.jpg" alt="Fleet Management: every truck with its driver, current requests and availability. Add Truck is outlined." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Fleet Management: every truck with its driver, current requests and availability. <strong>Add Truck</strong> is outlined.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-vt">
@@ -552,6 +572,7 @@ body.scan-mode .layout{display:none}
 <li>If an account has no truck yet, the assignment is refused with a message. Set the truck on the <strong>Driver / Fleet Accounts</strong> page and try again.</li>
 <li>Accounts are managed on <strong>Driver / Fleet Accounts</strong> - see topic 8.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/07-vendor-trucks.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/07-vendor-trucks.jpg" alt="Vendor Truck Assignment: each trip waiting for a driver, with its drops in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Vendor Truck Assignment: each trip waiting for a driver, with its drops in order.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-da">
@@ -567,6 +588,7 @@ body.scan-mode .layout{display:none}
 <li>Use the pencil to edit (leave the password and override code blank to keep the current ones) and the bin to delete. Deleting clears the driver from any trip that still points at it.</li>
 <li>The <strong>Assigned Trips</strong> column lists every open trip ID on each account with its current status (Allocated / In Transit) and where the driver is in the trip (e.g. <em>Loading</em>, <em>Drop 2: unloading</em>).</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/08-driver-accounts.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/08-driver-accounts.jpg" alt="Driver / Fleet Accounts: the scanning app logins. Add Account is outlined." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Driver / Fleet Accounts: the scanning app logins. <strong>Add Account</strong> is outlined.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-scan">
@@ -587,6 +609,7 @@ body.scan-mode .layout{display:none}
 <li>Finishing the last drop completes the trip, and the next trip can be started.</li>
 <li>When a scan is ended, the <strong>Masterlist</strong> manifest column shows <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links (CSV: Bag ID, Trip ID, International MAWB, Domestic MAWB, Account, Origin, Destination, Drop #, Remark).</li>
 </ol>
+<div class="g-shots"><figure class="g-shot g-phone"><a href="/guide/09-scan-app.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/09-scan-app.jpg" alt="Scanning app on a phone: driver sign in  My trips  the trip steps, done in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Scanning app on a phone: driver sign in &rarr; My trips &rarr; the trip steps, done in order.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rates">
@@ -600,10 +623,11 @@ body.scan-mode .layout{display:none}
 <li><strong>Drop 1</strong> (or a single-drop trip) going to a card's <strong>Main Destination</strong> &rarr; that card's <strong>Rate/Trip</strong>;</li>
 <li><strong>Drop 2, 3, &hellip;</strong> are extra stops on the same trip, not separate trips: they are priced on the card of drop 1's destination &mdash; its <strong>Additional Destination Drop</strong> rate when the stop is listed there, otherwise its <strong>Default Rate</strong> (even when the stop is the Main Destination again). A later drop never gets Rate/Trip;</li>
 <li>a drop 1 whose destination has no card of its own &rarr; a card listing it as an Additional Destination Drop, otherwise the Default Rate.</li>
-</ul>The <strong>Foul Trip %</strong> and <strong>Fuel Surcharge %</strong> are applied to that same rate.</li>
-<li>Use the search box and the Origin, Dest and <strong>Truck Type</strong> filters to find a rate; edit or delete it from the Actions column. Rates are grouped by origin &rarr; destination, and the <strong>Remark</strong> column names the cheapest vendor per truck type.</li>
+</ul>The <strong>Foul Trip %</strong> (Foul Trips) and <strong>Fuel Surcharge %</strong> (Delivered requests only) are applied to that same rate.</li>
+<li>Use the search box and the Origin, Dest and <strong>Truck Type</strong> filters to find a rate; edit or delete it from the Actions column. Rates are grouped by origin &rarr; destination. When a pair has more than one rate, its heading lists the lowest rate for each truck type on its own line (e.g. <em>Lowest 10W: NJV - 10W, ₱15,000.00</em>), and the <strong>Remark</strong> column marks the cheapest vendor per truck type.</li>
 <li>Rates feed the vendor sorting on Pending Allocation (cheapest first), the costs in Cost Analysis and the Foul Trip Cost on Foul Trip Approval.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/10-rates.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10-rates.jpg" alt="Rate Management grouped by origin  destination, with the Truck Type filter (outlined) and the Remark column naming the cheapest vendor." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Rate Management grouped by origin &rarr; destination, with the <strong>Truck Type</strong> filter (outlined) and the Remark column naming the cheapest vendor.</figcaption></figure><figure class="g-shot"><a href="/guide/10b-rate-form.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10b-rate-form.jpg" alt="Add Rate form: the Main Destination is greyed out in the Additional Destination Drops list." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add Rate form: the Main Destination is greyed out in the Additional Destination Drops list.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-eval">
@@ -614,6 +638,7 @@ body.scan-mode .layout{display:none}
 <li>The table shows every trip with its timing columns highlighted in blue &mdash; Customs to Arrival, and the other leg-to-leg lead times &mdash; next to request, trip and drop details.</li>
 <li>Click any sortable header to rank the vendors, and use <strong>Export CSV</strong> to download the current view.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/11-evaluation.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/11-evaluation.jpg" alt="Vendor Speed Performance: filters on top, and the lead-time columns in the table." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Vendor Speed Performance: filters on top, and the lead-time columns in the table.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-cost">
@@ -624,10 +649,11 @@ body.scan-mode .layout{display:none}
 <li>Click <strong>Generate Report</strong>. You get summary stat cards, a <strong>Vendor Share</strong> card showing each vendor's share of Delivered + Foul Trip requests, and the <strong>Detailed Breakdown</strong> table with every cost column (Actual Cost, Toll Fee, Management Fee, Fuel, Foul Trip Cost, Fuel Surcharge, Total Cost, ...).</li>
 <li>Only Delivered and approved Foul Trip requests count towards the figures &mdash; approve foul trips on Foul Trip Approval first.</li>
 <li>Click the <strong>Total Requests</strong>, <strong>Delivered</strong> or <strong>Foul Trip</strong> card to list only those requests in the table (click it again, or Total Requests, to show all). Export CSV follows what the table shows.</li>
-<li><strong>Actual Cost</strong> of a Delivered request is its rate from Rate Management: Rate/Trip for drop 1 when the origin and destination match the card's Main Destination; later drops of the same trip get the Additional Destination Drop rate or the Default Rate (topic 10). A <strong>Foul Trip has no Actual Cost</strong>: it is charged as the <strong>Foul Trip Cost</strong> = rate &times; Foul Trip % &times; Foul Trip Count Confirmation. The Fuel Surcharge Cost = rate &times; Fuel Surcharge %. An Actual Cost typed in by hand through Edit Costs is kept.</li>
+<li><strong>Actual Cost</strong> of a Delivered request is its rate from Rate Management: Rate/Trip for drop 1 when the origin and destination match the card's Main Destination; later drops of the same trip get the Additional Destination Drop rate or the Default Rate (topic 10). A <strong>Foul Trip has no Actual Cost</strong>: it is charged as the <strong>Foul Trip Cost</strong> = rate &times; Foul Trip % &times; Foul Trip Count Confirmation. The Fuel Surcharge Cost = rate &times; Fuel Surcharge %, for <strong>Delivered</strong> requests only &mdash; a Foul Trip has no Fuel Surcharge Cost. An Actual Cost typed in by hand through Edit Costs is kept.</li>
 <li><strong>Bulk Cost Update</strong> (admins): pick the date range, vendor and truck type, then <strong>tick the truck requests</strong> (each shows its Trip ID) the amounts should go to. With <strong>Split amount equally</strong> ticked, each amount is divided equally between the ticked requests; untick it to add the full amount to each.</li>
 <li>Sort by clicking headers, drag column headers to reorder (remember &mdash; <strong>Reset Columns</strong> restores them), and click <strong>Export CSV</strong> to download the table as shown.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/12-cost.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/12-cost.jpg" alt="Cost Analysis summary cards. Click Total Requests, Delivered (outlined) or Foul Trip to list only those requests." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Cost Analysis summary cards. Click <strong>Total Requests</strong>, <strong>Delivered</strong> (outlined) or <strong>Foul Trip</strong> to list only those requests.</figcaption></figure><figure class="g-shot"><a href="/guide/12b-bulk.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/12b-bulk.jpg" alt="Bulk Cost Update: pick the dates, vendor and truck type, tick the truck requests (with their Trip IDs), then enter the amounts." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Bulk Cost Update: pick the dates, vendor and truck type, tick the truck requests (with their Trip IDs), then enter the amounts.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-foul">
@@ -640,6 +666,7 @@ body.scan-mode .layout{display:none}
 <li>Click the <strong>Foul Trips</strong>, <strong>Awaiting Approval</strong> or <strong>Approved</strong> card to list only those foul trips.</li>
 <li>Sort by any sortable column, use <strong>Refresh</strong> for the latest, <strong>Reset Columns</strong> if you have dragged columns around, and <strong>Export CSV</strong> to download the table as shown.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/13-foul.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/13-foul.jpg" alt="Foul Trip Approval: summary cards on top; press the green tick (outlined) to approve a foul trip." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Foul Trip Approval: summary cards on top; press the green tick (outlined) to approve a foul trip.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-tu">
@@ -653,6 +680,7 @@ body.scan-mode .layout{display:none}
 <li>The summary cards show <strong>Trips</strong>, <strong>Green Trips</strong>, <strong>Yellow Trips</strong> and <strong>Red Trips</strong> (by Revised Utilisation %) plus the averages. Click a card to list only those trips; click it again (or Trips) to show all.</li>
 <li>Filter by Final Call From/To, Department, Origin Port, Vendor and Truck Type. Click headers to sort, <strong>Refresh</strong> to reload and <strong>Export CSV</strong> to download the table as shown.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/14-tu.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/14-tu.jpg" alt="Trip Utilisation Review: Trips, Green, Yellow and Red Trips (outlined). Click a card to list only those trips." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Trip Utilisation Review: Trips, Green, Yellow and <strong>Red Trips</strong> (outlined). Click a card to list only those trips.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-lib">
@@ -666,6 +694,7 @@ body.scan-mode .layout{display:none}
 <li><strong>Vendors</strong> &mdash; vendor companies; each vendor also gets a login role named <em>Vendor - &lt;name&gt;</em>.</li>
 <li><strong>Capacity Conversion</strong> &mdash; pick the <strong>base packaging unit</strong> (everything is measured in it, e.g. Pallet) and a <strong>factor</strong> for every other packaging type: how much of the base unit <strong>one</strong> unit of that type is worth (Carton 0.02 = 50 Cartons make 1 Pallet). The base unit is always factor 1.0. Utilisation on Pending Allocation and Trip Utilisation Review uses these factors &mdash; click <strong>Save</strong> after changing them.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/15-library.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/15-library.jpg" alt="Master Library  Capacity Conversion: the base packaging unit and the factor for every other packaging type." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Master Library &rarr; Capacity Conversion: the base packaging unit and the factor for every other packaging type.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-users">
@@ -678,6 +707,7 @@ body.scan-mode .layout{display:none}
 <li>Admins cannot change their own role, and only Master Admins can assign the Master Admin role.</li>
 <li>Click a user's <strong>name</strong> to rename it (Admin+), or the red minus to remove the user.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/16-users.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/16-users.jpg" alt="User Roles: change a users role from the dropdown on the right." loading="lazy"></a><figcaption><i class="fas fa-image"></i> User Roles: change a user&rsquo;s role from the dropdown on the right.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rv">
@@ -690,6 +720,7 @@ body.scan-mode .layout{display:none}
 <li><strong>New User</strong> always starts with no pages &mdash; that is the "waiting for access" state. The <strong>User Guide</strong> page is granted to every role automatically and cannot be switched off.</li>
 <li><strong>Scanning App</strong> is a page like the others and can be switched on or off per role. <strong>Driver/Fleet</strong> starts with the Scanning App only: while that is its only page, its users open straight into the scanning app and cannot reach the rest of the app. Tick more pages for Driver/Fleet to widen its scope like any other role.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/17-role-visibility.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/17-role-visibility.jpg" alt="Role Visibility: tick the pages each role may open, then Save Changes." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Role Visibility: tick the pages each role may open, then Save Changes.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-pw">
@@ -702,6 +733,7 @@ body.scan-mode .layout{display:none}
 <li>The <strong>User Log</strong> on the same page records every password set / change / reset and every page access (opened, wrong password, blocked) with the user, role, date / time and IP address. Filter it and <strong>Export CSV</strong>. Log records cannot be edited or deleted.</li>
 <li>Until a password is set, the pages open without asking.</li>
 </ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/18a-lock.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18a-lock.jpg" alt="A protected page asks for the page password before it opens." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A protected page asks for the page password before it opens.</figcaption></figure><figure class="g-shot"><a href="/guide/18b-security.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18b-security.jpg" alt="Page Password  Logs (Master Admin): set, change or reset the password, and the user log of every change and page access." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Page Password &amp; Logs (Master Admin): set, change or reset the password, and the user log of every change and page access.</figcaption></figure></div>
 </div></div>
 
 <div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ref">
@@ -1788,7 +1820,7 @@ function renderPend(){
       });
       html+='</div>';
     });
-    html+='<div id="pendAssignPanel" style="display:none"><div class="card" style="border:2px solid var(--pri)"><div class="card-h" style="background:rgba(37,99,235,.05)"><h3><i class="fas fa-route" style="color:var(--pri)"></i> Route to Vendor</h3></div><div class="card-b"><div id="consolWarn" style="display:none;padding:12px;background:#FEE2E2;border-radius:8px;margin-bottom:12px;font-size:13px;color:#DC2626"><i class="fas fa-exclamation-triangle"></i> <span id="consolWarnTxt"></span></div><div id="dropOrderSection" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg);border-radius:8px"><label class="fl" style="margin-bottom:4px">Step 1: Set Drop Point Order (1st = first delivery)</label><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px"><small style="font-size:11.5px;color:var(--muted)"><i class="fas fa-wand-magic-sparkles" style="color:var(--info)"></i> Suggested automatically by shortest distance — you can still change any drop number.</small><button type="button" class="btn btn-sm btn-o" onclick="suggestDropOrder()"><i class="fas fa-route"></i> Re-suggest order</button></div><div id="dropOrderRows"></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 2: Select Truck Type *</label><select class="fs" id="pendTruckType" onchange="onTruckTypeChange()"><option value="">Select truck type...</option></select></div><div class="fg"><label class="fl">Step 3: Select Vendor *</label><select class="fs" id="pendVendor"><option value="">Select vendor...</option></select></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 4: Final Call Datetime *</label><input type="datetime-local" class="fi" id="pendFinalCall"></div><div></div></div><div id="pendUtilBox" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div id="consolSummary" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div style="display:flex;gap:10px"><button class="btn btn-p" onclick="allocateSelected()"><i class="fas fa-check"></i> Allocate to Vendor</button><button class="btn btn-o" onclick="clearPendSelection()"><i class="fas fa-times"></i> Cancel</button></div></div></div></div>';
+    html+='<div id="pendAssignPanel" style="display:none"><div class="card" style="border:2px solid var(--pri)"><div class="card-h" style="background:rgba(37,99,235,.05)"><h3><i class="fas fa-route" style="color:var(--pri)"></i> Route to Vendor</h3></div><div class="card-b"><div id="consolWarn" style="display:none;padding:12px;background:#FEE2E2;border-radius:8px;margin-bottom:12px;font-size:13px;color:#DC2626"><i class="fas fa-exclamation-triangle"></i> <span id="consolWarnTxt"></span></div><div id="dropOrderSection" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg);border-radius:8px"><label class="fl" style="margin-bottom:4px">Step 1: Set Drop Point Order (1st = first delivery)</label><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px"><small style="font-size:11.5px;color:var(--muted)"><i class="fas fa-wand-magic-sparkles" style="color:var(--info)"></i> Suggested automatically by shortest distance — you can still change any drop number.</small><button type="button" class="btn btn-sm btn-o" onclick="suggestDropOrder()"><i class="fas fa-route"></i> Re-suggest order</button></div><div id="dropOrderRows"></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 2: Select Truck Type *</label><select class="fs" id="pendTruckType" onchange="onTruckTypeChange()"><option value="">Select truck type...</option></select></div><div class="fg"><label class="fl">Step 3: Select Vendor *</label><select class="fs" id="pendVendor" onchange="pendVendorTouched=true;markPendVendorOptions()"><option value="">Select vendor...</option></select></div><div id="pendVendorSug" class="pend-vsug" style="display:none;grid-column:1/-1"></div></div><div class="fr" style="grid-template-columns:1fr 1fr;gap:16px;align-items:flex-end;margin-bottom:12px"><div class="fg"><label class="fl">Step 4: Final Call Datetime *</label><input type="datetime-local" class="fi" id="pendFinalCall"></div><div></div></div><div id="pendUtilBox" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div id="consolSummary" style="display:none;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:12px;font-size:13px"></div><div style="display:flex;gap:10px"><button class="btn btn-p" onclick="allocateSelected()"><i class="fas fa-check"></i> Allocate to Vendor</button><button class="btn btn-o" onclick="clearPendSelection()"><i class="fas fa-times"></i> Cancel</button></div></div></div></div>';
     el.innerHTML=html;
 }
 
@@ -1860,6 +1892,7 @@ function onPendCheck(){
     sumEl.innerHTML='<i class="fas fa-layer-group" style="color:var(--info)"></i> <strong>Consolidation Summary:</strong> '+sameOrigin.length+' requests | Total: '+totalQty+' '+pkgName;
   }else{sumEl.style.display='none'}
   pendCapWarn();
+  pendVendorSuggest();
 }
 function pendCapWarn(){
   const warnEl=document.getElementById('consolWarn');
@@ -1899,7 +1932,56 @@ function pendCapWarn(){
     warnTxt.innerHTML='<i class="fas fa-exclamation-triangle"></i> <strong>Overload Warning:</strong> '+msgs.join('; ')+'. You can still proceed, but this will overbook the truck.';
   }else{warnEl.style.display='none'}
 }
-function onTruckTypeChange(){pendCapWarn()}
+function onTruckTypeChange(){pendCapWarn();pendVendorSuggest()}
+
+/* ---- Vendor suggestion: the lowest-rate vendor in Rate Management for the selected
+   requests as one trip (drop 1 = main destination). Only names are shown - never rates.
+   The suggestion is pre-selected until the user picks a vendor themselves. ---- */
+let pendVendorTouched=false,pendSugSeq=0,pendSugTimer=null,pendSugData=null;
+function pendDropOrderIds(){
+  const sels=[...document.querySelectorAll('.drop-order-select')];
+  if(sels.length)return sels.slice().sort((a,b)=>+a.value-+b.value).map(x=>+x.dataset.paId);
+  return [...document.querySelectorAll('.pend-check:checked')].map(c=>+c.dataset.id);
+}
+function pendVendorSuggest(){clearTimeout(pendSugTimer);pendSugTimer=setTimeout(pendVendorSuggestNow,150)}
+async function pendVendorSuggestNow(){
+  const box=document.getElementById('pendVendorSug');if(!box)return;
+  const ids=pendDropOrderIds();
+  if(!ids.length){box.style.display='none';pendSugData=null;markPendVendorOptions();return}
+  const tt=document.getElementById('pendTruckType')?.value||'';
+  const my=++pendSugSeq;
+  let d;
+  try{
+    const res=await fetch('/api/pending-allocations/vendor-suggestion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pending_ids:ids,truck_type_id:tt?+tt:null})});
+    if(!res.ok)throw new Error(await apiErr(res));
+    d=await res.json();
+  }catch(e){if(my===pendSugSeq){box.style.display='none'}return}
+  if(my!==pendSugSeq)return;
+  pendSugData=d;
+  box.style.display='flex';
+  const route=esc(d.origin_name||'')+' &rarr; '+esc(d.main_destination_name||'')+(ids.length>1?' (drop 1 = main destination, '+ids.length+' drops)':'');
+  if(d.suggested&&d.suggested.length){
+    const names=d.suggested.map(v=>'<strong>'+esc(v.vendor_name)+'</strong>').join(' / ');
+    box.className='pend-vsug ok';
+    box.innerHTML='<i class="fas fa-lightbulb"></i> <div><div>Suggested vendor'+(d.suggested.length>1?'s (same lowest rate)':'')+': '+names+'</div><small>Lowest rate in Rate Management for this trip &mdash; '+esc(d.truck_type_name||'')+', '+route+'. You can still choose another vendor.</small>'+(d.no_rate&&d.no_rate.length?'<small>No rate for this route: '+d.no_rate.map(v=>esc(v.vendor_name)).join(', ')+'</small>':'')+'</div>';
+    const vs=document.getElementById('pendVendor');
+    if(vs&&(!pendVendorTouched||!vs.value))vs.value=String(d.suggested[0].vendor_id);
+  }else{
+    box.className='pend-vsug muted';
+    box.innerHTML='<i class="fas fa-circle-info"></i> <div>'+esc(d.message||'No vendor suggestion')+(d.message&&tt?'<small>'+route+'</small>':'')+'</div>';
+  }
+  markPendVendorOptions();
+}
+function markPendVendorOptions(){
+  const vs=document.getElementById('pendVendor');if(!vs)return;
+  const sug=new Set(((pendSugData&&pendSugData.suggested)||[]).map(v=>String(v.vendor_id)));
+  const none=new Set(((pendSugData&&pendSugData.no_rate)||[]).map(v=>String(v.vendor_id)));
+  [...vs.options].forEach(o=>{
+    if(!o.value)return;
+    if(!o.dataset.base)o.dataset.base=o.textContent;
+    o.textContent=o.dataset.base+(sug.has(o.value)?' \u2605 lowest rate (suggested)':none.has(o.value)?' (no rate for this route)':'');
+  });
+}
 
 function clearPendSelection(){
   document.querySelectorAll('.pend-check').forEach(c=>c.checked=false);
@@ -1907,6 +1989,7 @@ function clearPendSelection(){
   pendAllTrucks=[];
   const fc=document.getElementById('pendFinalCall');if(fc)fc.value='';
   const vs=document.getElementById('pendVendor');if(vs)vs.selectedIndex=0;
+  pendVendorTouched=false;pendSugData=null;
   const tt=document.getElementById('pendTruckType');if(tt)tt.value='';
   onPendCheck();
 }
@@ -2075,6 +2158,7 @@ function selectConsolCombo(idsStr){
 }
 
 function updateDropDistances(){
+  pendVendorSuggest();
   const selects=[...document.querySelectorAll('.drop-order-select')];
   if(selects.length<2)return;
   const ordered=selects.sort((a,b)=>+a.value-+b.value).map(s=>{
@@ -2518,9 +2602,11 @@ async function loadRates(){
             const next=others.length?Math.min(...others):null;
             cheapest.forEach(x=>remarks.set(x.id,'<span class="badge" style="background:#DCFCE7;color:#166534"><i class="fas fa-arrow-down"></i> Lowest '+tt+' rate'+(cheapest.length>1?' (tie)':'')+'</span>'+(next!=null?'<br><small style="color:var(--muted)">₱'+fmtN(next-min)+' below next</small>':'')));
             list.filter(x=>!cheapest.includes(x)).forEach(x=>remarks.set(x.id,'<small style="color:var(--muted)">₱'+fmtN((+x.rate_per_trip||0)-min)+' above '+esc(cheapest[0].vendor_name||'')+'</small>'));
-            lows.push(cheapest.map(x=>esc(x.vendor_name||'')).join(' / ')+' ('+tt+', ₱'+fmtN(min)+')');
+            lows.push({tt:tt,txt:cheapest.map(x=>esc(x.vendor_name||'')).join(' / ')+' - '+tt+', ₱'+fmtN(min)});
           });
-          if(lows.length)headExtra=' &middot; <span style="color:#166534">Lowest: '+lows.join('; ')+'</span>';
+          // One line per truck type: "Lowest 10W: NJV - 10W, ₱15,000.00"
+          lows.sort((a,b)=>a.tt.localeCompare(b.tt,undefined,{numeric:true}));
+          if(lows.length)headExtra='<div class="rate-lows">'+lows.map(l=>'<div class="rate-low"><i class="fas fa-arrow-down"></i> <strong>Lowest '+l.tt+':</strong> '+l.txt+'</div>').join('')+'</div>';
         }
         out+='<tr><td colspan="9" style="background:'+accent+';font-weight:600;padding:6px 10px 6px 22px;font-size:12.5px"><i class="fas fa-route" style="color:var(--pri)"></i> '+esc(g[0].origin_port_name||'-')+' &rarr; '+esc(g[0].destination_port_name||'-')+' <span style="font-weight:400;color:var(--muted)">('+g.length+' rate'+(g.length>1?'s':'')+')</span>'+headExtra+'</td></tr>';
         g.slice().sort((x,y)=>String(x.truck_type_name||'').localeCompare(String(y.truck_type_name||''))||(+x.rate_per_trip||0)-(+y.rate_per_trip||0)).forEach(r=>{out+=rowHtml(r,remarks.get(r.id))});

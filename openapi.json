@@ -2294,6 +2294,23 @@
         }
       }
     },
+    "/api/pending-allocations/vendor-suggestion": {
+      "post": {
+        "summary": "Vendor Suggestion",
+        "description": "Lowest-rate vendor for the requests being put on one trip.\n\nBody: {\"pending_ids\": [...in drop order, drop 1 first...], \"truck_type_id\": n}.\nEach vendor's trip is priced from Rate Management with the same rules as the costs\n(drop 1 = main destination, later drops = Additional Destination Drop / Default Rate);\nthe cheapest vendor is suggested. Only vendor names come back - never rate figures.",
+        "operationId": "vendor_suggestion_api_pending_allocations_vendor_suggestion_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pending-allocations/{pid}/allocate": {
       "post": {
         "summary": "Allocate",

@@ -3493,6 +3493,17 @@ async def update_drop_sequence(rid: int, request: Request):
 # Pending Allocations
 # ---------------------------------------------------------------------------
 
+RATE_FIGURE_KEYS = ("rate_per_trip", "default_rate", "estimated_cost", "actual_cost")
+
+def _strip_rate_figures(obj):
+    """Pending Allocation never shows rate figures: drop them from the response
+    (trucks are still listed cheapest first)."""
+    if isinstance(obj, list):
+        return [_strip_rate_figures(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _strip_rate_figures(v) for k, v in obj.items() if k not in RATE_FIGURE_KEYS}
+    return obj
+
 @app.get("/api/pending-allocations")
 def list_pending(request: Request):
     if LOCAL_MODE:
@@ -3579,7 +3590,7 @@ def list_pending(request: Request):
             truck_list.sort(key=lambda x: x["rate_per_trip"] if x["rate_per_trip"] > 0 else 999999)
             item["available_trucks"] = truck_list
             result.append(item)
-        return result
+        return _strip_rate_figures(result)
     db_x("""INSERT INTO pending_allocations (truck_request_id, suggestion_reason)
         SELECT tr.id, 'Reverted to pending' FROM truck_requests tr
         WHERE tr.status_id=1 AND NOT EXISTS (
@@ -3635,7 +3646,7 @@ def list_pending(request: Request):
                 WHERE tr.assigned_truck_id=%s AND tr.status_id NOT IN (4,5,7) AND tr.drop_sequence IS NOT NULL ORDER BY tr.drop_sequence""", (at["id"],))
         avail_trucks.sort(key=lambda x: x["rate_per_trip"] if x.get("rate_per_trip", 0) > 0 else 999999)
         item["available_trucks"] = avail_trucks
-    return rows
+    return _strip_rate_figures(rows)
 
 def _allocate_vendor(pid, user, body, vendor_id, consolidate_pa_ids):
     final_call = body.get("final_call_datetime")
@@ -3734,6 +3745,73 @@ def _allocate_vendor(pid, user, body, vendor_id, consolidate_pa_ids):
             WHERE id=%s""", (vendor_id, final_call, eff_tt, seq, f"{base}-{_trip_letter(seq)}", est, email, p["truck_request_id"]))
         db_x("UPDATE pending_allocations SET suggested_truck_id=NULL, is_accepted=1, allocated_by=%s, allocated_at=NOW() WHERE id=%s", (email, p["id"]))
     return {"ok": True, "trip_id": base}
+
+@app.post("/api/pending-allocations/vendor-suggestion")
+async def vendor_suggestion(request: Request):
+    """Lowest-rate vendor for the requests being put on one trip.
+
+    Body: {"pending_ids": [...in drop order, drop 1 first...], "truck_type_id": n}.
+    Each vendor's trip is priced from Rate Management with the same rules as the costs
+    (drop 1 = main destination, later drops = Additional Destination Drop / Default Rate);
+    the cheapest vendor is suggested. Only vendor names come back - never rate figures."""
+    get_user(request)
+    body = await request.json()
+    try:
+        pids = [int(x) for x in (body.get("pending_ids") or [])]
+        tt_id = int(body.get("truck_type_id")) if body.get("truck_type_id") else None
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Invalid selection")
+    if not pids:
+        raise HTTPException(400, "Select at least one request")
+    if LOCAL_MODE:
+        pas = {p["id"]: p for p in _store["pending_allocations"]}
+        reqs = []
+        for pid in pids:
+            pa = pas.get(pid)
+            r = next((x for x in _store["truck_requests"] if pa and x["id"] == pa.get("truck_request_id")), None)
+            if not r: raise HTTPException(404, "Pending request not found")
+            reqs.append(r)
+        all_v = [v for v in _store["vendors"] if v.get("is_active", True)]
+        port = lambda pid: next((p["name"] for p in _store["ports"] if p["id"] == pid), "")
+        ttn = next((t["name"] for t in _store["truck_types"] if t["id"] == tt_id), "")
+    else:
+        reqs = []
+        for pid in pids:
+            r = db_1("""SELECT tr.id, tr.origin_port_id, tr.destination_port_id, tr.booking_date FROM pending_allocations pa
+                JOIN truck_requests tr ON tr.id=pa.truck_request_id WHERE pa.id=%s""", (pid,))
+            if not r: raise HTTPException(404, "Pending request not found")
+            reqs.append(r)
+        all_v = db_q("SELECT id, name FROM vendors WHERE is_active=1 ORDER BY name")
+        pn = {p["id"]: p["name"] for p in db_q("SELECT id, name FROM ports")}
+        port = lambda pid: pn.get(pid, "")
+        ttn = (db_1("SELECT name FROM truck_types WHERE id=%s", (tt_id,)) or {}).get("name", "") if tt_id else ""
+    main_dest = reqs[0].get("destination_port_id")
+    out = {"truck_type_name": ttn, "main_destination_name": port(main_dest),
+           "origin_name": port(reqs[0].get("origin_port_id")), "suggested": [], "others": [], "no_rate": []}
+    if not tt_id:
+        out["message"] = "Select a truck type to see the lowest-rate vendor"
+        return out
+    priced = []
+    for v in all_v:
+        total, ok = 0.0, True
+        for i, r in enumerate(reqs, start=1):
+            card, amt, _ = price_request(r, v["id"], tt_id, main_dest, drop_seq=i)
+            if not card:
+                ok = False
+                break
+            total += amt
+        if ok:
+            priced.append((round(total, 2), v.get("name") or "", v["id"]))
+        else:
+            out["no_rate"].append({"vendor_id": v["id"], "vendor_name": v.get("name") or ""})
+    priced.sort()
+    if priced:
+        best = priced[0][0]
+        out["suggested"] = [{"vendor_id": vid, "vendor_name": n} for t, n, vid in priced if t == best]
+        out["others"] = [{"vendor_id": vid, "vendor_name": n} for t, n, vid in priced if t != best]
+    else:
+        out["message"] = "No vendor has a rate in Rate Management for this route and truck type"
+    return out
 
 @app.post("/api/pending-allocations/{pid}/allocate")
 async def allocate(pid: int, request: Request):
@@ -6716,7 +6794,8 @@ def foul_fuel_costs(rate_match, base, status_id, foul_trip_count):
     Main Destination, otherwise its Additional Destination Drop rate or the Default Rate.
 
     Foul Trip Cost  = base x foul_trip_pct% x foul_trip_count (Foul Trip only)
-    Fuel Surcharge  = base x fuel_surcharge_pct%            (Delivered + Foul Trip)
+    Fuel Surcharge  = base x fuel_surcharge_pct%            (Delivered only - a Foul Trip
+                                                              carries no fuel surcharge)
     """
     base = base or 0
     foul_pct = float(rate_match.get("foul_trip_pct") or 0) if rate_match else 0
@@ -6728,7 +6807,7 @@ def foul_fuel_costs(rate_match, base, status_id, foul_trip_count):
     if cnt not in (1, 2):
         cnt = 1
     foul_cost = round(base * foul_pct / 100 * cnt, 2) if status_id == 7 and foul_pct else 0
-    fuel_cost = round(base * fuel_pct / 100, 2) if status_id in (4, 7) and fuel_pct else 0
+    fuel_cost = round(base * fuel_pct / 100, 2) if status_id == 4 and fuel_pct else 0
     return foul_cost, fuel_cost
 
 def cost_summary_stats(rows):
@@ -7194,6 +7273,19 @@ def sync_vendors():
 # ---------------------------------------------------------------------------
 # Frontend
 # ---------------------------------------------------------------------------
+
+GUIDE_IMG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "guide")
+
+@app.get("/guide/{name}", include_in_schema=False)
+def guide_image(name: str):
+    """Screenshots used by the User Guide page (static/guide/*.jpg|png|webp)."""
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*\.(jpg|png|webp)", name or ""):
+        raise HTTPException(404, "Not found")
+    path = os.path.join(GUIDE_IMG_DIR, name)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Not found")
+    media = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[name.rsplit(".", 1)[1]]
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "public, max-age=86400"})
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def homepage():
