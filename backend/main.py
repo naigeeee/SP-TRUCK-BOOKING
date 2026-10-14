@@ -6989,6 +6989,22 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
 
 BULK_COST_FIELDS = ("toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
                     "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep")
+# Fixed statement per cost field, so no SQL text is ever built from request input.
+# The ID list goes in as one parameter: PyMySQL expands a list to (1,2,3) itself.
+BULK_COST_ADD_SQL = {
+    "toll_fee": "UPDATE truck_requests SET toll_fee=COALESCE(toll_fee,0)+%s WHERE id IN %s",
+    "management_fee": "UPDATE truck_requests SET management_fee=COALESCE(management_fee,0)+%s WHERE id IN %s",
+    "fuel": "UPDATE truck_requests SET fuel=COALESCE(fuel,0)+%s WHERE id IN %s",
+    "parking": "UPDATE truck_requests SET parking=COALESCE(parking,0)+%s WHERE id IN %s",
+    "miscellaneous": "UPDATE truck_requests SET miscellaneous=COALESCE(miscellaneous,0)+%s WHERE id IN %s",
+    "manpower": "UPDATE truck_requests SET manpower=COALESCE(manpower,0)+%s WHERE id IN %s",
+    "toll": "UPDATE truck_requests SET toll=COALESCE(toll,0)+%s WHERE id IN %s",
+    "welfare": "UPDATE truck_requests SET welfare=COALESCE(welfare,0)+%s WHERE id IN %s",
+    "wh_rental": "UPDATE truck_requests SET wh_rental=COALESCE(wh_rental,0)+%s WHERE id IN %s",
+    "toll_fee_easytrip": "UPDATE truck_requests SET toll_fee_easytrip=COALESCE(toll_fee_easytrip,0)+%s WHERE id IN %s",
+    "toll_fee_autosweep": "UPDATE truck_requests SET toll_fee_autosweep=COALESCE(toll_fee_autosweep,0)+%s WHERE id IN %s",
+}
+BULK_COST_STAMP_SQL = "UPDATE truck_requests SET cost_updated_by=%s, cost_updated_at=%s WHERE id IN %s"
 
 def _bulk_cost_targets(date_from, date_to, vendor_id=None, truck_type_id=None):
     """Delivered + approved Foul Trip requests a bulk cost update can apply to: matched by
@@ -7106,16 +7122,13 @@ async def bulk_cost_update(request: Request):
                 if r["id"] in ids:
                     r[k] = round((r.get(k) or 0) + add, 2)
         else:
-            marks = ",".join(["%s"] * n)
-            db_x(f"UPDATE truck_requests SET {k}=COALESCE({k},0)+%s WHERE id IN ({marks})", tuple([add] + ids))
+            db_x(BULK_COST_ADD_SQL[k], (add, [int(i) for i in ids]))
     if LOCAL_MODE:
         for r in _store["truck_requests"]:
             if r["id"] in ids:
                 r["cost_updated_by"], r["cost_updated_at"] = who, stamp
     else:
-        marks = ",".join(["%s"] * n)
-        db_x(f"UPDATE truck_requests SET cost_updated_by=%s, cost_updated_at=%s WHERE id IN ({marks})",
-             tuple([who, stamp] + ids))
+        db_x(BULK_COST_STAMP_SQL, (who, stamp, [int(i) for i in ids]))
     return {"ok": True, "updated": n, "field_amount": out_fields}
 
 # ---------------------------------------------------------------------------
