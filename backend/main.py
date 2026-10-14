@@ -904,7 +904,7 @@ def _driver_fleet_scan_only():
         cfg = _merge_role_visibility(_load_role_visibility_cfg() or DEFAULT_ROLE_VISIBILITY)
     except Exception:
         return True
-    return all(p == SCAN_PAGE for p in (cfg.get(DRIVER_FLEET_ROLE) or []))
+    return all(p == SCAN_PAGE or p in HELP_PAGES for p in (cfg.get(DRIVER_FLEET_ROLE) or []))
 
 def _get_user_row(request: Request):
     sync_u = _SYNC_USER.get()
@@ -958,9 +958,15 @@ def require_master(request):
 VENDOR_ROLE_PREFIX = "Vendor - "
 BASE_ROLES = ("viewer", "normal_user", "admin", "master_admin", "new_user", "driver_fleet")
 SCAN_PAGE = "scan-app"
-DEFAULT_VENDOR_PAGES = ["dashboard", "masterlist", "vendor-trucks", "driver-accounts", "fleet", "scan-app", "user-guide"]
+DEFAULT_VENDOR_PAGES = ["dashboard", "masterlist", "vendor-trucks", "driver-accounts", "fleet", "scan-app", "user-guide", "guide-vendor", "guide-driver"]
 # Simplified step-by-step user guide: shown to every role except New User.
 GUIDE_PAGE = "user-guide"
+VENDOR_GUIDE_PAGE = "guide-vendor"
+DRIVER_GUIDE_PAGE = "guide-driver"
+# Help pages never widen what a role can do, so they do not take Driver/Fleet out of
+# "Scanning App only" mode (the driver guide is opened from inside the scanning app).
+HELP_PAGES = {GUIDE_PAGE, VENDOR_GUIDE_PAGE, DRIVER_GUIDE_PAGE}
+ROLE_GUIDES_MARKER = "_role_guides_v1"
 # The Driver / Fleet Accounts page belongs beside Vendor Truck Assignment.
 VT_PAGE = "vendor-trucks"
 DA_PAGE = "driver-accounts"
@@ -1223,11 +1229,12 @@ async def remove_user(uid: int, request: Request):
 DEFAULT_ROLE_VISIBILITY = {
     "viewer": ["dashboard", "masterlist", "scan-app", "user-guide"],
     "normal_user": ["dashboard", "new-request", "masterlist", "pending", "scan-app", "user-guide"],
-    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "scan-app", "user-guide"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "page-security", "vendor-trucks", "driver-accounts", "scan-app", "user-guide"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "page-security", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
     "driver_fleet": ["scan-app"],
     "new_user": [],
     "_scan_app_v1": True,
+    "_role_guides_v1": True,
 }
 # Marker stored with the config: once present, Scanning App is a normal page that a
 # master admin can switch on or off per role. Configs saved before the page existed
@@ -1255,7 +1262,8 @@ def _merge_role_visibility(cfg):
     raw = cfg if isinstance(cfg, dict) else {}
     labels = clean_role_labels(raw.get(ROLE_LABELS_KEY))
     upgraded = bool(raw.get(SCAN_APP_MARKER))
-    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER)}
+    guides_added = bool(raw.get(ROLE_GUIDES_MARKER))
+    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER, ROLE_GUIDES_MARKER)}
     out.setdefault("new_user", [])
     if not upgraded:
         for k, v in list(out.items()):
@@ -1277,6 +1285,13 @@ def _merge_role_visibility(cfg):
         v = out.get(k)
         if isinstance(v, list) and GUIDE_PAGE not in v:
             out[k] = list(v) + [GUIDE_PAGE]
+    # Configs saved before the vendor / driver guides existed: give both guides to
+    # Admin, Master Admin and every vendor role once (a master admin may change it later).
+    if not guides_added:
+        for k in list(out):
+            v = out.get(k)
+            if isinstance(v, list) and (k in ("admin", "master_admin") or k.startswith(VENDOR_ROLE_PREFIX)):
+                out[k] = list(v) + [p for p in (VENDOR_GUIDE_PAGE, DRIVER_GUIDE_PAGE) if p not in v]
     # Driver / Fleet Accounts rides along with Vendor Truck Assignment: a role
     # that can assign a trip needs the page that creates the driver who drives it.
     for k in list(out):
@@ -1338,6 +1353,7 @@ async def set_role_visibility(request: Request):
     expanded[ROLE_LABELS_KEY] = labels
     expanded.setdefault(DRIVER_FLEET_ROLE, [SCAN_PAGE])
     expanded[SCAN_APP_MARKER] = True
+    expanded[ROLE_GUIDES_MARKER] = True
     if LOCAL_MODE:
         _store["role_visibility"] = expanded
         return {"ok": True}

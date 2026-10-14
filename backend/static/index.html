@@ -102,6 +102,24 @@ tr:hover td{background:#F8FAFC}
 #rTbl td:nth-child(n+5):nth-child(-n+9){white-space:nowrap}
 #rTbl td:nth-child(10){min-width:160px}
 #rTbl td:nth-child(10) .badge{white-space:nowrap}
+#scGuide{display:none;position:fixed;inset:0;z-index:400;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;color:var(--txt)}
+.scg-top{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;background:#0F172A;color:#fff}
+.scg-body{max-width:760px;margin:0 auto;padding:14px}
+.sc-top-acts{display:flex;gap:6px;align-items:center}
+.sc-guide-btn{background:#1E293B!important;color:#E2E8F0!important;border-color:#334155!important}
+.guide-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.guide-quick .gq{background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;box-shadow:var(--sh)}
+.guide-quick .gq b{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:4px}
+.guide-quick .gq b span{width:24px;height:24px;border-radius:50%;background:var(--pri);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.guide-quick .gq p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5}
+.guide-toc{columns:2;column-gap:30px;font-size:13.5px;line-height:2.1}
+.guide-toc a{color:var(--pri);text-decoration:none}.guide-toc a:hover{text-decoration:underline}
+.guide-steps{font-size:13.5px;line-height:1.85;padding-left:20px}
+.guide-steps li{margin-bottom:2px}
+.guide-tip{font-size:12.5px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;border-radius:8px;padding:8px 12px;margin-top:10px}
+.guide-warn{font-size:12.5px;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;border-radius:8px;padding:8px 12px;margin-top:10px}
+.g-shot.g-pair{max-width:760px}
+@media(max-width:768px){.guide-toc{columns:1}}
 .stat-click{cursor:pointer}
 .stat-click:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
 .stat-click.on{border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
@@ -269,7 +287,9 @@ body.scan-mode .layout{display:none}
 <a class="nav-item madm" onclick="showPage('role-visibility')" data-page="role-visibility" style="display:none"><i class="fas fa-eye"></i> Role Visibility</a>
 <a class="nav-item madm" onclick="showPage('page-security')" data-page="page-security" style="display:none"><i class="fas fa-lock"></i> Page Password &amp; Logs</a>
 <div class="nav-div"></div><div class="nav-lbl">Help</div>
-<a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide</a>
+<a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide for All</a>
+<a class="nav-item" onclick="showPage('guide-vendor')" data-page="guide-vendor" style="display:none"><i class="fas fa-handshake"></i> User Guide for Vendors</a>
+<a class="nav-item" onclick="showPage('guide-driver')" data-page="guide-driver" style="display:none"><i class="fas fa-mobile-screen-button"></i> User Guide for Driver/Fleet</a>
 </nav>
 <div class="sidebar-footer">
 <div class="user-row"><div class="u-av" id="uAv">N</div><div><div class="u-name" id="uName">Loading...</div><div class="u-role" id="uRole">...</div></div></div>
@@ -441,336 +461,240 @@ body.scan-mode .layout{display:none}
 
 <!-- User Guide -->
 <section class="pg" id="pg-user-guide">
-<div class="pg-hdr"><h1><i class="fas fa-book-open" style="color:var(--pri)"></i> User Guide</h1><div class="acts"><button class="btn btn-o" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div></div>
-<div style="font-size:13px;color:var(--mut);margin-bottom:14px"><i class="fas fa-info-circle"></i> A simplified, step-by-step guide (with screenshots &mdash; click any picture to open it full size) to the SP PH Truck Booking Centralised Operations template, written for user testing. It covers every feature currently in the app. Every role except New User can open this page. Click a topic below to jump straight to it.</div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-topics">
-<div class="card-h"><h3><i class="fas fa-list"></i> What is inside this guide</h3></div>
+<div class="pg-hdr"><h1><i class="fas fa-book-open" style="color:var(--pri)"></i> User Guide for All</h1><div class="acts"><button class="btn btn-o" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div></div>
+<div class="guide-root">
+<div data-gid="top" style="font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.6"><i class="fas fa-info-circle"></i> Short, step-by-step help for every page of the SP PH Truck Booking app. Click a topic to jump to it. Click a picture to open it full size. <span data-needs-page="guide-vendor">Vendors: see <a href="javascript:void(0)" onclick="showPage('guide-vendor')">User Guide for Vendors</a>.</span> <span data-needs-page="guide-driver">Drivers: see <a href="javascript:void(0)" onclick="showPage('guide-driver')">User Guide for Driver/Fleet</a>.</span></div>
+<div class="guide-quick"><div class="gq"><b><span>1</span> Sign in</b><p>Use your company Google account.</p></div><div class="gq"><b><span>2</span> Pick a page</b><p>The menu shows only what your role can use.</p></div><div class="gq"><b><span>3</span> Follow the topic</b><p>Each topic below has short steps and a picture.</p></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-list"></i> Topics</h3></div><div class="card-b"><div class="guide-toc"><a href="javascript:void(0)" onclick="return guideJump(this,'g-start')">1. Getting started</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-dash')">2. Dashboard</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-new')">3. Creating a truck request</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-ml')">4. Masterlist</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-pending')">5. Allocating requests to vendors</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-fleet')">6. Fleet Management</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-vt')">7. Vendor Truck Assignment</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-da')">8. Driver / Fleet Accounts</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-scan')">9. Scanning App</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-rates')">10. Rate Management</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-eval')">11. Vendor Speed Performance</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-cost')">12. Cost Analysis</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-foul')">13. Foul Trip Approval</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-tu')">14. Trip Utilisation Review</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-lib')">15. Master Library</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-users')">16. User Roles</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-rv')">17. Role Visibility (Master Admin)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-pw')">18. Page Password & Access Logs</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-ref')">19. Quick reference</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-faq')">20. Problems and fixes</a><br></div></div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-start">
+<div class="card-h"><h3><i class="fas fa-door-open"></i> 1. Getting started</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<div style="columns:2;column-gap:30px;font-size:13.5px;line-height:2.1">
-<a href="#g-start">1. Getting started</a><br>
-<a href="#g-dash">2. Dashboard</a><br>
-<a href="#g-new">3. Creating a truck request</a><br>
-<a href="#g-ml">4. Masterlist</a><br>
-<a href="#g-pending">5. Allocating requests to vendors</a><br>
-<a href="#g-fleet">6. Fleet Management</a><br>
-<a href="#g-vt">7. Vendor Truck Assignment</a><br>
-<a href="#g-da">8. Driver / Fleet Accounts</a><br>
-<a href="#g-scan">9. Scanning app (Pickup Sort and Unloading)</a><br>
-<a href="#g-rates">10. Rate Management</a><br>
-<a href="#g-eval">11. Vendor Speed Performance</a><br>
-<a href="#g-cost">12. Cost Analysis</a><br>
-<a href="#g-foul">13. Foul Trip Approval</a><br>
-<a href="#g-tu">14. Trip Utilisation Review</a><br>
-<a href="#g-lib">15. Master Library</a><br>
-<a href="#g-users">16. User Roles</a><br>
-<a href="#g-rv">17. Role Visibility</a><br>
-<a href="#g-pw">18. Page Password &amp; Access Logs</a><br>
-<a href="#g-ref">19. Quick reference (colours, statuses, Trip IDs)</a><br>
-<a href="#g-faq">20. Testing tips and troubleshooting</a><br>
+<ol class="guide-steps"><li>Open the app link and sign in with your <strong>company Google account</strong>. There is no separate app password.</li><li>The menu on the left only shows the pages your role can use, grouped under <strong>Main</strong>, <strong>Operations</strong>, <strong>Reports</strong>, <strong>Administration</strong> and <strong>Help</strong>. On a phone, tap the <i class="fas fa-bars"></i> button (top left) to open it.</li><li>Your name, initial and role are shown at the <strong>bottom left</strong>, under the menu. To sign out, sign out of Google in your browser.</li><li>A page you need is missing? Ask a Master Admin &mdash; they grant pages per role (topic 17). A brand-new account sees no pages until an admin gives it a role.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/01-start.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/01-start.jpg" alt="The menu (outlined) only shows the pages your role can open." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The menu (outlined) only shows the pages your role can open.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-dash">
+<div class="card-h"><h3><i class="fas fa-chart-line"></i> 2. Dashboard</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Optional: set the filters (Final Call From / To, Account, Department, Status, Origin, Destination, MAWB) and click <strong>Apply Filters</strong>.</li><li>The cards show how many requests are in each status. <strong>Click a card</strong> to list only those requests; click <strong>Show all requests</strong> to go back.</li><li><strong>Available Trucks</strong> opens Fleet Management.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/02-dashboard.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/02-dashboard.jpg" alt="Click a card  e.g. Delivered  to list only those requests." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Click a card &mdash; e.g. <strong>Delivered</strong> &mdash; to list only those requests.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-new">
+<div class="card-h"><h3><i class="fas fa-plus-circle"></i> 3. Creating a truck request</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Open <strong>New Request</strong>. The Booking Date is filled in for you.</li><li>Fill the fields marked <strong>*</strong>: Department, Origin Port, Account, Destination Port (different from the origin), Packaging Type, Quantity and <strong>Initial Call datetime (TBC)</strong>. MAWBs, customs time, weight / volume and instructions are optional.</li><li>Click <strong>Submit Request</strong>. The request appears on the Masterlist and on Pending Allocation as <strong>Pending</strong>.</li><li><strong>Many requests at once:</strong> click <strong>Download CSV template</strong>, fill one row per request (Initial Call is required on every row; dates can stay as Excel shows them), choose the file, check the preview and click <strong>Create &hellip; requests</strong>. Rows with problems are explained and skipped &mdash; the others are still created.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/03-new-request.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/03-new-request.jpg" alt="Fields marked * are required  including Initial Call datetime (TBC)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Fields marked * are required &mdash; including <strong>Initial Call datetime (TBC)</strong>.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-ml">
+<div class="card-h"><h3><i class="fas fa-list-alt"></i> 4. Masterlist</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Find requests with the search box and filters. Click a column header to sort; drag a header to move a column (<strong>Reset Columns</strong> puts them back).</li><li>Actions on each row: <i class="fas fa-eye"></i> <strong>View</strong> (every detail on one screen, with the download links), <i class="fas fa-edit"></i> <strong>Edit</strong> (status, quantities, milestones, attachments, manifest) and <i class="fas fa-trash"></i> <strong>Delete</strong> (Pending requests only).</li><li><strong>Manifest:</strong> a red <strong>Missing Manifest</strong> means no file yet &mdash; click it, then upload the Excel file (.xlsx / .xlsm, up to 10&nbsp;MB) in the Manifest section. The bag / carton IDs are read from it and kept as a CSV you can download.</li><li>Once the driver ends a scan, <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links appear in the Manifest column and in View.</li><li>An allocated trip with a driver shows <i class="fas fa-user-slash"></i> <strong>Remove driver</strong>: the trip goes back to Vendor Truck Assignment.</li><li><strong>Export CSV</strong> downloads every request that matches your filters, with the same columns as the table.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> Status flow: <strong>Pending</strong> &rarr; <strong>Allocated</strong> &rarr; <strong>In Transit</strong> &rarr; <strong>Delivered</strong>. On Hold, Cancelled and Foul Trip are set from Edit (Foul Trip needs a date, a reason and a count of 1 or 2).</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/04-masterlist.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04-masterlist.jpg" alt="The Actions column (outlined): View, Edit and Delete." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The <strong>Actions</strong> column (outlined): View, Edit and Delete.</figcaption></figure><figure class="g-shot"><a href="/guide/04b-view.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04b-view.jpg" alt="View shows every detail of a request, including the scan manifest downloads at the bottom." loading="lazy"></a><figcaption><i class="fas fa-image"></i> <strong>View</strong> shows every detail of a request, including the scan manifest downloads at the bottom.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-pending">
+<div class="card-h"><h3><i class="fas fa-clock"></i> 5. Allocating requests to vendors</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Open <strong>Pending Allocation to Vendors</strong>. Requests are grouped by origin port and Initial Call time.</li><li>Tick the requests that should go on one truck (same origin only), or click <strong>Select these</strong> on a green <strong>Consolidation suggestion</strong>.</li><li><strong>Step 1 &ndash; Drop order:</strong> suggested by shortest distance; change the numbers if needed. Drop 1 is the main destination.</li><li><strong>Step 2 &ndash; Truck type:</strong> the Trip Utilisation box shows how full the truck is (<span style="color:#DC2626">red &lt;70%</span>, <span style="color:#D97706">yellow 70&ndash;85%</span>, <span style="color:#16A34A">green &gt;85%</span>).</li><li><strong>Step 3 &ndash; Vendor:</strong> the vendor with the lowest rate for this trip is <strong>suggested and pre-selected</strong> (no rate amounts are shown). You may pick another vendor.</li><li><strong>Step 4 &ndash; Final Call datetime</strong>, then click <strong>Allocate to Vendor</strong>. The requests get a Trip ID and drop numbers and leave this page.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> To undo, open the request on the Masterlist, Edit, and set the status back to <strong>Pending</strong>.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/05-pending.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/05-pending.jpg" alt="A consolidation suggestion  Select these ticks the requests for you." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A consolidation suggestion &mdash; <strong>Select these</strong> ticks the requests for you.</figcaption></figure><figure class="g-shot"><a href="/guide/05b-vendor-suggestion.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/05b-vendor-suggestion.jpg" alt="The suggested vendor (lowest rate for this trip) is pre-selected; you can still choose another." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The <strong>suggested vendor</strong> (lowest rate for this trip) is pre-selected; you can still choose another.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-fleet">
+<div class="card-h"><h3><i class="fas fa-truck-moving"></i> 6. Fleet Management</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Lists every truck with its type, vendor, driver, phone, current requests and availability. Vendors only see their own trucks.</li><li>Admins and vendors: <strong>Add Truck</strong> &mdash; plate number, truck type, vendor, driver name and phone.</li><li>Use <i class="fas fa-edit"></i> to edit, <i class="fas fa-ban"></i> to switch a truck between <strong>Available</strong> and <strong>Not Available</strong>, and <i class="fas fa-trash"></i> to delete.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/06-fleet.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/06-fleet.jpg" alt="Fleet Management  Add Truck is outlined." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Fleet Management &mdash; <strong>Add Truck</strong> is outlined.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-vt">
+<div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 7. Vendor Truck Assignment</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Shows every trip that still needs a driver, with all its drops and MAWBs.</li><li><strong>Vendors</strong> pick a Driver / Fleet account for each trip and click <strong>Assign Driver</strong> (see the User Guide for Vendors). Admins see the list in view-only mode.</li><li>The trip then shows the driver and truck plate on the Masterlist. It stays <strong>Allocated</strong> until the driver taps <strong>Depart</strong> in the scanning app.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/07-vendor-trucks.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/07-vendor-trucks.jpg" alt="A trip waiting for a driver, with its drops in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A trip waiting for a driver, with its drops in order.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-da">
+<div class="card-h"><h3><i class="fas fa-id-card"></i> 8. Driver / Fleet Accounts</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>These are the usernames and passwords drivers use in the <strong>Scanning App</strong>. Each account drives one truck.</li><li><strong>Add Account</strong>: username, password (4+ characters), driver name, phone, vendor (admins choose; vendors get their own), the truck, and an <strong>Override code</strong> (4&ndash;32 letters / numbers) used to accept a bag that is not on the manifest.</li><li>Edit with <i class="fas fa-edit"></i> (leave the password / code blank to keep them), untick <strong>Account is active</strong> to switch an account off, or delete with <i class="fas fa-trash"></i>.</li><li>The <strong>Assigned Trips</strong> column shows each account's open trips and how far the driver has got.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> Admins are asked for the page password here (topic 18); vendors are not.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/08-driver-accounts.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/08-driver-accounts.jpg" alt="Driver / Fleet Accounts  Add Account is outlined." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Driver / Fleet Accounts &mdash; <strong>Add Account</strong> is outlined.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-scan">
+<div class="card-h"><h3><i class="fas fa-barcode"></i> 9. Scanning App</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>A phone screen for drivers: open <strong>Scanning App</strong> from the menu (or the app link ending in <strong>#/scan</strong>) and sign in with a Driver / Fleet account.</li><li>The driver follows the trip steps in order: arrive at pickup &rarr; scan bags &rarr; end loading &rarr; depart &rarr; for each drop: arrive, scan bags off, add photos, finish.</li><li>The full step-by-step is in the <strong>User Guide for Driver/Fleet</strong> &mdash; also opened with the <strong>Guide</strong> button inside the scanning app.</li></ol>
+<div class="g-shots"><figure class="g-shot g-phone"><a href="/guide/09-scan-app.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/09-scan-app.jpg" alt="Sign in  My trips  trip steps." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Sign in &rarr; My trips &rarr; trip steps.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-rates">
+<div class="card-h"><h3><i class="fas fa-dollar-sign"></i> 10. Rate Management</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Click <strong>Add Rate</strong>: vendor, truck type, origin, <strong>Main Destination</strong>, Rate/Trip, Default Rate, Foul Trip %, Fuel Surcharge %, Effective and Expiry dates, and optional <strong>Additional Destination Drops</strong> with their own rates (a drop cannot be the Main Destination).</li><li>How a trip is priced: <strong>drop 1</strong> to the Main Destination gets <strong>Rate/Trip</strong>. Later drops are extra stops on the same trip: their Additional Destination Drop rate if listed, otherwise the <strong>Default Rate</strong>.</li><li>Foul Trip % (foul trips) and Fuel Surcharge % (delivered requests) are worked out on that same rate.</li><li>Filter by vendor, origin, destination and truck type. Rates are grouped by route; each group lists the <strong>lowest rate per truck type</strong>, and the Remark column marks the cheapest vendor.</li></ol>
+<div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> Asks for the page password when one is set (topic 18).</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/10-rates.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10-rates.jpg" alt="Rates grouped by route, with the Foul Trip % and Fuel Surcharge % columns." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Rates grouped by route, with the Foul Trip % and Fuel Surcharge % columns.</figcaption></figure><figure class="g-shot"><a href="/guide/10b-rate-form.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10b-rate-form.jpg" alt="Add Rate  the Main Destination is greyed out in the drop list." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add Rate &mdash; the Main Destination is greyed out in the drop list.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-eval">
+<div class="card-h"><h3><i class="fas fa-star"></i> 11. Vendor Speed Performance</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Filter by request #, vendor, truck type, plate, origin, destination, account, department, MAWB or Final Call dates.</li><li>Each row shows the time taken for every leg of the trip (customs to arrival, loading, travel, unloading, full leg). Click a header to rank vendors; <strong>Export CSV</strong> downloads the table.</li></ol>
+<div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> Asks for the page password when one is set (topic 18).</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/11-evaluation.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/11-evaluation.jpg" alt="Filters on top, lead times in the table." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Filters on top, lead times in the table.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-cost">
+<div class="card-h"><h3><i class="fas fa-chart-pie"></i> 12. Cost Analysis</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Choose the <strong>Final Call From / To</strong> dates (required) and any other filters, then click <strong>Generate Report</strong>.</li><li>Only <strong>Delivered</strong> and <strong>approved Foul Trip</strong> requests are counted. Click <strong>Total Requests</strong>, <strong>Delivered</strong> or <strong>Foul Trip</strong> to list just those.</li><li><strong>Actual Cost</strong> comes from Rate Management (topic 10). A Foul Trip has no Actual Cost and no Fuel Surcharge &mdash; it is charged as the <strong>Foul Trip Cost</strong> (rate &times; Foul Trip % &times; count of 1 or 2).</li><li>Admins: <i class="fas fa-edit"></i> edits one request's costs; <strong>Bulk Cost Update</strong> adds amounts to the requests you tick (split equally, or the full amount to each).</li><li><strong>Export CSV</strong> downloads the table as shown.</li></ol>
+<div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> Asks for the page password when one is set (topic 18).</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/12-cost.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/12-cost.jpg" alt="Click a card to list only those requests." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Click a card to list only those requests.</figcaption></figure><figure class="g-shot"><a href="/guide/12b-bulk.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/12b-bulk.jpg" alt="Bulk Cost Update  tick the truck requests (with their Trip IDs), then enter the amounts." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Bulk Cost Update &mdash; tick the truck requests (with their Trip IDs), then enter the amounts.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-foul">
+<div class="card-h"><h3><i class="fas fa-flag"></i> 13. Foul Trip Approval</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>A request becomes a Foul Trip from Masterlist &rarr; Edit (date, reason and a count of 1 or 2 are required).</li><li>Here, check each foul trip, set its count if needed, then press the green <i class="fas fa-check"></i> to approve it. Only approved foul trips go into Cost Analysis.</li><li>Click <strong>Awaiting Approval</strong> or <strong>Approved</strong> to filter the list; <strong>Export CSV</strong> downloads it.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/13-foul.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/13-foul.jpg" alt="Press the green tick (outlined) to approve." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Press the green tick (outlined) to approve.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-tu">
+<div class="card-h"><h3><i class="fas fa-gauge-high"></i> 14. Trip Utilisation Review</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Shows delivered trips and how full each truck was: <strong>Initial</strong> (when the trip was made) and <strong>Revised</strong> (final quantities).</li><li>Click <strong>Green</strong>, <strong>Yellow</strong> or <strong>Red Trips</strong> to list only those; <strong>Export CSV</strong> downloads the table.</li></ol>
+<div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> Asks for the page password when one is set (topic 18).</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/14-tu.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/14-tu.jpg" alt="Click a card to list only those trips." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Click a card to list only those trips.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-lib">
+<div class="card-h"><h3><i class="fas fa-book"></i> 15. Master Library</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>The lists used in every dropdown: <strong>Ports</strong> (click the map to set a port's location), <strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong>, <strong>Truck Types</strong> and <strong>Vendors</strong>.</li><li><strong>Truck Types</strong> need a <strong>Max Capacity</strong> for the utilisation %.</li><li><strong>Capacity Conversion</strong>: choose the base unit (e.g. Pallet) and how much of it one unit of each other packaging is worth (e.g. Carton 0.02 = 50 cartons per pallet). Click <strong>Save</strong>.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/15-library.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/15-library.jpg" alt="Capacity Conversion." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Capacity Conversion.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-users">
+<div class="card-h"><h3><i class="fas fa-users-cog"></i> 16. User Roles</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Everyone who has signed in is listed. Change a person's access with the <strong>Role</strong> dropdown (takes effect when they reload the page).</li><li>Roles: Viewer, Normal User, Admin, Master Admin, Driver/Fleet, a Vendor role, or New User (no access). Only a Master Admin can give the Master Admin role.</li><li>Click a name to rename it, or <i class="fas fa-user-minus"></i> to remove the user.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/16-users.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/16-users.jpg" alt="Change a role from the dropdown." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Change a role from the dropdown.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-rv">
+<div class="card-h"><h3><i class="fas fa-eye"></i> 17. Role Visibility (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/17-role-visibility.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/17-role-visibility.jpg" alt="Tick the pages for each role, then Save Changes." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Tick the pages for each role, then Save Changes.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-pw">
+<div class="card-h"><h3><i class="fas fa-lock"></i> 18. Page Password & Access Logs</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>One password protects <strong>Driver / Fleet Accounts</strong> (not for vendors), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>. It is asked every time one of these pages is opened.</li><li>The Master Admin sets, changes or resets it under <strong>Administration &rarr; Page Password &amp; Logs</strong>. Until it is set, the pages open without asking.</li><li>The <strong>User Log</strong> records every password change and every page opening (with wrong tries). It cannot be edited or deleted.</li></ol>
+<div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> After 5 wrong tries the page is blocked for 15 minutes.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/18a-lock.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18a-lock.jpg" alt="A protected page asks for the password." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A protected page asks for the password.</figcaption></figure><figure class="g-shot"><a href="/guide/18b-security.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18b-security.jpg" alt="Set / change / reset the password and see the user log." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Set / change / reset the password and see the user log.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-ref">
+<div class="card-h"><h3><i class="fas fa-palette"></i> 19. Quick reference</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li><strong>Statuses:</strong> Pending &rarr; Allocated &rarr; In Transit (after Depart) &rarr; Delivered; also On Hold, Cancelled and Foul Trip.</li><li><strong>Trip ID</strong> = vendor code + number + drop letter, e.g. <strong>11E-00087-A</strong> (drop 1), <strong>11E-00087-B</strong> (drop 2).</li><li><strong>Utilisation colours:</strong> <span style="color:#DC2626">red &lt;70%</span>, <span style="color:#D97706">yellow 70&ndash;85%</span>, <span style="color:#16A34A">green &gt;85%</span>.</li><li>All times are GMT+8. <strong>Distance (KM)</strong> appears in red once a request is on a trip.</li></ol>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-faq">
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 20. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li><strong>A page is missing</strong> &mdash; your role does not have it; ask a Master Admin.</li><li><strong>&ldquo;No pages available&rdquo;</strong> &mdash; your account is still New User; ask an admin to set your role.</li><li><strong>A page asks for a password</strong> &mdash; ask the Master Admin for the page password.</li><li><strong>Manifest upload refused</strong> &mdash; it must be an Excel file (.xlsx / .xlsm) of 10&nbsp;MB or less.</li><li><strong>Attachment refused</strong> &mdash; up to 8 files and 25&nbsp;MB per request.</li><li><strong>No utilisation %</strong> &mdash; the truck type has no Max Capacity, or a packaging type has no factor (Master Library).</li><li><strong>Cost Analysis is empty</strong> &mdash; check the Final Call dates; only Delivered and approved Foul Trip requests count.</li><li><strong>Anything else</strong> &mdash; note the exact message on screen and the page, and send it to the administrators.</li></ol>
+</div></div>
 </div>
-</div></div>
+</section>
 
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-start">
-<div class="card-h"><h3><i class="fas fa-door-open"></i> 1. Getting started</h3></div>
+<section class="pg" id="pg-guide-vendor">
+<div class="pg-hdr"><h1><i class="fas fa-handshake" style="color:var(--pri)"></i> User Guide for Vendors</h1><div class="acts"><button class="btn btn-o" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div></div>
+<div class="guide-root">
+<div data-gid="top" style="font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.6"><i class="fas fa-info-circle"></i> For vendor staff: set up your trucks and drivers, assign drivers to trips and follow your deliveries. Click a picture to open it full size.</div>
+<div class="guide-quick"><div class="gq"><b><span>1</span> Set up</b><p>Add your trucks and driver accounts once.</p></div><div class="gq"><b><span>2</span> Assign</b><p>Pick a driver for each new trip.</p></div><div class="gq"><b><span>3</span> Track</b><p>Follow progress on the Dashboard and Masterlist.</p></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-list"></i> Topics</h3></div><div class="card-b"><div class="guide-toc"><a href="javascript:void(0)" onclick="return guideJump(this,'gv-start')">1. What you can see and do</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gv-setup')">2. One-time set-up: trucks and drivers</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gv-assign')">3. Assign a driver to a trip</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gv-track')">4. Follow your trips (Dashboard and Masterlist)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gv-edit')">5. Update a request (Edit)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gv-scan')">6. The Scanning App</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gv-faq')">7. Problems and fixes</a><br></div></div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-start">
+<div class="card-h"><h3><i class="fas fa-door-open"></i> 1. What you can see and do</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open the app URL in your browser and sign in with your company Google account &mdash; there is no separate password.</li>
-<li>Look at the menu on the left. It shows only the pages your role is allowed to use, grouped under <strong>Main</strong> (Dashboard, Masterlist), <strong>Operations</strong> (New Request, Pending Allocation to Vendors, Vendor Truck Assignment, Scanning App, Foul Trip Approval), <strong>Reports</strong> (Vendor Speed Performance, Cost Analysis, Trip Utilisation Review), <strong>Administration</strong> (Fleet Management, Driver / Fleet Accounts, Rate Management, Master Library, User Roles, Role Visibility, Page Password &amp; Logs) and <strong>Help</strong>. A heading with none of your pages under it is hidden. Pages marked with a padlock ask for the common page password (topic 18). The <strong>User Guide</strong> page (this page) is available to every role except New User.</li>
-<li>Your name, avatar (first initial) and current role appear at the <strong>bottom left</strong>, under the menu, so you can see who is signed in and with which role. You sign in with your company Google account; to sign out, sign out of Google in your browser.</li>
-<li>Click any menu item to open that page. The Dashboard opens first.</li>
-<li>If you see an orange <strong>Local Mode &mdash; Data not saved</strong> badge, you are running the app on a computer with no database: everything works, but records disappear when the server restarts. On the deployed site, data is kept permanently.</li>
-<li>If a page you expect is missing, your role has not been granted it yet &mdash; a Master Admin can add it (see topic 17).</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/01-start.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/01-start.jpg" alt="The menu on the left (outlined in red) only shows the pages your role can open, grouped into Main, Operations, Reports, Administration and H" loading="lazy"></a><figcaption><i class="fas fa-image"></i> The menu on the left (outlined in red) only shows the pages your role can open, grouped into Main, Operations, Reports, Administration and Help.</figcaption></figure></div>
+<ol class="guide-steps"><li>Sign in with the Google account your company registered. Your role is <strong>Vendor - &lt;your company&gt;</strong> (shown at the bottom left).</li><li>Your menu: <strong>Dashboard</strong>, <strong>Masterlist</strong>, <strong>Vendor Truck Assignment</strong>, <strong>Scanning App</strong>, <strong>Fleet Management</strong>, <strong>Driver / Fleet Accounts</strong> and the guides.</li><li>You only ever see <strong>your own</strong> trips, requests, trucks and drivers &mdash; never another vendor's, and never any rates or costs.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/v01-menu.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v01-menu.jpg" alt="A vendor's menu  only the pages a vendor uses." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A vendor's menu &mdash; only the pages a vendor uses.</figcaption></figure></div>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-dash">
-<div class="card-h"><h3><i class="fas fa-chart-line"></i> 2. Dashboard</h3></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-setup">
+<div class="card-h"><h3><i class="fas fa-screwdriver-wrench"></i> 2. One-time set-up: trucks and drivers</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Use the <strong>Filters</strong> card: Final Call From / To, Account, Department, Status, Origin Port, Destination Port and MAWB.</li>
-<li>Click <strong>Apply Filters</strong> (or <strong>Refresh</strong> in the header) to refresh the figures and the list.</li>
-<li>Read the summary <strong>stat cards</strong> on top for request counts at a glance.</li>
-<li><strong>Click a stat card</strong> (Pending, Allocated, In Transit, Delivered, Cancelled, Foul Trip) to list only those requests in the table below; click it again, click <strong>Total Requests</strong> or <strong>Show all requests</strong> to go back. <strong>Available Trucks</strong> opens Fleet Management.</li>
-<li>The table shows the latest 50 requests (up to 1,000 when a stat card is selected); click the <strong>Delivered Date</strong> header to sort it.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/02-dashboard.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/02-dashboard.jpg" alt="Summary cards on the Dashboard. Click a card  for example Delivered  to list only those requests below." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Summary cards on the Dashboard. Click a card &mdash; for example <strong>Delivered</strong> &mdash; to list only those requests below.</figcaption></figure></div>
+<ol class="guide-steps"><li><strong>Fleet Management &rarr; Add Truck</strong>: plate number, truck type, driver name and phone. The vendor is filled in for you.</li><li><strong>Driver / Fleet Accounts &rarr; Add Account</strong>: a username and password for the driver, their name and phone, the <strong>truck</strong> they drive and an <strong>Override code</strong> (4&ndash;32 letters / numbers).</li><li>Give the driver their username and password &mdash; they use it in the Scanning App. Keep the override code with the supervisor: it is needed to accept a bag that is not on the manifest.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> One account = one truck. The truck type decides which trips the account can be given.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/v02-fleet.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v02-fleet.jpg" alt="Fleet Management  add your trucks." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Fleet Management &mdash; add your trucks.</figcaption></figure><figure class="g-shot"><a href="/guide/v03-account-form.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v03-account-form.jpg" alt="Add Account  each account drives one truck." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add Account &mdash; each account drives one truck.</figcaption></figure></div>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-new">
-<div class="card-h"><h3><i class="fas fa-plus-circle"></i> 3. Creating a truck request</h3></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-assign">
+<div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 3. Assign a driver to a trip</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>New Request</strong> in the menu. The <strong>Booking Date</strong> at the top of the request is set automatically to today.</li>
-<li>The request needs: <strong>Department</strong>, <strong>Account</strong>, <strong>Origin Port</strong> and <strong>Destination Port</strong> (they must be different), Packaging, Qty (at least 1) and the <strong>Initial Call datetime (TBC)</strong>. Optional: International / Domestic MAWB, Customs Cleared, weight/volume and special instructions.</li>
-<li>Click <strong>Submit Request</strong> to save it. Any missing required field is pointed out in a message.</li>
-<li><strong>Creating many requests at once &mdash; CSV upload:</strong> click <strong>Download CSV template</strong> to get a CSV file with the exact columns and one example row showing the format. Fill it in Excel or Google Sheets &mdash; one row per request, any number of rows (up to a 10&nbsp;MB file) &mdash; then pick the file. <strong>Initial Call datetime (TBC)</strong> is required on every row. Dates can stay in whatever format Excel shows them, e.g. <em>15/10/2026 9:00</em>, <em>2026-10-15 09:00</em> or <em>15-Oct-2026 9:00</em> (day first).</li>
-<li>A <strong>preview</strong> appears with a summary (rows in file / ready to create / cannot create) and every problem explained per row. Fix problem rows in your file and upload again if needed, then click <strong>Create N requests</strong>.</li>
-<li>The <strong>creation summary</strong> reports how many requests were created and, for any row that could not be created, exactly why. Rows in a batch are independent &mdash; one bad row never blocks the others.</li>
-<li>After saving, find the new requests on the <strong>Masterlist</strong> with status <strong>Pending</strong> and on <strong>Pending Allocation to Vendors</strong>.</li>
-<li>To attach documents (e.g. proof of delivery): open the request from Masterlist, use <strong>Edit</strong> (pencil icon) and add files in the attachments section &mdash; up to 8 files, 25&nbsp;MB in total.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/03-new-request.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/03-new-request.jpg" alt="New Truck Request form. Fields marked * are required  including Initial Call datetime (TBC) (outlined)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> New Truck Request form. Fields marked * are required &mdash; including <strong>Initial Call datetime (TBC)</strong> (outlined).</figcaption></figure></div>
+<ol class="guide-steps"><li>Open <strong>Vendor Truck Assignment</strong>. Each card is a trip waiting for a driver, with its final call time, truck type and every drop.</li><li>In <strong>Select driver / fleet account</strong>, pick a driver. Only your <strong>active</strong> accounts whose truck matches the trip's <strong>truck type</strong> are listed (username, name, phone, plate).</li><li>Click <strong>Assign Driver</strong>. The trip leaves this list and appears in the driver's Scanning App.</li><li>No driver in the list? Add one (or set the right truck) on <strong>Driver / Fleet Accounts</strong>.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> Wrong driver? On the Masterlist use <i class="fas fa-user-slash"></i> <strong>Remove driver</strong> &mdash; the trip comes back here.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/v04-assign.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v04-assign.jpg" alt="Pick the driver for the trip, then Assign Driver." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Pick the driver for the trip, then Assign Driver.</figcaption></figure></div>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ml">
-<div class="card-h"><h3><i class="fas fa-list-alt"></i> 4. Masterlist &mdash; find, check and organise requests</h3></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-track">
+<div class="card-h"><h3><i class="fas fa-list-alt"></i> 4. Follow your trips (Dashboard and Masterlist)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Use the <strong>search box</strong> to find a request number or name, and the filters below it: Status, Account, Dept, Origin, Destination, Truck Type, Vendor, Truck Plate, <strong>Trip ID</strong>, MAWB, <strong>Manifest</strong>, Booking From/To, Final Call From/To and Initial Call From/To.</li>
-<li>The first <strong>7 columns</strong> (Request #, Actions, Requestor, Manifest, Status, Account, Dept) stay <strong>frozen on the left</strong> while you scroll the rest of the table sideways.</li>
-<li><strong>Sort</strong> by clicking any column header with a sort arrow (Request #, Account, Qty, Trip ID, dates, Manifest, ...).</li>
-<li><strong>Arrange the columns</strong>: drag a column header left or right to reorder the table. Your order is remembered &mdash; click <strong>Reset Columns</strong> in the header to restore the default layout.</li>
-<li>Compare <strong>Initial Qty</strong> (what the trip was created with) against <strong>Revised Qty</strong> (the current value). Initial Qty never changes after creation.</li>
-<li>For allocated requests you also see the <strong>Trip ID</strong>, the <strong>Drop #</strong> (use the up/down arrows to renumber drops within a trip) and the <strong>Distance (KM)</strong> in red.</li>
-<li>The <strong>Manifest</strong> column shows a red <strong>Missing Manifest</strong> when no manifest file has been uploaded for a request &mdash; click it to open Edit and upload one. Uploaded manifests show <strong>Uploaded</strong> in green with a <strong>Download CSV</strong> link containing the International MAWB, Domestic MAWB and every bag/carton/gunny/sack ID. Use the <strong>Manifest</strong> filter (Missing / Uploaded) or click the Manifest header to sort.</li>
-<li><strong>Uploading a manifest</strong>: open Edit (pencil icon) &rarr; Manifest section. One Excel file (.xlsx/.xlsm) per request, max 10&nbsp;MB; delete the current file first if you need to replace it. The key column (header containing bag, carton, gunny or sack, or a standard ID header) is extracted into unique IDs. The spreadsheet itself is never stored &mdash; it is converted on upload into a CSV holding the request's International MAWB, Domestic MAWB and those unique IDs, and that small CSV is what is kept and downloaded.</li>
-<li>Use the <strong>Actions</strong> column: <strong>View</strong> opens a wide window with every detail of the request on one screen (route, MAWBs, trip ID, drop #, truck plate, vendor, driver and phone, instructions, late reason, all milestones, delivered date, foul trip details, cancellation, manifest and attachments) &mdash; ready for a single screenshot, <strong>Edit</strong> (pencil) to update fields, status, quantity, truck plate, attachments and the manifest, and <strong>Delete</strong> (trash) when permitted.</li>
-<li>The <strong>Updated At</strong> column shows when the request last changed. All times shown in the Masterlist are GMT+8.</li>
-<li>Click <strong>Export CSV</strong> to download every request matching the current filters (all pages) with the same columns, in the same order, as the table; use your browser's Print (Ctrl+P) for a PDF, and page through results with the buttons at the bottom. Master Admins additionally see <strong>Clear All</strong>.</li>
-</ol>
-<p style="font-size:12.5px;color:var(--mut);margin-top:8px"><i class="fas fa-info-circle"></i> Statuses: Pending &rarr; Allocated &rarr; In Transit &rarr; Delivered. You can also set On Hold, Cancelled or Foul Trip from Edit.</p>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/04-masterlist.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04-masterlist.jpg" alt="Masterlist: the Actions column (outlined) has View, Edit and Delete." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Masterlist: the <strong>Actions</strong> column (outlined) has View, Edit and Delete.</figcaption></figure><figure class="g-shot"><a href="/guide/04b-view.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04b-view.jpg" alt="The View window shows every detail of a request, including the scan manifest download links at the bottom." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The <strong>View</strong> window shows every detail of a request, including the scan manifest download links at the bottom.</figcaption></figure></div>
+<ol class="guide-steps"><li><strong>Dashboard</strong>: counts of your requests by status &mdash; click a card to list them.</li><li><strong>Masterlist</strong>: every request on your trips. Search or filter by Trip ID, MAWB, plate, status or dates.</li><li><i class="fas fa-eye"></i> <strong>View</strong> shows all details, including the pickup / unloading scan manifest downloads once the driver has ended those scans.</li></ol>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/v05-masterlist.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v05-masterlist.jpg" alt="Your requests only, with View and Edit." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Your requests only, with View and Edit.</figcaption></figure></div>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-pending">
-<div class="card-h"><h3><i class="fas fa-clock"></i> 5. Allocating requests to vendors (Pending Allocation)</h3></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-edit">
+<div class="card-h"><h3><i class="fas fa-edit"></i> 5. Update a request (Edit)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Pending Allocation to Vendors</strong>. Waiting requests are grouped by origin port and time window. Use the <strong>MAWB</strong> box at the top to narrow the list.</li>
-<li>Tick the requests you want to send together &mdash; only requests sharing an origin can go on one trip (a notice appears if you mix origins).</li>
-<li>Watch the <strong>Consolidation suggestion</strong> banners: for each time window the app looks for requests that can share a truck and picks the truck type that brings the load into <strong style="color:#16A34A">green (&gt;85%)</strong> &mdash; it does not have to be 100%. When several green trucks are possible they are listed as Suggestion 1, 2, ... If no combination reaches green, the best yellow/red option is shown in amber. Click <strong>Select these</strong> to take a suggestion.</li>
-<li><strong>Step 1 &mdash; Drop order</strong> (appears when destinations differ): drops are suggested automatically by shortest distance; the distance between stops is shown in red. Change any number manually or click <strong>Re-suggest order</strong>.</li>
-<li><strong>Step 2 &mdash; Truck type</strong>: pick the truck. The <strong>Trip Utilisation</strong> box shows the load against the truck's max capacity: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>. Weight (KG) and volume (CBM) are not checked against the truck's maximums.</li>
-<li><strong>Step 3 &mdash; Vendor</strong>: once a truck type is picked, the green box under the vendor list shows the <strong>suggested vendor</strong> &mdash; the vendor with the lowest rate in Rate Management for this trip (same origin, the drop 1 destination as the main destination, later drops priced as extra stops, this truck type). It is pre-selected and marked <em>&#9733; lowest rate (suggested)</em> in the list; vendors without a rate for the route are marked <em>(no rate for this route)</em>. Rate amounts are never shown on this page. You can still choose any other vendor. The suggestion updates when you change the requests, drop order or truck type.</li>
-<li><strong>Step 4 &mdash; Final Call datetime</strong>: required. Pick the date/time.</li>
-<li>Click <strong>Allocate to Vendor</strong>. You get a confirmation with the new Trip ID, the requests get drop numbers, and they leave this page.</li>
-<li>Changed your mind? Edit a request on Masterlist and set its status back to <strong>Pending</strong> &mdash; it returns here and the remaining drops renumber automatically.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/05-pending.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/05-pending.jpg" alt="Pending Allocation: a consolidation suggestion. Select these (outlined) ticks the suggested requests for you." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Pending Allocation: a consolidation suggestion. <strong>Select these</strong> (outlined) ticks the suggested requests for you.</figcaption></figure><figure class="g-shot"><a href="/guide/05b-vendor-suggestion.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/05b-vendor-suggestion.jpg" alt="Route to Vendor: the suggested lowest-rate vendor is pre-selected; no rate amounts are shown." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Route to Vendor: the <strong>suggested vendor</strong> (outlined) has the lowest rate for this trip and is pre-selected &mdash; no rate amounts are shown. You can still pick another vendor.</figcaption></figure></div>
+<ol class="guide-steps"><li>On the Masterlist, click <i class="fas fa-edit"></i> <strong>Edit</strong>.</li><li>You can update the <strong>status</strong>, <strong>truck plate</strong>, quantities, milestone times, foul trip details, <strong>attachments</strong> (e.g. proof of delivery) and the <strong>manifest</strong>.</li><li>Greyed-out fields (account, department, ports, MAWBs, call times) belong to the requester and cannot be changed by vendors. A vendor also cannot move a request back to <strong>Pending</strong>.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> Most milestone times are filled in automatically by the driver's scanning app &mdash; you rarely need to type them.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/v06-edit.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v06-edit.jpg" alt="Edit  greyed-out fields are locked for vendors." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Edit &mdash; greyed-out fields are locked for vendors.</figcaption></figure></div>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-fleet">
-<div class="card-h"><h3><i class="fas fa-truck-moving"></i> 6. Fleet Management</h3></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-scan">
+<div class="card-h"><h3><i class="fas fa-barcode"></i> 6. The Scanning App</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Fleet</strong>. Admins and vendors see the <strong>Add Truck</strong> button; vendors see only their own trucks.</li>
-<li>Click <strong>Add Truck</strong> and fill plate number, truck type, driver, phone and vendor (when choosing for them).</li>
-<li>Filter the list by Availability, Vendor or Truck Type, and sort by clicking the headers.</li>
-<li>Use the Actions column to edit a truck or flip its <strong>Availability</strong> (Available / Not Available). Allocated trucks can be released by setting them available again after their requests are done.</li>
-<li>The <strong>Current Requests</strong> column shows how many open requests each truck is carrying.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/06-fleet.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/06-fleet.jpg" alt="Fleet Management: every truck with its driver, current requests and availability. Add Truck is outlined." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Fleet Management: every truck with its driver, current requests and availability. <strong>Add Truck</strong> is outlined.</figcaption></figure></div>
+<ol class="guide-steps"><li>Your drivers use the Scanning App on their phones &mdash; see the <span data-needs-page="guide-driver"><a href="javascript:void(0)" onclick="showPage('guide-driver')"><strong>User Guide for Driver/Fleet</strong></a></span>, which drivers can also open with the <strong>Guide</strong> button inside the app.</li><li>You can open it yourself from <strong>Scanning App</strong> in the menu to help a driver, signing in with that driver's account.</li></ol>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-vt">
-<div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 7. Vendor Truck Assignment</h3></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-faq">
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 7. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Vendor Truck Assignment</strong> (available to Admin, Master Admin and vendor roles).</li>
-<li>The list shows <strong>trips waiting for a driver</strong> - trip ID, status, final call, truck type, origin and every drop on the trip, including each drop's <strong>International MAWB</strong> and <strong>Domestic MAWB</strong>.</li>
-<li>Each card has a <strong>Select driver / fleet account</strong> dropdown. It contains only the active accounts for your vendor whose truck is the <strong>same truck type as the trip</strong> (e.g. a 6W trip lists only 6W accounts), with the driver's <strong>phone number</strong>; the plate in brackets is the truck that account drives.</li>
-<li>Drop numbers belong to each trip: every trip is numbered 1, 2, 3... on its own, even when one truck carries more than one trip.</li>
-<li>If a driver is removed from a trip (Masterlist, <i class="fas fa-user-slash"></i>), the trip comes back to this list with its drop numbers (1, 2, 3...) unchanged.</li>
-<li>Pick the account and click <strong>Assign Driver</strong>. The trip takes both the driver and that account's truck, leaves this list, and the plate appears on the <strong>Masterlist</strong>. The status stays <strong>Allocated</strong> - it only becomes <strong>In Transit</strong> when the driver scans <strong>Depart</strong> in the scanning app.</li>
-<li>If an account has no truck yet, the assignment is refused with a message. Set the truck on the <strong>Driver / Fleet Accounts</strong> page and try again.</li>
-<li>Accounts are managed on <strong>Driver / Fleet Accounts</strong> - see topic 8.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/07-vendor-trucks.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/07-vendor-trucks.jpg" alt="Vendor Truck Assignment: each trip waiting for a driver, with its drops in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Vendor Truck Assignment: each trip waiting for a driver, with its drops in order.</figcaption></figure></div>
+<ol class="guide-steps"><li><strong>No driver to choose</strong> &mdash; the account is inactive, has no truck, or its truck type differs from the trip.</li><li><strong>A driver cannot sign in</strong> &mdash; check the username / password on Driver / Fleet Accounts (edit to set a new password) and that <strong>Account is active</strong> is ticked.</li><li><strong>A bag is not on the manifest</strong> &mdash; the requester must upload the right manifest, or the supervisor types the driver's override code to accept it.</li><li><strong>Anything else</strong> &mdash; note the message on screen and contact the SP PH operations team.</li></ol>
 </div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-da">
-<div class="card-h"><h3><i class="fas fa-id-card"></i> 8. Driver / Fleet Accounts</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Driver / Fleet Accounts</strong> (Admin, Master Admin and vendor roles). These are the logins used by the scanning app and by drivers to see their trips.</li>
-<li>Click <strong>Add Account</strong>. Enter a username (3-100 characters: letters, numbers, dot, underscore, dash or @), a password of at least 4 characters, the driver name and phone.</li>
-<li>Admins also choose the <strong>Vendor</strong>. Vendors always create accounts for themselves.</li>
-<li>Choose the <strong>Truck</strong> this account drives. This is what gets assigned on the Vendor Truck Assignment page - one account, one truck.</li>
-<li>Untick <strong>Account is active</strong> to switch an account off without deleting it; existing scanning sessions stop working straight away.</li>
-<li>Set an <strong>Override code</strong> (4-32 letters or numbers) for each account. During the pickup scan, a bag that is not on the manifest is only accepted after the scanner types this code; it is never shown on the scan screen or QR code. The table shows whether a code is <strong>Set</strong>; edit the account to change or remove it.</li>
-<li>Use the pencil to edit (leave the password and override code blank to keep the current ones) and the bin to delete. Deleting clears the driver from any trip that still points at it.</li>
-<li>The <strong>Assigned Trips</strong> column lists every open trip ID on each account with its current status (Allocated / In Transit) and where the driver is in the trip (e.g. <em>Loading</em>, <em>Drop 2: unloading</em>).</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/08-driver-accounts.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/08-driver-accounts.jpg" alt="Driver / Fleet Accounts: the scanning app logins. Add Account is outlined." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Driver / Fleet Accounts: the scanning app logins. <strong>Add Account</strong> is outlined.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-scan">
-<div class="card-h"><h3><i class="fas fa-barcode"></i> 9. Scanning app (Pickup Sort and Unloading)</h3></div>
-<div class="card-b">
-<p style="font-size:13.5px;line-height:1.9;margin-bottom:10px">A phone-first screen for drivers and warehouse staff. Open it from <strong>Scanning App</strong> in the <strong>Main</strong> menu, or go straight to <strong>#/scan</strong> in the address bar. Sign in with a driver / fleet account - the session lasts 30 days on that device.</p>
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li><strong>My trips</strong> lists every trip assigned to the account. A driver works on <strong>one trip at a time</strong>: once Arrived at pickup is tapped on a trip, every other trip stays locked until that trip is finished to its last drop.</li>
-<li>Steps unlock <strong>strictly in order</strong> - a step cannot be opened until the step before it is done.</li>
-<li><strong>Step 1 - Arrived at pickup.</strong> A confirmation popup asks before the time is saved. If the final call time has already passed, the app asks for a <strong>late reason</strong> (up to 1000 characters).</li>
-<li><strong>Step 2 - Pickup scan.</strong> Type or camera-scan bag IDs. They are checked against the manifests of every request on the trip: success plays a chime; a bag not on the manifest or already scanned plays an <strong>error siren</strong> (a not-on-manifest bag can still be forced through: the scanner types the driver's <strong>override code</strong> for that bag). The first accepted bag records <strong>Start Loading</strong>. The camera opens with the phone's normal (zoomed-out) photo view on the main lens (use <em>Switch camera</em> if needed) and records each barcode once.</li>
-<li><strong>End pickup scan</strong> first shows a summary - total manifest IDs on the trip, original successful scans, manifest IDs not yet scanned and override scans. Press <strong>Confirm</strong> to end it; no more scans are possible after that.</li>
-<li><strong>Step 3 - End loading</strong> (needs the pickup scan ended), then <strong>Step 4 - Depart</strong>, which flips the trip to <strong>In Transit</strong>.</li>
-<li><strong>Each drop, in drop # order:</strong> (a) Arrived at destination - Drop #, (b) unloading scan, (c) optional photos, (d) Finish this drop. The next drop unlocks only when the one before it is finished.</li>
-<li><strong>Unloading scan:</strong> only bags pickup-scanned for that drop are accepted. A match plays a chime and shows the bag, account, destination and drop #. <strong>Override bags</strong> (forced through at pickup) can be unloaded at whichever drop they turn up at, but only once on the whole trip. A bag that does not match plays the siren and shows a failed result; a bag already unloaded plays the siren and shows a duplicate result - neither is recorded. <strong>Start Unloading</strong> is recorded by the first bag scanned, not by a button.</li>
-<li><strong>End Unloading Scan</strong> (anyone on the scan screen) shows a summary - pickup bags for the request, successful unloading scans and bags still remaining. Choose <strong>Resume scan</strong> or <strong>Confirm End Unloading Scan</strong> (asked once more to be sure). After that the unloading scan for that request cannot be opened again.</li>
-<li><strong>Photos</strong> (after Arrived at destination) can be taken with the camera or picked from the gallery. They are compressed on the phone before upload (max 8 files, 25MB total per request).</li>
-<li>Finishing the last drop completes the trip, and the next trip can be started.</li>
-<li>When a scan is ended, the <strong>Masterlist</strong> manifest column shows <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links (CSV: Bag ID, Trip ID, International MAWB, Domestic MAWB, Account, Origin, Destination, Drop #, Remark).</li>
-</ol>
-<div class="g-shots"><figure class="g-shot g-phone"><a href="/guide/09-scan-app.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/09-scan-app.jpg" alt="Scanning app on a phone: driver sign in  My trips  the trip steps, done in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Scanning app on a phone: driver sign in &rarr; My trips &rarr; the trip steps, done in order.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rates">
-<div class="card-h"><h3><i class="fas fa-dollar-sign"></i> 10. Rate Management</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Rate Management</strong> (Administration; asks for the page password when one is set) and click <strong>Add Rate</strong>.</li>
-<li>Choose the Vendor, Truck Type, Origin and <strong>Main Destination</strong>, then enter Rate/Trip, Default Rate, Foul Trip %, Fuel Surcharge % and the Effective and Expiry dates. <strong>Additional Destination Drops</strong> (up to 5) each have their own rate; a drop location <strong>cannot be the Main Destination</strong> (it is greyed out in the list) and cannot be listed twice.</li>
-<li>How a request is priced from its rate card (same vendor, truck type and origin):
-<ul style="padding-left:18px">
-<li><strong>Drop 1</strong> (or a single-drop trip) going to a card's <strong>Main Destination</strong> &rarr; that card's <strong>Rate/Trip</strong>;</li>
-<li><strong>Drop 2, 3, &hellip;</strong> are extra stops on the same trip, not separate trips: they are priced on the card of drop 1's destination &mdash; its <strong>Additional Destination Drop</strong> rate when the stop is listed there, otherwise its <strong>Default Rate</strong> (even when the stop is the Main Destination again). A later drop never gets Rate/Trip;</li>
-<li>a drop 1 whose destination has no card of its own &rarr; a card listing it as an Additional Destination Drop, otherwise the Default Rate.</li>
-</ul>The <strong>Foul Trip %</strong> (Foul Trips) and <strong>Fuel Surcharge %</strong> (Delivered requests only) are applied to that same rate.</li>
-<li>Use the search box and the Origin, Dest and <strong>Truck Type</strong> filters to find a rate; edit or delete it from the Actions column. The table shows each rate's Rate/Trip, <strong>Foul Trip %</strong>, <strong>Fuel Surcharge %</strong>, Effective and Expiry dates. Rates are grouped by origin &rarr; destination. When a pair has more than one rate, its heading lists the lowest rate for each truck type on its own line (e.g. <em>Lowest 10W: NJV - 10W, ₱15,000.00</em>), and the <strong>Remark</strong> column marks the cheapest vendor per truck type.</li>
-<li>Rates feed the vendor sorting on Pending Allocation (cheapest first), the costs in Cost Analysis and the Foul Trip Cost on Foul Trip Approval.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/10-rates.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10-rates.jpg" alt="Rate Management grouped by origin  destination, with the Truck Type filter (outlined) and the Remark column naming the cheapest vendor." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Rate Management grouped by origin &rarr; destination, with the <strong>Truck Type</strong> filter (outlined) and the Remark column naming the cheapest vendor.</figcaption></figure><figure class="g-shot"><a href="/guide/10b-rate-form.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10b-rate-form.jpg" alt="Add Rate form: the Main Destination is greyed out in the Additional Destination Drops list." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add Rate form: the Main Destination is greyed out in the Additional Destination Drops list.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-eval">
-<div class="card-h"><h3><i class="fas fa-star"></i> 11. Vendor Speed Performance</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Evaluation</strong>. Filters: search by request #, Vendor, Truck Type, Plate, Origin, Destination, Account, Department, MAWB and Final Call From/To.</li>
-<li>The table shows every trip with its timing columns highlighted in blue &mdash; Customs to Arrival, and the other leg-to-leg lead times &mdash; next to request, trip and drop details.</li>
-<li>Click any sortable header to rank the vendors, and use <strong>Export CSV</strong> to download the current view.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/11-evaluation.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/11-evaluation.jpg" alt="Vendor Speed Performance: filters on top, and the lead-time columns in the table." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Vendor Speed Performance: filters on top, and the lead-time columns in the table.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-cost">
-<div class="card-h"><h3><i class="fas fa-chart-pie"></i> 12. Cost Analysis</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Cost</strong> and choose the <strong>Final Call From / To</strong> range (required), plus Account, Department, Origin, Destination, Vendor, Status or MAWB if needed.</li>
-<li>Click <strong>Generate Report</strong>. You get summary stat cards, a <strong>Vendor Share</strong> card showing each vendor's share of Delivered + Foul Trip requests, and the <strong>Detailed Breakdown</strong> table with every cost column (Actual Cost, Toll Fee, Management Fee, Fuel, Foul Trip Cost, Fuel Surcharge, Total Cost, ...).</li>
-<li>Only Delivered and approved Foul Trip requests count towards the figures &mdash; approve foul trips on Foul Trip Approval first.</li>
-<li>Click the <strong>Total Requests</strong>, <strong>Delivered</strong> or <strong>Foul Trip</strong> card to list only those requests in the table (click it again, or Total Requests, to show all). Export CSV follows what the table shows.</li>
-<li><strong>Actual Cost</strong> of a Delivered request is its rate from Rate Management: Rate/Trip for drop 1 when the origin and destination match the card's Main Destination; later drops of the same trip get the Additional Destination Drop rate or the Default Rate (topic 10). A <strong>Foul Trip has no Actual Cost</strong>: it is charged as the <strong>Foul Trip Cost</strong> = rate &times; Foul Trip % &times; Foul Trip Count Confirmation. The Fuel Surcharge Cost = rate &times; Fuel Surcharge %, for <strong>Delivered</strong> requests only &mdash; a Foul Trip has no Fuel Surcharge Cost. An Actual Cost typed in by hand through Edit Costs is kept.</li>
-<li><strong>Bulk Cost Update</strong> (admins): pick the date range, vendor and truck type, then <strong>tick the truck requests</strong> (each shows its Trip ID) the amounts should go to. With <strong>Split amount equally</strong> ticked, each amount is divided equally between the ticked requests; untick it to add the full amount to each.</li>
-<li>Sort by clicking headers, drag column headers to reorder (remember &mdash; <strong>Reset Columns</strong> restores them), and click <strong>Export CSV</strong> to download the table as shown.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/12-cost.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/12-cost.jpg" alt="Cost Analysis summary cards. Click Total Requests, Delivered (outlined) or Foul Trip to list only those requests." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Cost Analysis summary cards. Click <strong>Total Requests</strong>, <strong>Delivered</strong> (outlined) or <strong>Foul Trip</strong> to list only those requests.</figcaption></figure><figure class="g-shot"><a href="/guide/12b-bulk.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/12b-bulk.jpg" alt="Bulk Cost Update: pick the dates, vendor and truck type, tick the truck requests (with their Trip IDs), then enter the amounts." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Bulk Cost Update: pick the dates, vendor and truck type, tick the truck requests (with their Trip IDs), then enter the amounts.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-foul">
-<div class="card-h"><h3><i class="fas fa-flag"></i> 13. Foul Trip Approval</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Set a request's status to <strong>Foul Trip</strong> from Edit on the Masterlist. You must fill <strong>Foul Trip Count Confirmation (1 or 2)</strong> &mdash; the save is refused without it.</li>
-<li>Open <strong>Foul Trip Approval</strong>. The list shows all foul trips with the count confirmation, rate, foul trip %, date and reason.</li>
-<li>Check the row, then press the <strong>green tick</strong> in the Approve column to approve it. Approved trips are the ones counted in Cost Analysis.</li>
-<li>Click the <strong>Foul Trips</strong>, <strong>Awaiting Approval</strong> or <strong>Approved</strong> card to list only those foul trips.</li>
-<li>Sort by any sortable column, use <strong>Refresh</strong> for the latest, <strong>Reset Columns</strong> if you have dragged columns around, and <strong>Export CSV</strong> to download the table as shown.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/13-foul.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/13-foul.jpg" alt="Foul Trip Approval: summary cards on top; press the green tick (outlined) to approve a foul trip." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Foul Trip Approval: summary cards on top; press the green tick (outlined) to approve a foul trip.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-tu">
-<div class="card-h"><h3><i class="fas fa-gauge-high"></i> 14. Trip Utilisation Review</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Trip Utilisation Review</strong>. One row per trip with its Requests, Origin, Department, Vendor, Truck Type and <strong>Capacity (units)</strong>.</li>
-<li>Compare <strong>Initial Utilisation %</strong> (quantities when the trip was created) with <strong>Revised Utilisation %</strong> (current quantities). Both convert packaging to a single base unit using <strong>Master Library &rarr; Capacity Conversion</strong> and divide by the truck's max capacity.</li>
-<li>Colours: <strong style="color:#DC2626">red &lt;70%</strong>, <strong style="color:#D97706">yellow 70&ndash;85%</strong>, <strong style="color:#16A34A">green &gt;85%</strong>.</li>
-<li>Only trips with Delivered requests are listed, with a <strong>Status</strong> column.</li>
-<li>The summary cards show <strong>Trips</strong>, <strong>Green Trips</strong>, <strong>Yellow Trips</strong> and <strong>Red Trips</strong> (by Revised Utilisation %) plus the averages. Click a card to list only those trips; click it again (or Trips) to show all.</li>
-<li>Filter by Final Call From/To, Department, Origin Port, Vendor and Truck Type. Click headers to sort, <strong>Refresh</strong> to reload and <strong>Export CSV</strong> to download the table as shown.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/14-tu.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/14-tu.jpg" alt="Trip Utilisation Review: Trips, Green, Yellow and Red Trips (outlined). Click a card to list only those trips." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Trip Utilisation Review: Trips, Green, Yellow and <strong>Red Trips</strong> (outlined). Click a card to list only those trips.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-lib">
-<div class="card-h"><h3><i class="fas fa-book"></i> 15. Master Library &mdash; the reference data</h3></div>
-<div class="card-b">
-<p style="font-size:13.5px;margin-bottom:8px">Open <strong>Master Library</strong> and use the tabs. Add / edit / delete entries with the buttons on each tab.</p>
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li><strong>Ports</strong> &mdash; origin/destination ports. The map preview shows where a port is; click the map to set its coordinates (used for the distance and drop-order suggestions).</li>
-<li><strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong> &mdash; the dropdown values used across the app.</li>
-<li><strong>Truck Types</strong> &mdash; name plus Max KG, Max CBM and <strong>Max Capacity (base units)</strong>. The Max Capacity drives the Trip Utilisation %; if it is missing you get a warning on Pending Allocation.</li>
-<li><strong>Vendors</strong> &mdash; vendor companies; each vendor also gets a login role named <em>Vendor - &lt;name&gt;</em>.</li>
-<li><strong>Capacity Conversion</strong> &mdash; pick the <strong>base packaging unit</strong> (everything is measured in it, e.g. Pallet) and a <strong>factor</strong> for every other packaging type: how much of the base unit <strong>one</strong> unit of that type is worth (Carton 0.02 = 50 Cartons make 1 Pallet). The base unit is always factor 1.0. Utilisation on Pending Allocation and Trip Utilisation Review uses these factors &mdash; click <strong>Save</strong> after changing them.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/15-library.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/15-library.jpg" alt="Master Library  Capacity Conversion: the base packaging unit and the factor for every other packaging type." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Master Library &rarr; Capacity Conversion: the base packaging unit and the factor for every other packaging type.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-users">
-<div class="card-h"><h3><i class="fas fa-users-cog"></i> 16. User Roles</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>User Roles</strong> (Admin and Master Admin). Every signed-in user is listed with name, email and role.</li>
-<li>Change a user's access with the <strong>Role</strong> dropdown: Viewer, Normal User, Admin, Master Admin, <strong>Driver/Fleet</strong> (Scanning App only by default), New User (no access) or a Vendor role. The change takes effect on their next page load.</li>
-<li>A Master Admin can also change <strong>their own</strong> role from the dropdown on their own row &mdash; the page reloads with the new permissions straight away. Note: once you switch away from Master Admin, only another Master Admin can switch you back.</li>
-<li>Admins cannot change their own role, and only Master Admins can assign the Master Admin role.</li>
-<li>Click a user's <strong>name</strong> to rename it (Admin+), or the red minus to remove the user.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/16-users.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/16-users.jpg" alt="User Roles: change a users role from the dropdown on the right." loading="lazy"></a><figcaption><i class="fas fa-image"></i> User Roles: change a user&rsquo;s role from the dropdown on the right.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-rv">
-<div class="card-h"><h3><i class="fas fa-eye"></i> 17. Role Visibility (Master Admin only)</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>Open <strong>Role Visibility</strong>. Each card is one role with a checkbox for every page in the app.</li>
-<li>Tick the pages that role should see, then click <strong>Save Changes</strong>. Users pick up the change on their next page load.</li>
-<li>Click a role heading to rename how the role is displayed everywhere (e.g. rename "Normal User" to "Dispatcher").</li>
-<li><strong>New User</strong> always starts with no pages &mdash; that is the "waiting for access" state. The <strong>User Guide</strong> page is granted to every role automatically and cannot be switched off.</li>
-<li><strong>Scanning App</strong> is a page like the others and can be switched on or off per role. <strong>Driver/Fleet</strong> starts with the Scanning App only: while that is its only page, its users open straight into the scanning app and cannot reach the rest of the app. Tick more pages for Driver/Fleet to widen its scope like any other role.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/17-role-visibility.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/17-role-visibility.jpg" alt="Role Visibility: tick the pages each role may open, then Save Changes." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Role Visibility: tick the pages each role may open, then Save Changes.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-pw">
-<div class="card-h"><h3><i class="fas fa-lock"></i> 18. Page Password &amp; Access Logs</h3></div>
-<div class="card-b">
-<ol style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li>One common password protects <strong>Driver / Fleet Accounts</strong> (Vendor roles are not asked), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>.</li>
-<li>Opening one of these pages shows a padlock card: type the page password and press <strong>Unlock</strong>. The password is asked again every time you open the page. After 5 wrong tries the page is blocked for 15 minutes for that user.</li>
-<li>Only the <strong>Master Admin</strong> sets it, under <strong>Administration &rarr; Page Password &amp; Logs</strong>: <strong>Set password</strong> the first time, then <strong>Change password</strong> (needs the current one) or <strong>Reset password</strong> (when the current one is forgotten). At least 6 characters.</li>
-<li>The <strong>User Log</strong> on the same page records every password set / change / reset and every page access (opened, wrong password, blocked) with the user, role, date / time and IP address. Filter it and <strong>Export CSV</strong>. Log records cannot be edited or deleted.</li>
-<li>Until a password is set, the pages open without asking.</li>
-</ol>
-<div class="g-shots"><figure class="g-shot"><a href="/guide/18a-lock.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18a-lock.jpg" alt="A protected page asks for the page password before it opens." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A protected page asks for the page password before it opens.</figcaption></figure><figure class="g-shot"><a href="/guide/18b-security.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18b-security.jpg" alt="Page Password  Logs (Master Admin): set, change or reset the password, and the user log of every change and page access." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Page Password &amp; Logs (Master Admin): set, change or reset the password, and the user log of every change and page access.</figcaption></figure></div>
-</div></div>
-
-<div class="card" style="margin-bottom:16px;scroll-margin-top:100px" id="g-ref">
-<div class="card-h"><h3><i class="fas fa-palette"></i> 19. Quick reference</h3></div>
-<div class="card-b">
-<div style="font-size:13.5px;line-height:1.9">
-<p style="margin:0 0 6px"><strong>Utilisation colours</strong> (Pending Allocation and Trip Utilisation Review): <span class="badge" style="background:#DC2626;color:#fff">&lt;70% red</span> under-filled &nbsp; <span class="badge" style="background:#D97706;color:#fff">70&ndash;85% yellow</span> OK &nbsp; <span class="badge" style="background:#16A34A;color:#fff">&gt;85% green</span> well loaded.</p>
-<p style="margin:0 0 6px"><strong>Status flow</strong>: Pending (waiting for allocation) &rarr; Allocated (on a trip) &rarr; In Transit &rarr; Delivered. Other statuses: On Hold, Cancelled, Foul Trip (needs the 1 or 2 count confirmation).</p>
-<p style="margin:0 0 6px"><strong>Trip IDs</strong> look like <em>TNP-0001</em> (TNW, TCW, TSH follow the truck type). The number is frozen once assigned &mdash; requests may leave and rejoin a trip, but numbers are only renumbered for the remaining drops.</p>
-<p style="margin:0 0 6px"><strong>Consolidation badge</strong>: requests that were grouped onto one trip show it on Masterlist.</p>
-<p style="margin:0"><strong>Distance (KM)</strong> is calculated and shown in red once a request is part of a trip.</p>
 </div>
-</div></div>
+</section>
 
-<div class="card" style="margin-bottom:24px;scroll-margin-top:100px" id="g-faq">
-<div class="card-h"><h3><i class="fas fa-life-ring"></i> 20. Testing tips and troubleshooting</h3></div>
+<section class="pg" id="pg-guide-driver">
+<div class="pg-hdr"><h1><i class="fas fa-mobile-screen-button" style="color:var(--pri)"></i> User Guide for Driver/Fleet</h1><div class="acts"><button class="btn btn-o" onclick="window.print()"><i class="fas fa-print"></i> Print / Save PDF</button></div></div>
+<div class="guide-root">
+<div data-gid="top" style="font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.6"><i class="fas fa-info-circle"></i> For drivers: how to use the Scanning App on your phone, from pickup to the last drop. Inside the app, tap <strong>Guide</strong> to open this page. Click a picture to open it full size.</div>
+<div class="guide-quick"><div class="gq"><b><span>1</span> Sign in</b><p>Username + password from your vendor.</p></div><div class="gq"><b><span>2</span> Pickup</b><p>Arrive, scan the bags, end loading, depart.</p></div><div class="gq"><b><span>3</span> Each drop</b><p>Arrive, scan bags off, add photos, finish.</p></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-list"></i> Topics</h3></div><div class="card-b"><div class="guide-toc"><a href="javascript:void(0)" onclick="return guideJump(this,'gd-signin')">1. Sign in</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gd-steps')">2. Work through the steps in order</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gd-pickup')">3. Step 2 &ndash; Pickup scan (load the bags)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gd-depart')">4. Steps 3 and 4 &ndash; End loading and Depart</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gd-drop')">5. At each drop</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gd-done')">6. Finish the trip</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'gd-help')">7. Problems and fixes</a><br></div></div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-signin">
+<div class="card-h"><h3><i class="fas fa-right-to-bracket"></i> 1. Sign in</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ul style="font-size:13.5px;line-height:1.9;padding-left:20px">
-<li><strong>A page is missing from the menu</strong> &mdash; your role does not have it. A Master Admin grants it under Role Visibility (topic 17).</li>
-<li><strong>"No pages available"</strong> &mdash; your account is New User; ask an admin to change your role.</li>
-<li><strong>Orange Local Mode badge</strong> &mdash; the app is running on a test computer with no database; data resets on restart. On the live site this badge does not appear.</li>
-<li><strong>Attachments fail</strong> &mdash; limit is 8 files and 25&nbsp;MB per request.</li>
-<li><strong>Manifest upload refused</strong> &mdash; it must be an Excel file (.xlsx / .xlsm) of 10&nbsp;MB or less.</li>
-<li><strong>A page asks for a password</strong> &mdash; it is one of the protected pages; ask the Master Admin for the page password (topic 18).</li>
-<li><strong>No utilisation % on Pending</strong> &mdash; the truck type has no Max Capacity (Master Library &rarr; Truck Types) or a packaging type has no factor (Capacity Conversion tab).</li>
-<li><strong>No distance between drops</strong> &mdash; port coordinates are missing (Master Library &rarr; Ports &mdash; click the map to set them).</li>
-<li><strong>Cost Analysis shows no figures</strong> &mdash; check the required Final Call date range and remember only Delivered and approved Foul Trip requests count.</li>
-<li><strong>Testing an error</strong> &mdash; if something fails, the page shows the exact error message; tell the administrators what it said and on which page.</li>
-</ul>
-<p style="font-size:13px;margin-top:10px"><a href="#g-topics">&uarr; Back to contents</a></p>
+<ol class="guide-steps"><li>Open the app link on your phone (it ends in <strong>#/scan</strong>) &mdash; or tap <strong>Scanning App</strong> in the menu.</li><li>Type the <strong>username</strong> and <strong>password</strong> your company gave you and tap <strong>Sign in</strong>. You stay signed in on this phone for 30 days.</li><li><strong>My trips</strong> lists the trips given to you. Tap <strong>Open trip</strong>.</li></ol>
+<div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d01-signin.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d01-signin.jpg" alt="Sign in, then open your trip from My trips." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Sign in, then open your trip from <strong>My trips</strong>.</figcaption></figure></div>
 </div></div>
-
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-steps">
+<div class="card-h"><h3><i class="fas fa-list-ol"></i> 2. Work through the steps in order</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>The trip shows numbered steps. A step only unlocks when the one before it is done (a <i class="fas fa-lock"></i> lock shows what to do first).</li><li>Work on <strong>one trip at a time</strong> &mdash; other trips stay locked until this one is finished.</li><li><strong>Step 1 &ndash; Arrived at pickup</strong>: tap it when the truck reaches the pickup point and confirm. If you are past the final call time, type the reason you are late.</li></ol>
+<div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d02-steps.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d02-steps.jpg" alt="The trip steps, then the confirmation for Arrived at pickup." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The trip steps, then the confirmation for <strong>Arrived at pickup</strong>.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-pickup">
+<div class="card-h"><h3><i class="fas fa-barcode"></i> 3. Step 2 &ndash; Pickup scan (load the bags)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Tap <strong>Open pickup scan</strong>. Scan each bag with <strong>Scan with camera</strong>, or type the bag ID and tap <strong>Record bag</strong>.</li><li><span style="color:#16A34A"><strong>Green + chime</strong></span> = bag accepted. <span style="color:#DC2626"><strong>Red + siren</strong></span> = not accepted (not on the manifest, or already scanned).</li><li>A bag <strong>not on the manifest</strong> can only be accepted if the supervisor types the <strong>override code</strong> and taps <strong>Override and record this bag</strong>.</li><li>When every bag is loaded, tap <strong>End pickup scan</strong>, check the summary and tap <strong>Confirm</strong> (or <strong>Resume scanning</strong> if bags are missing).</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> The camera reads each barcode once &mdash; hold the bag steady until you hear the chime. Another phone can help scan: it opens the <strong>Scan link</strong> QR code shown under the scan screen.</div>
+<div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d03-pickup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d03-pickup.jpg" alt="A bag accepted (left) and a bag not on the manifest, with the override box (right)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A bag accepted (left) and a bag not on the manifest, with the override box (right).</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d04-end-pickup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d04-end-pickup.jpg" alt="The summary before ending the pickup scan." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The summary before ending the pickup scan.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-depart">
+<div class="card-h"><h3><i class="fas fa-truck-fast"></i> 4. Steps 3 and 4 &ndash; End loading and Depart</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Tap <strong>Back to the trip</strong>, then <strong>End loading</strong> when the truck is loaded.</li><li>Tap <strong>Depart</strong> when you leave. The trip is now <strong>In Transit</strong>.</li></ol>
+<div class="g-shots"><figure class="g-shot g-phone"><a href="/guide/d05-depart.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d05-depart.jpg" alt="After Depart, the drops unlock one by one." loading="lazy"></a><figcaption><i class="fas fa-image"></i> After Depart, the drops unlock one by one.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-drop">
+<div class="card-h"><h3><i class="fas fa-location-dot"></i> 5. At each drop</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted.</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. It cannot be reopened afterwards.</li><li><strong>(c) Photos</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos, e.g. proof of delivery.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. The next drop unlocks.</li></ol>
+<div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d06-unload.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d06-unload.jpg" alt="Unloading scan, then the summary before ending it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Unloading scan, then the summary before ending it.</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d07-photos.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d07-photos.jpg" alt="Add photos, then Finish Drop." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add photos, then <strong>Finish Drop</strong>.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-done">
+<div class="card-h"><h3><i class="fas fa-flag-checkered"></i> 6. Finish the trip</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Finishing the <strong>last drop</strong> completes the trip. It is marked Delivered and you can start your next trip from <strong>My trips</strong>.</li></ol>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-help">
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 7. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li><strong>Cannot sign in</strong> &mdash; check the username and password with your vendor; the account may have been switched off.</li><li><strong>No trip in My trips</strong> &mdash; your vendor has not assigned you yet.</li><li><strong>A step is locked</strong> &mdash; finish the step shown in the lock message first.</li><li><strong>Camera does not open</strong> &mdash; allow camera access for this site in your phone browser, or type the bag ID instead.</li><li><strong>Red + siren on a bag</strong> &mdash; read the message: not on the manifest (call your supervisor for the override code) or already scanned (no action).</li></ol>
+</div></div>
+</div>
 </section>
 
 <!-- No access -->
@@ -792,9 +716,10 @@ body.scan-mode .layout{display:none}
 let user=null,ports=[],accts=[],depts=[],pkgs=[],tts=[],sts=[],vendors=[];
 let mlPg=1,mlSort='created_at',mlDir='desc',mlTotal=0;
 let editCtx=null;
+const HELP_PAGES=['user-guide','guide-vendor','guide-driver'];
 let isAdmin=false,isMaster=false,isViewer=false,isNormal=false,isVendor=false;
 let userPages=[];
-const DEFAULT_VENDOR_PAGES=['dashboard','masterlist','vendor-trucks','driver-accounts','fleet','user-guide'];
+const DEFAULT_VENDOR_PAGES=['dashboard','masterlist','vendor-trucks','driver-accounts','fleet','user-guide','guide-vendor','guide-driver'];
 
 async function init(){
   try{
@@ -832,8 +757,11 @@ async function init(){
       n.style.display=(pg&&userPages.includes(pg))?'':'none';
     });
     tidyNavSections();
+    // Cross-links between guides only show when the reader can open the target guide.
+    document.querySelectorAll('[data-needs-page]').forEach(e=>{e.style.display=userPages.includes(e.dataset.needsPage)?'':'none'});
     // A role whose only page is the Scanning App (Driver/Fleet) lives in the scanning app.
-    window.__scanOnly=userPages.length>0&&userPages.every(p=>p==='scan-app');
+    // Help pages do not take a role out of 'Scanning App only' mode (the driver guide opens inside the scanning app).
+    window.__scanOnly=userPages.length>0&&userPages.includes('scan-app')&&userPages.every(p=>p==='scan-app'||HELP_PAGES.includes(p));
     if(window.__scanOnly){
       if(!/^#\/(scan|s\/)/.test(location.hash||''))location.hash='#/scan';
       else scanRoute();
@@ -3655,7 +3583,9 @@ const ALL_PAGES=[
   {key:'users',label:'User Roles'},
   {key:'role-visibility',label:'Role Visibility'},
   {key:'scan-app',label:'Scanning App'},
-  {key:'user-guide',label:'User Guide'}
+  {key:'user-guide',label:'User Guide for All'},
+  {key:'guide-vendor',label:'User Guide for Vendors'},
+  {key:'guide-driver',label:'User Guide for Driver/Fleet'}
 ];
 const ROLE_LABELS={viewer:'Viewer',normal_user:'Normal User',admin:'Admin',master_admin:'Master Admin',driver_fleet:'Driver/Fleet',new_user:'New User',vendor:'Vendor'};
 const ROLE_ORDER=['viewer','normal_user','admin','master_admin','driver_fleet','new_user','vendor'];
@@ -3754,8 +3684,23 @@ function scanStopCam(){
 function scanShell(title,body,back){
   const app=document.getElementById('scanApp');
   if(!app)return;
-  app.innerHTML='<div class="sc-top"><h4><i class="fas fa-barcode"></i> '+title+'</h4><div>'+(back||'')+'</div></div><div class="sc-wrap">'+body+'</div><div class="sc-flash" id="scFlash"></div>';
+  app.innerHTML='<div class="sc-top"><h4><i class="fas fa-barcode"></i> '+title+'</h4><div class="sc-top-acts"><button class="btn btn-sm btn-o sc-guide-btn" onclick="scanGuide()" title="How to use the scanning app"><i class="fas fa-circle-question"></i> Guide</button>'+(back||'')+'</div></div><div class="sc-wrap">'+body+'</div><div class="sc-flash" id="scFlash"></div>';
 }
+/* Driver / Fleet guide inside the scanning app (same content as the menu page). */
+function scanGuide(){
+  const src=document.querySelector('#pg-guide-driver .guide-root');
+  if(!src)return;
+  let ov=document.getElementById('scGuide');
+  if(!ov){ov=document.createElement('div');ov.id='scGuide';document.body.appendChild(ov)}
+  ov.innerHTML='<div class="scg-top"><strong><i class="fas fa-circle-question"></i> Driver / Fleet guide</strong><button class="btn btn-sm btn-p" onclick="scanGuideClose()"><i class="fas fa-xmark"></i> Close</button></div><div class="scg-body"></div>';
+  const body=ov.querySelector('.scg-body');
+  body.innerHTML=src.outerHTML;
+  ov.style.display='block';ov.scrollTop=0;
+  document.documentElement.style.overflow='hidden';
+}
+function scanGuideClose(){const ov=document.getElementById('scGuide');if(ov){ov.style.display='none';ov.innerHTML=''}document.documentElement.style.overflow=''}
+/* In-guide jump links: scroll inside the guide that holds the link (no URL change). */
+function guideJump(el,gid){const root=el.closest('.guide-root');const t=root&&root.querySelector('[data-gid="'+gid+'"]');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return false}
 function scanBack(label,fn){
   return '<button class="btn btn-sm btn-o" style="background:#1E293B;color:#E2E8F0;border-color:#334155" onclick="'+fn+'"><i class="fas fa-arrow-left"></i> '+label+'</button>';
 }
