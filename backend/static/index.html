@@ -673,7 +673,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-pickup">
 <div class="card-h"><h3><i class="fas fa-barcode"></i> 3. Step 2 &ndash; Pickup scan (load the bags)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Tap <strong>Open pickup scan</strong>. Scan each bag with <strong>Scan with camera</strong>, or type the bag ID and tap <strong>Record bag</strong>. On a scanner device (e.g. Kaicom), tap the bag ID box and press the device's <strong>scan key</strong> instead.</li><li>To clear a bag ID you typed or scanned, tap the <strong><i class="fas fa-xmark"></i></strong> at the right of the bag ID box &mdash; the whole ID is removed in one tap.</li><li><span style="color:#16A34A"><strong>Green + chime</strong></span> = bag accepted. <span style="color:#DC2626"><strong>Red + siren</strong></span> = not accepted (not on the manifest, or already scanned).</li><li>A bag <strong>not on the manifest</strong> can only be accepted if the supervisor types the <strong>override code</strong> and taps <strong>Override and record this bag</strong>.</li><li>When every bag is loaded, tap <strong>End pickup scan</strong>, check the summary and tap <strong>Confirm</strong> (or <strong>Resume scanning</strong> if bags are missing). Manifest IDs that were never scanned are shown as <strong>(Discrepancy)</strong>.</li></ol>
+<ol class="guide-steps"><li>Tap <strong>Open pickup scan</strong>. Scan each bag with <strong>Scan with camera</strong>, or type the bag ID and tap <strong>Record bag</strong>. On a scanner device (e.g. Kaicom), just press the device's <strong>scan key</strong> &mdash; it works at any time, also while the camera is on.</li><li>To clear a bag ID you typed or scanned, tap the <strong><i class="fas fa-xmark"></i></strong> at the right of the bag ID box &mdash; the whole ID is removed in one tap.</li><li><span style="color:#16A34A"><strong>Green + chime</strong></span> = bag accepted. <span style="color:#DC2626"><strong>Red + siren</strong></span> = not accepted (not on the manifest, or already scanned).</li><li>A bag <strong>not on the manifest</strong> can only be accepted if the supervisor types the <strong>override code</strong> and taps <strong>Override and record this bag</strong>.</li><li>When every bag is loaded, tap <strong>End pickup scan</strong>, check the summary and tap <strong>Confirm</strong> (or <strong>Resume scanning</strong> if bags are missing). Manifest IDs that were never scanned are shown as <strong>(Discrepancy)</strong>.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> The camera reads each barcode once &mdash; hold the bag steady until you hear the chime. Another phone can help scan: it opens the <strong>Scan link</strong> QR code shown under the scan screen.</div>
 <div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d03-pickup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d03-pickup.jpg" alt="A bag accepted (left) and a bag not on the manifest, with the override box (right)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A bag accepted (left) and a bag not on the manifest, with the override box (right).</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d04-end-pickup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d04-end-pickup.jpg" alt="The summary before ending the pickup scan." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The summary before ending the pickup scan.</figcaption></figure></div>
 </div></div>
@@ -4282,10 +4282,10 @@ function renderScanKey(kind,key){
   }else{
     body+='<div class="sc-card"><h5><i class="fas fa-barcode"></i> Scan a bag</h5>'+
       '<div id="scResult"></div>'+
-      '<div class="sc-in-wrap"><input class="sc-in" id="scBag" placeholder="Type or scan a bag ID" autocapitalize="none" autocorrect="off" autocomplete="off" oninput="scBagSync()" onkeydown="if(event.key===\'Enter\')scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',this.value)">'+
+      '<div class="sc-in-wrap"><input class="sc-in" id="scBag" placeholder="Type or scan a bag ID" autocapitalize="none" autocorrect="off" autocomplete="off" onpointerdown="this.inputMode=\'text\'" oninput="scBagSync()" onkeydown="if(event.key===\'Enter\')scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',this.value)">'+
       '<button type="button" class="sc-clr" id="scBagClr" title="Clear bag ID" aria-label="Clear bag ID" onclick="scBagClear()"><i class="fas fa-xmark"></i></button></div>'+
       '<button class="sc-btn" onclick="scSend(\''+kind+'\',\''+encodeURIComponent(key)+'\',document.getElementById(\'scBag\').value)"><i class="fas fa-plus"></i> Record bag</button>'+
-      '<button class="sc-btn sec" id="scCamBtn" onclick="scCam()"><i class="fas fa-camera"></i> Scan with camera</button>'+
+      '<button class="sc-btn sec" id="scCamBtn" onclick="this.blur();scCam()"><i class="fas fa-camera"></i> Scan with camera</button>'+
       '<div id="qrReader"></div>'+
       '<div id="scCamTools"></div>'+
       '</div>';
@@ -4353,10 +4353,42 @@ function scBagClear(){
   if(f){f.remove();scOvBag=''}
   if(i)i.focus();
 }
-let scSending=false;
+/* Keep the bag ID box ready for a hardware scan key (Kaicom etc. type the ID like a
+   keyboard, then Enter). While the camera runs the box is focused with inputmode
+   "none", so the on-screen keyboard does not cover the camera; tapping the box
+   brings the keyboard back for typing. */
+function scBagReady(){
+  const i=document.getElementById('scBag');if(!i)return;
+  const a=document.activeElement;
+  if(a&&a!==i&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;  // someone is typing elsewhere (override code)
+  i.inputMode=scanCam?'none':'text';
+  try{i.focus({preventScroll:true})}catch(e){i.focus()}
+}
+/* Scanner keystrokes that land outside an input (e.g. on the Stop camera button or the
+   page) are put into the bag ID box, and their Enter records the bag instead of
+   pressing whatever button had focus. */
+document.addEventListener('keydown',e=>{
+  if(!document.body.classList.contains('scan-mode'))return;
+  const i=document.getElementById('scBag');if(!i||e.ctrlKey||e.metaKey||e.altKey)return;
+  const t=e.target;
+  if(t===i||(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))||t&&t.isContentEditable)return;
+  if(document.getElementById('scModal'))return;
+  if(e.key==='Enter'){
+    if(!i.value.trim())return;
+    e.preventDefault();e.stopPropagation();
+    scSend(scanKind,encodeURIComponent(scanKeyCur),i.value);
+  }else if(e.key&&e.key.length===1){
+    e.preventDefault();e.stopPropagation();
+    i.value+=e.key;scBagSync();scBagReady();
+  }
+},true);
+let scSending=false,scQueue=[];
 async function scSend(kind,key,bag,ovCode){
   bag=String(bag||'').trim();
-  if(!bag||scSending)return;
+  if(!bag)return;
+  // Empty the box as soon as an ID is submitted, so the next scan never joins onto it.
+  const bx=document.getElementById('scBag');if(bx&&bx.value.trim()===bag){bx.value='';scBagSync()}
+  if(scSending){if(!ovCode&&scQueue.length<50&&!scQueue.some(q=>q[2]===bag))scQueue.push([kind,key,bag]);return}  // record it right after the current one
   scSending=true;
   const box=document.getElementById('scResult');
   try{
@@ -4367,15 +4399,17 @@ async function scSend(kind,key,bag,ovCode){
     if(box)box.innerHTML=scResultHtml(kind,r);
     scanUpdate(kind);
     const oc=document.getElementById('scOvCode');
-    if(oc){scSending=false;scBagSync();oc.focus();return}
+    if(oc){scSending=false;scQueue=[];const b2=document.getElementById('scBag');if(b2&&!b2.value)b2.value=bag;scBagSync();oc.focus();return}
   }catch(e){
     scanSiren();scanFlash('#DC2626');
     if(box)box.innerHTML='<div class="sc-res bad"><div class="h"><i class="fas fa-exclamation-triangle"></i> Not recorded</div><div class="bag">'+esc(bag)+'</div><div class="why">'+esc(e.message)+'</div></div>';
     if(e.status===409){scanStopCam();setTimeout(()=>scanKey(kind,key),1500)}
   }
   scSending=false;
-  const i=document.getElementById('scBag');if(i){i.value='';if(!scanCam)i.focus()}
-  scBagSync();
+  // Clear only the ID just sent: a scan typed in meanwhile stays in the box.
+  scBagSync();scBagReady();
+  const nx=scQueue.shift();
+  if(nx)scSend(nx[0],nx[1],nx[2]);
 }
 /* A bag that is not on the manifest needs the driver's override code, typed for that bag. */
 let scOvBag='';
@@ -4506,7 +4540,7 @@ async function scCam(){
   const tools=document.getElementById('scCamTools');
   const btn=document.getElementById('scCamBtn');
   if(!box)return;
-  if(scanCam){scanStopCam();box.innerHTML='';if(tools)tools.innerHTML='';if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';return}
+  if(scanCam){scanStopCam();box.innerHTML='';if(tools)tools.innerHTML='';if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';scBagReady();return}
   if(!window.Html5Qrcode){box.innerHTML='<div class="sc-err">Camera scanning is not available on this device - type the bag ID instead.</div>';return}
   scCamLast='';scCamLastAt=0;scCamHold=false;
   await scCamStart();
@@ -4558,6 +4592,7 @@ async function scCamStart(wantId){
     scCamId=pick;
     await scCamZoom1();
     if(btn)btn.innerHTML='<i class="fas fa-stop"></i> Stop camera';
+    scBagReady();
     if(tools){
       const others=scCams.filter(c=>!/front|user|selfie/i.test(c.label));
       tools.innerHTML='<div class="sc-hint" style="margin-top:8px">Hold the label inside the box. Each barcode is recorded once - move to the next bag after the result shows.</div>'+
