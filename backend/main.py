@@ -1277,29 +1277,31 @@ def _merge_role_visibility(cfg):
             out.pop(k)  # vendor deleted or renamed -> drop the stale role key
     for vr in live_vendors:
         out.setdefault(vr, list(DEFAULT_VENDOR_PAGES))
-    # The User Guide is available to every role except New User, including
-    # vendor keys that were written before it existed.
-    for k in list(out):
-        if k in ("new_user", DRIVER_FLEET_ROLE) or k == ROLE_LABELS_KEY:
-            continue
-        v = out.get(k)
-        if isinstance(v, list) and GUIDE_PAGE not in v:
-            out[k] = list(v) + [GUIDE_PAGE]
-    # Configs saved before the vendor / driver guides existed: give both guides to
-    # Admin, Master Admin and every vendor role once (a master admin may change it later).
+    # One-time upgrade for configs saved before this release (no marker yet): give the
+    # User Guide for All to every role except New User / Driver-Fleet, the vendor /
+    # driver guides to Admin, Master Admin and every vendor role, and Driver / Fleet
+    # Accounts to roles with Vendor Truck Assignment. The first save by the master
+    # admin stores the marker, and from then on nothing is ticked back automatically.
     if not guides_added:
+        for k in list(out):
+            if k in ("new_user", DRIVER_FLEET_ROLE) or k == ROLE_LABELS_KEY:
+                continue
+            v = out.get(k)
+            if isinstance(v, list) and GUIDE_PAGE not in v:
+                out[k] = list(v) + [GUIDE_PAGE]
         for k in list(out):
             v = out.get(k)
             if isinstance(v, list) and (k in ("admin", "master_admin") or k.startswith(VENDOR_ROLE_PREFIX)):
                 out[k] = list(v) + [p for p in (VENDOR_GUIDE_PAGE, DRIVER_GUIDE_PAGE) if p not in v]
-    # Driver / Fleet Accounts rides along with Vendor Truck Assignment: a role
-    # that can assign a trip needs the page that creates the driver who drives it.
-    for k in list(out):
-        if k == "new_user" or k == ROLE_LABELS_KEY:
-            continue
-        v = out.get(k)
-        if isinstance(v, list) and VT_PAGE in v and DA_PAGE not in v:
-            out[k] = list(v) + [DA_PAGE]
+        # Old configs: Driver / Fleet Accounts rode along with Vendor Truck Assignment.
+        for k in list(out):
+            if k == "new_user" or k == ROLE_LABELS_KEY:
+                continue
+            v = out.get(k)
+            if isinstance(v, list) and VT_PAGE in v and DA_PAGE not in v:
+                out[k] = list(v) + [DA_PAGE]
+    # Nothing below adds a page the master admin can tick or untick: once Role
+    # Visibility is saved, exactly what was ticked is what each role gets.
     # Page Password & Access Logs belongs to the master admin only.
     for k in list(out):
         v = out.get(k)

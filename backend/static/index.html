@@ -572,7 +572,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-rv">
 <div class="card-h"><h3><i class="fas fa-eye"></i> 17. Role Visibility (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li></ol>
+<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li><li>What you save is exactly what each role gets &mdash; nothing is ticked back automatically. If you untick <strong>Role Visibility</strong> for Master Admin, the app asks you to confirm first.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/17-role-visibility.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/17-role-visibility.jpg" alt="Tick the pages for each role, then Save Changes." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Tick the pages for each role, then Save Changes.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-pw">
@@ -3646,7 +3646,7 @@ function renderRoleVisibility(){
   el.innerHTML=html;
 }
 
-async function saveRoleVisibility(){
+async function saveRoleVisibility(confirmed){
   const config={};
   ROLE_ORDER.forEach(r=>{config[r]=[]});
   document.querySelectorAll('.rv-cb').forEach(cb=>{
@@ -3658,6 +3658,15 @@ async function saveRoleVisibility(){
     if(v)labels[inp.dataset.role]=v;
   });
   if(Object.keys(labels).length)config.role_labels=labels;
+  // Nothing is ticked back automatically, so ask before the master admin removes
+  // their own access to this page (they could not open it again to undo it).
+  if(!confirmed&&!config.master_admin.includes('role-visibility')){
+    document.getElementById('mTitle').textContent='Remove Role Visibility from Master Admin?';
+    document.getElementById('mBody').innerHTML='<p style="font-size:14px">You unticked <strong>Role Visibility</strong> for <strong>'+esc(rvLabel('master_admin'))+'</strong>.</p><p style="font-size:13px;color:var(--muted);margin-top:8px">After saving, Master Admins will no longer see this page in the menu, so this change cannot be undone from the app. Save anyway?</p>';
+    document.getElementById('mFoot').innerHTML='<button class="btn btn-ghost" onclick="closeM()">Cancel</button><button class="btn btn-d" onclick="closeM();saveRoleVisibility(true)"><i class="fas fa-save"></i> Save anyway</button>';
+    document.getElementById('overlay').classList.add('on');
+    return;
+  }
   try{
     const res=await fetch('/api/role-visibility',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)});
     if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to save','error');return}
