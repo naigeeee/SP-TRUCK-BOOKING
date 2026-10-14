@@ -673,7 +673,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-pickup">
 <div class="card-h"><h3><i class="fas fa-barcode"></i> 3. Step 2 &ndash; Pickup scan (load the bags)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Tap <strong>Open pickup scan</strong>. Scan each bag with <strong>Scan with camera</strong>, or type the bag ID and tap <strong>Record bag</strong>. On a scanner device (e.g. Kaicom), just press the device's <strong>scan key</strong> &mdash; it works at any time, also while the camera is on.</li><li>To clear a bag ID you typed or scanned, tap the <strong><i class="fas fa-xmark"></i></strong> at the right of the bag ID box &mdash; the whole ID is removed in one tap.</li><li><span style="color:#16A34A"><strong>Green + chime</strong></span> = bag accepted. <span style="color:#DC2626"><strong>Red + siren</strong></span> = not accepted (not on the manifest, or already scanned).</li><li>A bag <strong>not on the manifest</strong> can only be accepted if the supervisor types the <strong>override code</strong> and taps <strong>Override and record this bag</strong>.</li><li>When every bag is loaded, tap <strong>End pickup scan</strong>, check the summary and tap <strong>Confirm</strong> (or <strong>Resume scanning</strong> if bags are missing). Manifest IDs that were never scanned are shown as <strong>(Discrepancy)</strong>.</li></ol>
+<ol class="guide-steps"><li>Tap <strong>Open pickup scan</strong>. Scan each bag with <strong>Scan with camera</strong>, or type the bag ID and tap <strong>Record bag</strong>. On a scanner device (e.g. Kaicom), just press the device's <strong>scan key</strong>. The scan key and <strong>Scan with camera</strong> cannot be used at the same time: tap <strong>Stop camera</strong> first (if you press the scan key while the camera is on, the app turns the camera off &mdash; press the scan key again).</li><li>To clear a bag ID you typed or scanned, tap the <strong><i class="fas fa-xmark"></i></strong> at the right of the bag ID box &mdash; the whole ID is removed in one tap.</li><li><span style="color:#16A34A"><strong>Green + chime</strong></span> = bag accepted. <span style="color:#DC2626"><strong>Red + siren</strong></span> = not accepted (not on the manifest, or already scanned).</li><li>A bag <strong>not on the manifest</strong> can only be accepted if the supervisor types the <strong>override code</strong> and taps <strong>Override and record this bag</strong>.</li><li>When every bag is loaded, tap <strong>End pickup scan</strong>, check the summary and tap <strong>Confirm</strong> (or <strong>Resume scanning</strong> if bags are missing). Manifest IDs that were never scanned are shown as <strong>(Discrepancy)</strong>.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> The camera reads each barcode once &mdash; hold the bag steady until you hear the chime. Another phone can help scan: it opens the <strong>Scan link</strong> QR code shown under the scan screen.</div>
 <div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d03-pickup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d03-pickup.jpg" alt="A bag accepted (left) and a bag not on the manifest, with the override box (right)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A bag accepted (left) and a bag not on the manifest, with the override box (right).</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d04-end-pickup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d04-end-pickup.jpg" alt="The summary before ending the pickup scan." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The summary before ending the pickup scan.</figcaption></figure></div>
 </div></div>
@@ -697,7 +697,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-help">
 <div class="card-h"><h3><i class="fas fa-life-ring"></i> 7. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li><strong>Cannot sign in</strong> &mdash; check the username and password with your vendor; the account may have been switched off.</li><li><strong>No trip in My trips</strong> &mdash; your vendor has not assigned you yet.</li><li><strong>A step is locked</strong> &mdash; finish the step shown in the lock message first.</li><li><strong>Camera does not open</strong> &mdash; allow camera access for this site in your phone browser and close any other app using the camera (such as the device's own scanner app), then try again. On a scanner device (e.g. Kaicom), you can skip the camera: tap the bag ID box and press the scan key. You can always type the bag ID.</li><li><strong>Red + siren on a bag</strong> &mdash; read the message: not on the manifest (call your supervisor for the override code) or already scanned (no action).</li></ol>
+<ol class="guide-steps"><li><strong>Cannot sign in</strong> &mdash; check the username and password with your vendor; the account may have been switched off.</li><li><strong>No trip in My trips</strong> &mdash; your vendor has not assigned you yet.</li><li><strong>A step is locked</strong> &mdash; finish the step shown in the lock message first.</li><li><strong>Camera does not open</strong> &mdash; allow camera access for this site in your phone browser and close any other app using the camera (such as the device's own scanner app), then try again. On a scanner device (e.g. Kaicom), you can skip the camera and just press the scan key. You can always type the bag ID.</li><li><strong>Scan key does nothing</strong> &mdash; make sure the camera is stopped (the button shows <strong>Scan with camera</strong>). If it still does not read, close the browser tab, reopen the app link and try again.</li><li><strong>Red + siren on a bag</strong> &mdash; read the message: not on the manifest (call your supervisor for the override code) or already scanned (no action).</li></ol>
 </div></div>
 </div>
 </section>
@@ -3698,11 +3698,46 @@ document.getElementById('overlay').addEventListener('click',e=>{if(e.target===e.
 /* ===================== Scanning app (mobile) ===================== */
 let scanTimer=null,scanDriver=null,scanCam=null,scanTrips=[],scanCur=null,scanSum=null,scanOv='',scanBusy=false;
 
+/* Every camera stream this page opens is remembered, so stopping the camera really
+   hands it back to the phone. Scanner phones (e.g. Kaicom) read barcodes with the same
+   camera hardware: while the browser holds it, the device's scan key cannot work. */
+(function(){
+  const md=navigator.mediaDevices;
+  if(!md||!md.getUserMedia||md.__scWrapped)return;
+  const orig=md.getUserMedia.bind(md);
+  window.__scStreams=new Set();
+  md.getUserMedia=async function(c){const st=await orig(c);if(c&&c.video)window.__scStreams.add(st);return st};
+  md.__scWrapped=true;
+})();
+function scCamReleaseAll(){
+  const set=window.__scStreams;
+  if(set){set.forEach(st=>{try{st.getTracks().forEach(t=>{try{t.stop()}catch(e){}})}catch(e){}});set.clear()}
+  document.querySelectorAll('#qrReader video').forEach(v=>{try{v.pause();v.srcObject=null}catch(e){}});
+}
+/* Stop the camera only (the scan screen keeps refreshing). Resolves once released. */
+function scCamRelease(){
+  const c=scanCam;scanCam=null;
+  if(!c){scCamReleaseAll();return Promise.resolve()}
+  return Promise.resolve().then(()=>c.stop()).catch(()=>{}).then(()=>{try{c.clear()}catch(e){}scCamReleaseAll()});
+}
+/* Camera off + buttons back to "Scan with camera"; note = optional message under it. */
+function scCamOff(note){
+  const box=document.getElementById('qrReader'),tools=document.getElementById('scCamTools'),btn=document.getElementById('scCamBtn');
+  const p=scCamRelease();
+  if(box)box.innerHTML=note?'<div class="sc-ok" style="margin-top:8px"><i class="fas fa-barcode"></i> '+note+'</div>':'';
+  if(tools)tools.innerHTML='';
+  if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';
+  scBagReady();
+  return p;
+}
 function scanStopCam(){
   if(scanTimer){clearInterval(scanTimer);scanTimer=null}
-  if(scanCam){const c=scanCam;scanCam=null;Promise.resolve().then(()=>c.stop()).catch(()=>{}).then(()=>{try{c.clear()}catch(e){}})}
+  scCamRelease();
   const m=document.getElementById('scModal');if(m)m.remove();
 }
+// Leaving the app (screen off, switching to the scanner app) always frees the camera.
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&scanCam)scCamOff()});
+window.addEventListener('pagehide',()=>{if(scanCam)scCamRelease()});
 function scanShell(title,body,back){
   const app=document.getElementById('scanApp');
   if(!app)return;
@@ -4367,6 +4402,16 @@ function scBagReady(){
 /* Scanner keystrokes that land outside an input (e.g. on the Stop camera button or the
    page) are put into the bag ID box, and their Enter records the bag instead of
    pressing whatever button had focus. */
+function scIsScanKey(e){
+  // Scanner phones send their scan key as a key the browser does not know (or F-keys).
+  return (e.key==='Unidentified'&&e.keyCode!==229)||/^F(9|1[0-2]|1[3-9]|2[0-4])$/.test(e.key||'')||e.key==='Camera';
+}
+document.addEventListener('keydown',e=>{
+  if(scanCam&&document.body.classList.contains('scan-mode')&&scIsScanKey(e)){
+    scCamOff('Camera turned off so the device scanner can read. Press the scan key again.');
+    return;
+  }
+},true);
 document.addEventListener('keydown',e=>{
   if(!document.body.classList.contains('scan-mode'))return;
   const i=document.getElementById('scBag');if(!i||e.ctrlKey||e.metaKey||e.altKey)return;
@@ -4540,7 +4585,7 @@ async function scCam(){
   const tools=document.getElementById('scCamTools');
   const btn=document.getElementById('scCamBtn');
   if(!box)return;
-  if(scanCam){scanStopCam();box.innerHTML='';if(tools)tools.innerHTML='';if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';scBagReady();return}
+  if(scanCam){await scCamOff();return}
   if(!window.Html5Qrcode){box.innerHTML='<div class="sc-err">Camera scanning is not available on this device - type the bag ID instead.</div>';return}
   scCamLast='';scCamLastAt=0;scCamHold=false;
   await scCamStart();
@@ -4550,7 +4595,7 @@ async function scCamStart(wantId){
   const tools=document.getElementById('scCamTools');
   const btn=document.getElementById('scCamBtn');
   if(!box)return;
-  if(scanCam){const c=scanCam;scanCam=null;try{await c.stop()}catch(e){};try{c.clear()}catch(e){}}
+  if(scanCam)await scCamRelease();
   box.innerHTML='';
   try{
     // Listing the cameras opens one briefly; give the device a moment to release it.
@@ -4573,7 +4618,7 @@ async function scCamStart(wantId){
     let lastErr=null,started=false;
     for(let n=0;n<tries.length&&!started;n++){
       const t=tries[n];
-      if(n){try{scanCam&&scanCam.clear()}catch(e){};await new Promise(r=>setTimeout(r,350))}  // let the lens be released
+      if(n){try{scanCam&&scanCam.clear()}catch(e){};scCamReleaseAll();await new Promise(r=>setTimeout(r,350))}  // let the lens be released
       scanCam=mk();
       const cfg={fps:10,disableFlip:true,qrbox};
       if(t.vc)cfg.videoConstraints=t.vc;
@@ -4596,11 +4641,12 @@ async function scCamStart(wantId){
     if(tools){
       const others=scCams.filter(c=>!/front|user|selfie/i.test(c.label));
       tools.innerHTML='<div class="sc-hint" style="margin-top:8px">Hold the label inside the box. Each barcode is recorded once - move to the next bag after the result shows.</div>'+
+        '<div class="sc-hint" style="margin-top:6px;color:#FCD34D"><i class="fas fa-barcode"></i> Scanner device (e.g. Kaicom)? Its scan key cannot read while this camera is on - tap <strong>Stop camera</strong> first, then use the scan key.</div>'+
         (others.length>1?'<button class="sc-btn sec" onclick="scCamSwitch()"><i class="fas fa-sync-alt"></i> Switch camera'+(scCamId?' ('+esc((scCams.find(c=>c.id===scCamId)||{}).label||'')+')':'')+'</button>':'');
     }
   }catch(e){
     try{scanCam&&scanCam.clear()}catch(x){}
-    scanCam=null;
+    scanCam=null;scCamReleaseAll();
     if(btn)btn.innerHTML='<i class="fas fa-camera"></i> Scan with camera';
     const raw=String(e&&(e.message||e.name)||e);
     const blocked=/NotAllowed|Permission/i.test(raw);
@@ -4609,7 +4655,7 @@ async function scCamStart(wantId){
       (blocked?'Camera permission is blocked for this site - allow the camera in the browser settings, then tap Scan with camera again.'
         :busy?'Another app (often the device\'s own scanner app) may be using the camera. Close it and tap Scan with camera again.'
         :'This device did not give the browser a camera.')+
-      '<div style="margin-top:8px"><strong>Scanner device (e.g. Kaicom)?</strong> Use its built-in scan button instead: tap the bag ID box, then press the scan key (tap Record bag if it is not recorded by itself).</div>'+
+      '<div style="margin-top:8px"><strong>Scanner device (e.g. Kaicom)?</strong> Use its built-in scan key instead - just press it now (tap Record bag if the bag is not recorded by itself).</div>'+
       '<div style="margin-top:6px;opacity:.75;font-size:12px">Details: '+esc(raw)+'</div></div>';
     const i=document.getElementById('scBag');if(i)i.focus();
   }
