@@ -2357,6 +2357,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             r["pickup_scan_closed"] = bool(r.get("pickup_scan_closed_at"))
             r["revised_qty"] = _revised_qty(r)
             r["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
+            r.setdefault("unloading_remarks", None)
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 r["trip_id"] = resolve_trip_id(r, truck_reqs)
@@ -2458,7 +2459,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     elif manifest == "uploaded":
         wh.append("EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)")
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime",               "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at",               "revised_qty", "unload_scan_count", "driver_username", "driver_name", "driver_phone"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "unloading_remarks",               "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at",               "revised_qty", "unload_scan_count", "driver_username", "driver_name", "driver_phone"):
         sort_by = "created_at"
     _MFSQL = "EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
     _MFCNT = "(SELECT COALESCE(MAX(mf.id_count),0) FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
@@ -2955,7 +2956,7 @@ def _request_view_extras(r):
     r["pickup_scan_closed"] = bool(r.get("pickup_scan_closed_at"))
     r["unload_scan_closed"] = bool(r.get("unload_scan_closed_at"))
     r["scan_trip_base"] = trip_base(r.get("trip_id")) or f"req-{r.get('id')}"
-    for k in ("trip_id", "drop_sequence", "late_reason", "special_instructions", "foul_trip_reason",
+    for k in ("trip_id", "drop_sequence", "late_reason", "unloading_remarks", "special_instructions", "foul_trip_reason",
               "foul_trip_date", "foul_trip_count", "cancellation_date", "final_call_datetime"):
         r.setdefault(k, None)
     for k in ("final_call_datetime", "call_datetime", "customs_cleared_datetime", "foul_trip_approved_at",
@@ -2985,7 +2986,7 @@ def _insert_request(user, body):
             "vendor_id": None, "final_call_datetime": None, "trip_id": None, "drop_sequence": None,
             "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
             "end_loading_datetime": None, "arrived_dest_datetime": None, "start_unloading_datetime": None,
-            "end_unloading_datetime": None, "foul_trip_reason": None, "foul_trip_count": None,
+            "end_unloading_datetime": None, "unloading_remarks": None, "foul_trip_reason": None, "foul_trip_count": None,
             "foul_trip_approved_by": None, "foul_trip_approved_at": None,
             "created_at": nows(), "updated_at": nows()}
         _store["truck_requests"].append(req)
@@ -4784,7 +4785,8 @@ MILESTONE_FIELDS = [m[0] for m in MILESTONES]
 MILESTONE_LABEL = dict(MILESTONES)
 SCAN_WRITABLE = set(MILESTONE_FIELDS) | {"late_reason", "driver_account_id", "pickup_scan_key",
                                          "pickup_scan_closed_at", "unload_scan_key",
-                                         "unload_scan_closed_at", "status_id"}
+                                         "unload_scan_closed_at", "status_id", "unloading_remarks"}
+UNLOADING_REMARKS_MAX = 1000
 _SCAN_FROM = """FROM truck_requests tr
     LEFT JOIN accounts a ON tr.account_id=a.id
     LEFT JOIN ports po ON tr.origin_port_id=po.id
@@ -5775,6 +5777,7 @@ def _trip_detail(driver, rows):
             "start_unloading_datetime": to_gmt8(r.get("start_unloading_datetime")),
             "end_unloading_datetime": to_gmt8(r.get("end_unloading_datetime")),
             "late_reason": r.get("late_reason"),
+            "unloading_remarks": r.get("unloading_remarks"),
             "pickup_scan_key": r.get("pickup_scan_key"),
             "unload_scan_key": uk,
             "unload_scan_closed": bool(r.get("unload_scan_closed_at")),
@@ -5953,8 +5956,17 @@ async def scan_finish(rid: int, request: Request):
         raise HTTPException(400, "Tap Arrived at destination for this drop first")
     if not target.get("unload_scan_closed_at"):
         raise HTTPException(400, "End the unloading scan for this drop before finishing it")
+    try:
+        req_body = await request.json()
+    except Exception:
+        req_body = {}
+    remarks = str((req_body or {}).get("unloading_remarks") or "").strip() if isinstance(req_body, dict) else ""
+    if len(remarks) > UNLOADING_REMARKS_MAX:
+        raise HTTPException(400, f"Unloading remarks can be at most {UNLOADING_REMARKS_MAX} characters")
     now = nows()
     vals = {"end_unloading_datetime": now, "status_id": 4}
+    if remarks:
+        vals["unloading_remarks"] = remarks
     if not target.get("start_unloading_datetime"):
         # Nothing was scanned at this drop, so no bag stamped Start Unloading.
         vals["start_unloading_datetime"] = now
@@ -6386,7 +6398,7 @@ async def unassign_driver(rid: int, request: Request):
         raise HTTPException(400, "A driver can only be removed while the trip is Allocated")
     base = _trip_key_of(row)
     rows = [r for r in _rows_for_base(base) if r.get("status_id") == 2] or [row]
-    clears = {k: None for k in ("driver_account_id", "late_reason", "pickup_scan_key",
+    clears = {k: None for k in ("driver_account_id", "late_reason", "unloading_remarks", "pickup_scan_key",
                                 "pickup_scan_closed_at", "unload_scan_key",
                                 "unload_scan_closed_at") + tuple(MILESTONE_FIELDS)}
     for r in rows:

@@ -81,6 +81,7 @@ var FIELDS = {
     ["Arrived Destination", "arrived_dest_datetime", "datetime"],
     ["Start Unloading", "start_unloading_datetime", "datetime"],
     ["End Unloading", "end_unloading_datetime", "datetime"],
+    ["Unloading Remarks", "unloading_remarks"],
     ["Delivered Date", "delivered_date", "date"],
     ["Foul Trip Reason", "foul_trip_reason"],
     ["Foul Trip Date", "foul_trip_date", "date"],
