@@ -97,6 +97,11 @@ tr:hover td{background:#F8FAFC}
 .pend-vsug small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .pend-vsug.ok{background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46}.pend-vsug.ok i{color:#D97706;margin-top:2px}
 .pend-vsug.muted{background:var(--bg);border:1px solid var(--bdr);color:var(--txt)}.pend-vsug.muted i{color:var(--muted);margin-top:2px}
+#pg-rates th{white-space:normal;padding:10px 10px;line-height:1.3}
+#rTbl td{padding:10px 10px}
+#rTbl td:nth-child(n+5):nth-child(-n+9){white-space:nowrap}
+#rTbl td:nth-child(10){min-width:160px}
+#rTbl td:nth-child(10) .badge{white-space:nowrap}
 .stat-click{cursor:pointer}
 .stat-click:hover{box-shadow:var(--sh2);transform:translateY(-1px)}
 .stat-click.on{border-color:var(--pri);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
@@ -339,7 +344,7 @@ body.scan-mode .layout{display:none}
 <section class="pg" id="pg-rates">
 <div class="pg-hdr"><h1><i class="fas fa-dollar-sign" style="color:var(--ok)"></i> Rate Management</h1><div class="acts"><button class="btn btn-p" onclick="showRateModal()"><i class="fas fa-plus"></i> Add Rate</button></div></div>
 <div class="fb"><input type="text" class="s-input" id="rSrch" placeholder="Search vendor..." oninput="loadRates()" style="width:200px"><div class="fg2"><label>Origin</label><select class="f-input" id="rOrg" onchange="loadRates()"></select></div><div class="fg2"><label>Dest</label><select class="f-input" id="rDst" onchange="loadRates()"></select></div><div class="fg2"><label>Truck Type</label><select class="f-input" id="rTT" onchange="loadRates()"></select></div></div>
-<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Vendor</th><th>Truck Type</th><th>Origin Port</th><th>Destination Port</th><th>Rate/Trip</th><th>Effective</th><th>Expiry</th><th>Remark</th><th>Actions</th></tr></thead><tbody id="rTbl"></tbody></table></div></div></div>
+<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Vendor</th><th>Truck Type</th><th>Origin Port</th><th>Destination Port</th><th>Rate/Trip</th><th>Foul Trip %</th><th>Fuel Surcharge %</th><th>Effective</th><th>Expiry</th><th>Remark</th><th>Actions</th></tr></thead><tbody id="rTbl"></tbody></table></div></div></div>
 </section>
 
 <!-- Vendor Evaluation -->
@@ -624,7 +629,7 @@ body.scan-mode .layout{display:none}
 <li><strong>Drop 2, 3, &hellip;</strong> are extra stops on the same trip, not separate trips: they are priced on the card of drop 1's destination &mdash; its <strong>Additional Destination Drop</strong> rate when the stop is listed there, otherwise its <strong>Default Rate</strong> (even when the stop is the Main Destination again). A later drop never gets Rate/Trip;</li>
 <li>a drop 1 whose destination has no card of its own &rarr; a card listing it as an Additional Destination Drop, otherwise the Default Rate.</li>
 </ul>The <strong>Foul Trip %</strong> (Foul Trips) and <strong>Fuel Surcharge %</strong> (Delivered requests only) are applied to that same rate.</li>
-<li>Use the search box and the Origin, Dest and <strong>Truck Type</strong> filters to find a rate; edit or delete it from the Actions column. Rates are grouped by origin &rarr; destination. When a pair has more than one rate, its heading lists the lowest rate for each truck type on its own line (e.g. <em>Lowest 10W: NJV - 10W, ₱15,000.00</em>), and the <strong>Remark</strong> column marks the cheapest vendor per truck type.</li>
+<li>Use the search box and the Origin, Dest and <strong>Truck Type</strong> filters to find a rate; edit or delete it from the Actions column. The table shows each rate's Rate/Trip, <strong>Foul Trip %</strong>, <strong>Fuel Surcharge %</strong>, Effective and Expiry dates. Rates are grouped by origin &rarr; destination. When a pair has more than one rate, its heading lists the lowest rate for each truck type on its own line (e.g. <em>Lowest 10W: NJV - 10W, ₱15,000.00</em>), and the <strong>Remark</strong> column marks the cheapest vendor per truck type.</li>
 <li>Rates feed the vendor sorting on Pending Allocation (cheapest first), the costs in Cost Analysis and the Foul Trip Cost on Foul Trip Approval.</li>
 </ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/10-rates.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10-rates.jpg" alt="Rate Management grouped by origin  destination, with the Truck Type filter (outlined) and the Remark column naming the cheapest vendor." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Rate Management grouped by origin &rarr; destination, with the <strong>Truck Type</strong> filter (outlined) and the Remark column naming the cheapest vendor.</figcaption></figure><figure class="g-shot"><a href="/guide/10b-rate-form.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/10b-rate-form.jpg" alt="Add Rate form: the Main Destination is greyed out in the Additional Destination Drops list." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add Rate form: the Main Destination is greyed out in the Additional Destination Drops list.</figcaption></figure></div>
@@ -2560,6 +2565,7 @@ async function saveTruck(id){
 async function delTruck(id){if(!confirm('Delete truck?'))return;try{const res=await fetch('/api/trucks/'+id,{method:'DELETE'});if(!res.ok){const e=await res.json().catch(()=>({}));toast(e.detail||'Failed to delete','error');return}toast('Deleted');loadFleet()}catch(e){toast('Failed','error')}}
 
 // Rates
+function ratePct(v){if(v===null||v===undefined||v==='')return'<span style="color:var(--muted)">-</span>';const n=+v;return isNaN(n)?esc(String(v)):(Math.round(n*100)/100)+'%'}
 async function loadRates(){
   try{
     const v=document.getElementById('rSrch').value;
@@ -2575,7 +2581,7 @@ async function loadRates(){
     if(ttf){for(let i=data.length-1;i>=0;i--){if(String(data[i].truck_type_id)!==String(ttf))data.splice(i,1)}}
     const tb=document.getElementById('rTbl');
     const today=new Date().toISOString().slice(0,10);
-    const rowHtml=(r,remark)=>'<tr><td><strong>'+esc(r.vendor_name||'')+'</strong></td><td>'+esc(r.truck_type_name||'')+'</td><td>'+esc(r.origin_port_name||'')+'</td><td>'+esc(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+fmtDDate(r.effective_date)+'</td><td>'+fmtDDate(r.expiry_date)+'</td><td>'+(remark||'<span style="color:var(--muted)">-</span>')+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
+    const rowHtml=(r,remark)=>'<tr><td><strong>'+esc(r.vendor_name||'')+'</strong></td><td>'+esc(r.truck_type_name||'')+'</td><td>'+esc(r.origin_port_name||'')+'</td><td>'+esc(r.destination_port_name||'')+'</td><td>₱'+fmtN(r.rate_per_trip)+'</td><td>'+ratePct(r.foul_trip_pct)+'</td><td>'+ratePct(r.fuel_surcharge_pct)+'</td><td>'+fmtDDate(r.effective_date)+'</td><td>'+fmtDDate(r.expiry_date)+'</td><td>'+(remark||'<span style="color:var(--muted)">-</span>')+'</td><td><button class="btn btn-sm btn-o" onclick="editRate('+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delRate('+r.id+')"><i class="fas fa-trash"></i></button></td></tr>';
     /* Second grouping: rates sharing an origin -> destination pair sit together.
        When a pair has more than one rate, the Remark column names the cheapest
        vendor for each truck type (rates of different truck types are not compared). */
@@ -2608,7 +2614,7 @@ async function loadRates(){
           lows.sort((a,b)=>a.tt.localeCompare(b.tt,undefined,{numeric:true}));
           if(lows.length)headExtra='<div class="rate-lows">'+lows.map(l=>'<div class="rate-low"><i class="fas fa-arrow-down"></i> <strong>Lowest '+l.tt+':</strong> '+l.txt+'</div>').join('')+'</div>';
         }
-        out+='<tr><td colspan="9" style="background:'+accent+';font-weight:600;padding:6px 10px 6px 22px;font-size:12.5px"><i class="fas fa-route" style="color:var(--pri)"></i> '+esc(g[0].origin_port_name||'-')+' &rarr; '+esc(g[0].destination_port_name||'-')+' <span style="font-weight:400;color:var(--muted)">('+g.length+' rate'+(g.length>1?'s':'')+')</span>'+headExtra+'</td></tr>';
+        out+='<tr><td colspan="11" style="background:'+accent+';font-weight:600;padding:6px 10px 6px 22px;font-size:12.5px"><i class="fas fa-route" style="color:var(--pri)"></i> '+esc(g[0].origin_port_name||'-')+' &rarr; '+esc(g[0].destination_port_name||'-')+' <span style="font-weight:400;color:var(--muted)">('+g.length+' rate'+(g.length>1?'s':'')+')</span>'+headExtra+'</td></tr>';
         g.slice().sort((x,y)=>String(x.truck_type_name||'').localeCompare(String(y.truck_type_name||''))||(+x.rate_per_trip||0)-(+y.rate_per_trip||0)).forEach(r=>{out+=rowHtml(r,remarks.get(r.id))});
       });
       return out;
@@ -2618,15 +2624,15 @@ async function loadRates(){
       const hist=data.filter(r=>r.expiry_date&&String(r.expiry_date).slice(0,10)<today);
       let html='';
       if(cur.length){
-        html+='<tr><td colspan="9" style="background:#ECFDF5;font-weight:700;color:#047857;padding:8px 10px"><i class="fas fa-check-circle"></i> Current Rate <span style="font-weight:400;color:var(--mut)">('+cur.length+')</span></td></tr>';
+        html+='<tr><td colspan="11" style="background:#ECFDF5;font-weight:700;color:#047857;padding:8px 10px"><i class="fas fa-check-circle"></i> Current Rate <span style="font-weight:400;color:var(--mut)">('+cur.length+')</span></td></tr>';
         html+=groupHtml(cur,'#F0FDF4');
       }
       if(hist.length){
-        html+='<tr><td colspan="9" style="background:#FEF2F2;font-weight:700;color:#B91C1C;padding:8px 10px"><i class="fas fa-history"></i> Historical Rate <span style="font-weight:400;color:#B91C1C;opacity:.8">('+hist.length+')</span></td></tr>';
+        html+='<tr><td colspan="11" style="background:#FEF2F2;font-weight:700;color:#B91C1C;padding:8px 10px"><i class="fas fa-history"></i> Historical Rate <span style="font-weight:400;color:#B91C1C;opacity:.8">('+hist.length+')</span></td></tr>';
         html+=groupHtml(hist,'#FFF7F7');
       }
       tb.innerHTML=html;
-    }else{tb.innerHTML='<tr><td colspan="9" class="empty"><i class="fas fa-dollar-sign"></i><p>No rates found</p></td></tr>'}
+    }else{tb.innerHTML='<tr><td colspan="11" class="empty"><i class="fas fa-dollar-sign"></i><p>No rates found</p></td></tr>'}
   }catch(e){console.error(e)}
 }
 
