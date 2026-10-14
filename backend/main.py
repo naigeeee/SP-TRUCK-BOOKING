@@ -4421,9 +4421,18 @@ def download_att(aid: int, request: Request):
         req_row = next((r for r in _store["truck_requests"] if r["id"] == rid), None) if LOCAL_MODE \
             else db_1("SELECT vendor_id, assigned_truck_id FROM truck_requests WHERE id=%s", (rid,))
         if not req_row or not _owned_by_vendor(req_row, scope_vid): raise HTTPException(404, "Not found")
+    return _att_file_response(att)
+
+INLINE_SAFE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif", "application/pdf"}
+
+def _att_file_response(att, inline=False):
+    """The stored file of one attachment, as a download (or shown in place when inline).
+    Only photos and PDFs are ever shown in place; anything else is always a download."""
     path = att.get("storage_path", "")
     filename = att.get("original_filename") or att.get("filename") or "download"
     media = att.get("file_type") or "application/octet-stream"
+    inline = bool(inline) and media in INLINE_SAFE_TYPES
+    nosniff = {"X-Content-Type-Options": "nosniff"}
     if _is_object_key(path):
         try:
             if not obj_storage.exists(path):
@@ -4437,11 +4446,13 @@ def download_att(aid: int, request: Request):
         return Response(
             data,
             media_type=media,
-            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+            headers={"Content-Disposition": f'{"inline" if inline else "attachment"}; filename="{safe_name}"', **nosniff},
         )
     if not path or not os.path.exists(path):
         raise HTTPException(404, "File missing")
-    return FileResponse(path, filename=filename, media_type=media)
+    if inline:
+        return FileResponse(path, media_type=media, headers={"Content-Disposition": "inline", **nosniff})
+    return FileResponse(path, filename=filename, media_type=media, headers=nosniff)
 
 @app.delete("/api/attachments/{aid}")
 def delete_att(aid: int, request: Request):
@@ -5784,9 +5795,7 @@ def _trip_detail(driver, rows):
             "unload_scan_count": len(usc),
             "unload_expected_count": len(uref),
             "is_next_drop": i == 0,
-            "attachments": db_q("SELECT id, original_filename, file_size FROM truck_request_attachments WHERE truck_request_id=%s",
-                                (r.get("id"),)) if not LOCAL_MODE else
-                           [row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == r.get("id")],
+            "attachments": _scan_att_list(r.get("id"), driver),
         })
     fcs = [to_gmt8(r.get("final_call_datetime")) for r in rows if r.get("final_call_datetime")]
     return {"trip_id": base, "status_id": 3 if any(r.get("status_id") == 3 for r in rows) else 2,
@@ -6294,6 +6303,49 @@ async def scan_photo(rid: int, request: Request, file: UploadFile = File(...)):
         file_size,file_type,storage_path,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
         (rid, fn, file.filename or "photo.jpg", len(content), ctype, fp, driver.get("username") or "driver"))
     return db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,))
+
+def _scan_att_list(rid, driver=None):
+    """A drop's attachments for the scanning app: no storage paths; `mine` marks the
+    files this driver uploaded (only those can be removed from the phone)."""
+    rows = ([row2d(a) for a in _store["attachments"] if a.get("truck_request_id") == rid] if LOCAL_MODE
+            else db_q("SELECT id, original_filename, file_size, file_type, uploaded_by, created_at "
+                      "FROM truck_request_attachments WHERE truck_request_id=%s ORDER BY id", (rid,)))
+    me = (driver or {}).get("username")
+    return [{"id": a.get("id"), "original_filename": a.get("original_filename"), "file_size": a.get("file_size"),
+             "file_type": a.get("file_type"), "is_image": str(a.get("file_type") or "").startswith("image/"),
+             "mine": bool(me) and a.get("uploaded_by") == me} for a in rows]
+
+def _scan_att_or_404(rid, aid):
+    att = (next((a for a in _store["attachments"] if a["id"] == aid), None) if LOCAL_MODE
+           else db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,)))
+    if not att or att.get("truck_request_id") != rid:
+        raise HTTPException(404, "Photo not found")
+    return att
+
+@app.get("/api/scan/requests/{rid}/attachments/{aid}")
+def scan_photo_view(rid: int, aid: int, request: Request):
+    """Shows one of the drop's photos / files on the driver's phone."""
+    driver = get_driver(request)
+    _scan_request_or_404(rid, driver)
+    att = _scan_att_or_404(rid, aid)
+    return _att_file_response(att, inline=True)
+
+@app.delete("/api/scan/requests/{rid}/attachments/{aid}")
+def scan_photo_delete(rid: int, aid: int, request: Request):
+    """The driver removes a photo they added, while the drop is not finished yet."""
+    driver = get_driver(request)
+    row = _scan_request_or_404(rid, driver)
+    att = _scan_att_or_404(rid, aid)
+    if row.get("end_unloading_datetime") or row.get("status_id") not in (2, 3):
+        raise HTTPException(400, "This drop is finished - its photos can no longer be removed here")
+    if att.get("uploaded_by") != driver.get("username"):
+        raise HTTPException(403, "Only photos you added on this phone can be removed here")
+    _delete_att_file(att.get("storage_path", ""))
+    if LOCAL_MODE:
+        _store["attachments"] = [a for a in _store["attachments"] if a["id"] != aid]
+    else:
+        db_x("DELETE FROM truck_request_attachments WHERE id=%s", (aid,))
+    return {"ok": True, "attachments": _scan_att_list(rid, driver)}
 
 # --- Assigning a driver to a trip -----------------------------------------
 

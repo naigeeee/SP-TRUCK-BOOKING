@@ -201,6 +201,20 @@ body.scan-mode .layout{display:none}
 .sc-btn[disabled]{opacity:.45;cursor:not-allowed}
 .sc-in{width:100%;padding:14px;font-size:17px;border-radius:10px;border:1px solid #334155;background:#0B1220;color:#fff;font-family:inherit}
 .sc-in-wrap{position:relative}
+.sc-thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.sc-th{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#0B1220;border:1px solid #334155;cursor:pointer}
+.sc-th img{width:100%;height:100%;object-fit:cover;display:block}
+.sc-th .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#94A3B8;font-size:11px;padding:6px;text-align:center;word-break:break-all}
+.sc-th .ph i{font-size:22px}
+.sc-th-del{position:absolute;top:4px;right:4px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(220,38,38,.92);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.sc-th-n{position:absolute;left:4px;bottom:4px;background:rgba(15,23,42,.8);color:#E2E8F0;font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px}
+#scPv{position:fixed;inset:0;z-index:450;background:#020617;display:flex;flex-direction:column;color:#fff}
+#scPv .pv-top{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px}
+#scPv .pv-img{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:0 8px;position:relative}
+#scPv .pv-img img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+#scPv .pv-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:0;background:rgba(51,65,85,.85);color:#fff;font-size:18px;cursor:pointer}
+#scPv .pv-bot{display:flex;gap:10px;padding:12px 14px 18px}
+#scPv .pv-bot .sc-btn{margin-top:0}
 .sc-in-wrap .sc-in{padding-right:56px}
 .sc-clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:50%;background:#334155;color:#fff;font-size:18px;display:none;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .sc-clr.on{display:flex}
@@ -686,8 +700,8 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-drop">
 <div class="card-h"><h3><i class="fas fa-location-dot"></i> 5. At each drop</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted.</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery), and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it and the next drop unlocks.</li></ol>
-<div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d06-unload.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d06-unload.jpg" alt="Unloading scan, then the summary before ending it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Unloading scan, then the summary before ending it.</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d07-photos.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d07-photos.jpg" alt="Add photos and remarks, then Finish Drop." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add photos and remarks, then <strong>Finish Drop</strong>.</figcaption></figure></div>
+<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted.</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery), and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>Check your photos</strong> &mdash; tap a photo to see it full screen (use the arrows for the others). To remove one, tap its <i class="fas fa-trash-can"></i> (or <strong>Remove this photo</strong>) and confirm. Up to 8 files per drop; photos can be removed until you tap Finish Drop.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it and the next drop unlocks.</li></ol>
+<div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d06-unload.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d06-unload.jpg" alt="Unloading scan, then the summary before ending it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Unloading scan, then the summary before ending it.</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d07-photos.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d07-photos.jpg" alt="Add photos and remarks, then Finish Drop." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add photos and remarks, then <strong>Finish Drop</strong>.</figcaption></figure><figure class="g-shot g-pair"><a href="/guide/d08-review.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d08-review.jpg" alt="Review a photo full screen, and confirm before removing it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Review a photo full screen, and confirm before removing it.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-done">
 <div class="card-h"><h3><i class="fas fa-flag-checkered"></i> 6. Finish the trip</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
@@ -4014,7 +4028,8 @@ function scDropCard(t,r,i,prevNo){
   // c) photos and unloading remarks (after arrival); remarks are saved with Finish Drop
   const draft=scRemarkDraft[r.id]!=null?scRemarkDraft[r.id]:(r.unloading_remarks||'');
   let c='<div class="sc-step"><div class="sc-dot '+((r.attachments||[]).length||r.unloading_remarks?'done':'')+'">c</div><div class="sc-body"><div class="t">Photos and remarks <span style="font-weight:400;color:#94A3B8;font-size:12px">(optional)</span></div>';
-  if(arrived&&!done)c+='<div class="s">'+((r.attachments||[]).length)+' attached &middot; photos are compressed before upload</div><button class="sc-btn sec" onclick="scPhoto('+r.id+')"><i class="fas fa-camera"></i> Add photo (camera or gallery)</button>'+
+  if(arrived&&!done)c+='<div class="s">'+((r.attachments||[]).length)+' of 8 attached &middot; photos are compressed before upload'+((r.attachments||[]).length?' &middot; tap a photo to view it, <i class="fas fa-trash-can"></i> to remove it':'')+'</div>'+scThumbs(r)+
+    ((r.attachments||[]).length<8?'<button class="sc-btn sec" onclick="scPhoto('+r.id+')"><i class="fas fa-camera"></i> Add photo (camera or gallery)</button>':'<div class="s" style="color:#FCD34D;margin-top:8px">8 files is the limit - remove one to add another.</div>')+
     '<input type="file" id="scFile'+r.id+'" accept="image/*,application/pdf" multiple style="display:none" onchange="scPhotoSend('+r.id+',this)">'+
     '<label class="sc-hint" for="scRemark'+r.id+'" style="display:block;margin-top:12px">Unloading remarks (optional) - e.g. damaged cartons, receiver\'s name, waiting time</label>'+
     '<textarea class="sc-in" id="scRemark'+r.id+'" rows="3" maxlength="1000" style="margin-top:6px;font-size:15px" placeholder="Type any remarks about this drop..." oninput="scRemarkDraft['+r.id+']=this.value">'+esc(draft)+'</textarea>'+
@@ -4081,6 +4096,7 @@ function renderScanTrip(){
   let prevNo=null;
   rs.forEach((r,i)=>{body+=scDropCard(t,r,i,prevNo);prevNo=scDropNo(r,i)});
   scanShell(esc(t.trip_id),body,scanBack('Trips','scanHome()'));
+  scLoadThumbs();
 }
 async function scConfirmArrival(){
   const t=scanCur;if(!t)return;
@@ -4181,6 +4197,83 @@ async function scanReloadTrip(){
   renderScanTrip();
 }
 function scPhoto(rid){const i=document.getElementById('scFile'+rid);if(i)i.click()}
+/* ---- review the drop's photos: thumbnails, full-screen viewer, remove ---- */
+const scThumbUrl={};   // attachment id -> object URL of the downloaded photo
+function scAttsOf(rid){const t=scanCur;const r=t&&(t.requests||[]).find(x=>x.id===rid);return (r&&r.attachments)||[]}
+function scThumbs(r){
+  const atts=r.attachments||[];
+  if(!atts.length)return '';
+  return '<div class="sc-thumbs">'+atts.map((a,i)=>{
+    const del=a.mine?'<button type="button" class="sc-th-del" title="Remove this photo" aria-label="Remove photo '+(i+1)+'" onclick="event.stopPropagation();scPhotoDel('+r.id+','+a.id+')"><i class="fas fa-trash-can"></i></button>':'';
+    const inner=a.is_image?'<img data-scatt="'+r.id+':'+a.id+'" alt="Photo '+(i+1)+'"'+(scThumbUrl[a.id]?' src="'+scThumbUrl[a.id]+'"':'')+'>'+(scThumbUrl[a.id]?'':'<div class="ph"><i class="fas fa-spinner fa-spin"></i></div>')
+      :'<div class="ph"><i class="fas '+(/pdf/i.test(a.file_type||'')?'fa-file-pdf':'fa-file')+'"></i>'+esc(String(a.original_filename||'file').slice(0,28))+'</div>';
+    return '<div class="sc-th" role="button" tabindex="0" title="'+esc(a.original_filename||'')+'" onclick="scPhotoOpen('+r.id+','+i+')">'+inner+'<span class="sc-th-n">'+(i+1)+'</span>'+del+'</div>';
+  }).join('')+'</div>';
+}
+async function scAttBlobUrl(rid,aid){
+  if(scThumbUrl[aid])return scThumbUrl[aid];
+  const h={};if(scanTok())h['X-Scan-Token']=scanTok();
+  const res=await fetch('/api/scan/requests/'+rid+'/attachments/'+aid,{headers:h});
+  if(!res.ok)throw new Error(res.status===404?'Photo not found':'Could not load the photo');
+  const u=URL.createObjectURL(await res.blob());
+  scThumbUrl[aid]=u;return u;
+}
+/* Fill every thumbnail on screen (cached, so re-drawing the trip does not download again). */
+async function scLoadThumbs(){
+  const imgs=[...document.querySelectorAll('#scanApp img[data-scatt]')].filter(i=>!i.getAttribute('src'));
+  for(const im of imgs){
+    const [rid,aid]=im.dataset.scatt.split(':').map(Number);
+    try{
+      const u=await scAttBlobUrl(rid,aid);
+      document.querySelectorAll('#scanApp img[data-scatt="'+rid+':'+aid+'"]').forEach(x=>{x.src=u;const ph=x.parentNode.querySelector('.ph');if(ph)ph.remove()});
+    }catch(e){
+      const ph=im.parentNode.querySelector('.ph');if(ph)ph.innerHTML='<i class="fas fa-image"></i>Not loaded';
+    }
+  }
+}
+let scPv=null;  // {rid, i}
+async function scPhotoOpen(rid,i){
+  const atts=scAttsOf(rid);const a=atts[i];if(!a)return;
+  if(!a.is_image){  // a PDF or other file: open it on its own
+    try{const u=await scAttBlobUrl(rid,a.id);window.open(u,'_blank')}catch(e){scanAlert(e.message)}
+    return;
+  }
+  scPv={rid,i};
+  let ov=document.getElementById('scPv');
+  if(!ov){ov=document.createElement('div');ov.id='scPv';document.body.appendChild(ov)}
+  const editable=!!document.querySelector('#scFile'+rid);  // drop still open on this phone
+  ov.innerHTML='<div class="pv-top"><strong>Photo '+(i+1)+' of '+atts.length+'</strong><button class="btn btn-sm btn-p" onclick="scPhotoClose()"><i class="fas fa-xmark"></i> Close</button></div>'+
+    '<div class="pv-img">'+(atts.length>1?'<button class="pv-nav" style="left:10px" aria-label="Previous photo" onclick="scPhotoStep(-1)"><i class="fas fa-chevron-left"></i></button>':'')+
+    '<img id="scPvImg" alt="Photo '+(i+1)+'"'+(scThumbUrl[a.id]?' src="'+scThumbUrl[a.id]+'"':'')+'>'+
+    (atts.length>1?'<button class="pv-nav" style="right:10px" aria-label="Next photo" onclick="scPhotoStep(1)"><i class="fas fa-chevron-right"></i></button>':'')+'</div>'+
+    '<div class="pv-bot">'+(a.mine&&editable?'<button class="sc-btn danger" onclick="scPhotoDel('+rid+','+a.id+',true)"><i class="fas fa-trash-can"></i> Remove this photo</button>':'<div class="sc-hint" style="flex:1;text-align:center">'+(a.mine?'This drop is finished - photos can no longer be removed here.':'Added by the office - it cannot be removed from the phone.')+'</div>')+'</div>';
+  ov.style.display='flex';
+  if(!scThumbUrl[a.id]){try{const u=await scAttBlobUrl(rid,a.id);const im=document.getElementById('scPvImg');if(im)im.src=u}catch(e){}}
+}
+function scPhotoStep(d){
+  if(!scPv)return;const atts=scAttsOf(scPv.rid);if(!atts.length)return;
+  let i=scPv.i;
+  for(let k=0;k<atts.length;k++){i=(i+d+atts.length)%atts.length;if(atts[i].is_image)break}
+  scPhotoOpen(scPv.rid,i);
+}
+function scPhotoClose(){const ov=document.getElementById('scPv');if(ov)ov.remove();scPv=null}
+async function scPhotoDel(rid,aid,fromViewer){
+  const atts=scAttsOf(rid);const n=atts.findIndex(a=>a.id===aid)+1;
+  if(fromViewer)scPhotoClose();
+  const ok=await scanModal({title:'Remove photo '+(n||'')+'?',icon:'trash-can',ok:'Remove',okClass:'danger',cancel:'Keep it',
+    html:(scThumbUrl[aid]?'<img src="'+scThumbUrl[aid]+'" alt="" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px;margin-bottom:10px">':'')+
+      '<p>The photo is deleted from this drop and cannot be brought back. You can take a new one afterwards.</p>'});
+  if(!ok)return;
+  if(scanBusy)return;scanBusy=true;
+  try{
+    await scanApi('/api/scan/requests/'+rid+'/attachments/'+aid,{method:'DELETE'});
+    if(scThumbUrl[aid]){URL.revokeObjectURL(scThumbUrl[aid]);delete scThumbUrl[aid]}
+    scanBusy=false;
+    await scanReloadTrip();
+    const w=document.getElementById('scLateWrap');
+    if(w){w.innerHTML='<div class="sc-ok"><i class="fas fa-check-circle"></i> Photo removed.</div>';}
+  }catch(e){scanBusy=false;scanSiren();scanAlert(e.message)}
+}
 /* Shrink a photo before upload: longest side 1600px, JPEG quality 0.72.
    Anything that is not an image (or cannot be decoded) is sent as it is. */
 const SC_PHOTO_MAX=1600,SC_PHOTO_Q=0.72;
