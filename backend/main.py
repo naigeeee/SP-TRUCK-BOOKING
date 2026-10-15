@@ -2010,7 +2010,7 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
             if mawb:
                 m = mawb.lower()
                 if m not in ((r.get("international_mawb") or "") + " " + (r.get("domestic_mawb") or "")).lower(): continue
-            fc = str(r.get("final_call_datetime") or "")[:10]
+            fc = str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10]
             if final_call_from and (not fc or fc < final_call_from): continue
             if final_call_to and (not fc or fc > final_call_to): continue
             flt.append(r)
@@ -2056,8 +2056,8 @@ def dashboard(request: Request, final_call_from: Optional[str] = None, final_cal
     if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
     if destination_port_id: wh.append("tr.destination_port_id=%s"); pa.append(destination_port_id)
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
-    if final_call_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(final_call_from)
-    if final_call_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(final_call_to)
+    if final_call_from: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))>=%s"); pa.append(final_call_from)
+    if final_call_to: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))<=%s"); pa.append(final_call_to)
     ws = (" WHERE " + " AND ".join(wh)) if wh else ""
     stats = db_1(f"""SELECT COUNT(*) as total_requests,
         SUM(CASE WHEN status_id=1 THEN 1 ELSE 0 END) as pending_allocation,
@@ -2201,8 +2201,8 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
     else:
         wh = ["tr.trip_id IS NOT NULL", "tr.final_call_datetime IS NOT NULL"]
         pa = []
-        if final_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(final_from)
-        if final_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(final_to)
+        if final_from: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))>=%s"); pa.append(final_from)
+        if final_to: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))<=%s"); pa.append(final_to)
         if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
         if origin_port_id: wh.append("tr.origin_port_id=%s"); pa.append(origin_port_id)
         if truck_type_id: wh.append("tr.truck_type_id=%s"); pa.append(truck_type_id)
@@ -2222,8 +2222,8 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
     if LOCAL_MODE:
         kept = []
         for r in rows:
-            if final_from and (str(r.get("final_call_datetime") or "")[:10]) < final_from: continue
-            if final_to and (str(r.get("final_call_datetime") or "")[:10]) > final_to: continue
+            if final_from and (str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10]) < final_from: continue
+            if final_to and (str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10]) > final_to: continue
             if department_id and r.get("department_id") != department_id: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
             if truck_type_id and r.get("truck_type_id") != truck_type_id: continue
@@ -2387,8 +2387,8 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         if booking_to: reqs = [r for r in reqs if (r.get("booking_date") or "") <= booking_to]
         if pickup_from: reqs = [r for r in reqs if (r.get("pickup_datetime") or "")[:10] >= pickup_from]
         if pickup_to: reqs = [r for r in reqs if (r.get("pickup_datetime") or "")[:10] <= pickup_to]
-        if call_from: reqs = [r for r in reqs if (r.get("final_call_datetime") or "")[:10] >= call_from]
-        if call_to: reqs = [r for r in reqs if (r.get("final_call_datetime") or "")[:10] <= call_to]
+        if call_from: reqs = [r for r in reqs if str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10] >= call_from]
+        if call_to: reqs = [r for r in reqs if str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10] <= call_to]
         if initial_call_from: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] >= initial_call_from]
         if initial_call_to: reqs = [r for r in reqs if (r.get("call_datetime") or "")[:10] <= initial_call_to]
         if foul_from: reqs = [r for r in reqs if (r.get("foul_trip_date") or "")[:10] >= foul_from]
@@ -2440,8 +2440,8 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if booking_to: wh.append("tr.booking_date<=%s"); pa.append(booking_to)
     if pickup_from: wh.append("DATE(tr.pickup_datetime)>=%s"); pa.append(pickup_from)
     if pickup_to: wh.append("DATE(tr.pickup_datetime)<=%s"); pa.append(pickup_to)
-    if call_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(call_from)
-    if call_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(call_to)
+    if call_from: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))>=%s"); pa.append(call_from)
+    if call_to: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))<=%s"); pa.append(call_to)
     if initial_call_from: wh.append("DATE(tr.call_datetime)>=%s"); pa.append(initial_call_from)
     if initial_call_to: wh.append("DATE(tr.call_datetime)<=%s"); pa.append(initial_call_to)
     if foul_from: wh.append("tr.foul_trip_date>=%s"); pa.append(foul_from)
@@ -2764,6 +2764,8 @@ def _bulk_validate_row(data, ctx):
         issues.append("International MAWB is too long (max 100 characters)")
     if len(dmawb) > 100:
         issues.append("Domestic MAWB is too long (max 100 characters)")
+    if txt("special_instructions").lower() == BULK_EXAMPLE_NOTE.lower():
+        issues.append("This is the template's example row - replace it with a real request or delete it")
     resolved = {
         "account_id": acc, "department_id": dep, "origin_port_id": org, "destination_port_id": dst,
         "packaging_type_id": pkg, "quantity": qty, "international_mawb": imawb or None,
@@ -2800,19 +2802,200 @@ def _bulk_parse_csv(content: bytes):
         out.append((ln, data))
     return out
 
-@app.get("/api/requests/bulk-template")
-def bulk_template(request: Request):
-    get_user(request)
+def _bulk_lists():
+    """Master Library names offered in the bulk template (the same tables the upload
+    is checked against), de-duplicated and in Master Library order."""
+    def names(rows):
+        out, seen = [], set()
+        for x in rows:
+            n = str(x.get("name") or "").strip()
+            if n and n.lower() not in seen:
+                seen.add(n.lower())
+                out.append(n)
+        return out
     if LOCAL_MODE:
-        depts = [d["name"] for d in _store["departments"]]
-        accts = [a["name"] for a in _store["accounts"]]
-        pkgs = [p["name"] for p in _store["packaging_types"]]
-        pts = [p["name"] for p in _store["ports"]]
-    else:
-        depts = [r["name"] for r in db_q("SELECT name FROM departments ORDER BY id")]
-        accts = [r["name"] for r in db_q("SELECT name FROM accounts ORDER BY id")]
-        pkgs = [r["name"] for r in db_q("SELECT name FROM packaging_types ORDER BY id")]
-        pts = [r["name"] for r in db_q("SELECT name FROM ports ORDER BY id")]
+        return {"departments": names(_store["departments"]), "accounts": names(_store["accounts"]),
+                "packaging": names(_store["packaging_types"]), "ports": names(_store["ports"])}
+    return {"departments": names(db_q("SELECT name FROM departments ORDER BY id")),
+            "accounts": names(db_q("SELECT name FROM accounts ORDER BY id")),
+            "packaging": names(db_q("SELECT name FROM packaging_types ORDER BY id")),
+            "ports": names(db_q("SELECT name FROM ports ORDER BY id"))}
+
+BULK_XLSX_ROWS = 2000      # rows of the template that get the drop-down lists
+BULK_EXAMPLE_NOTE = "Example row - replace or delete it"
+
+def _bulk_template_xlsx(lists) -> bytes:
+    """The bulk template as an Excel workbook: a Requests sheet with one example row and
+    drop-down lists (from the Master Library) for Department, Origin Port, Account,
+    Destination Port and Packaging Type; a Lists sheet holding those names; and a
+    short How to fill in sheet."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.workbook.defined_name import DefinedName
+    from openpyxl.utils import get_column_letter
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Requests"
+    cols = list(BULK_COLUMNS)
+    head_fill = PatternFill("solid", fgColor="1E40AF")
+    req_fill = PatternFill("solid", fgColor="B91C1C")
+    for c, key in enumerate(cols, start=1):
+        cell = ws.cell(row=1, column=c, value=BULK_LABELS[key])
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = req_fill if key in BULK_REQUIRED else head_fill
+        cell.alignment = Alignment(vertical="center", wrap_text=True)
+        ws.column_dimensions[get_column_letter(c)].width = {"special_instructions": 32, "call_datetime": 22,
+            "customs_cleared_datetime": 22, "account": 22, "origin_port": 20, "destination_port": 20}.get(key, 16)
+    ws.row_dimensions[1].height = 32
+    ws.freeze_panes = "A2"
+    # Lists sheet + named ranges for the drop-downs
+    ls = wb.create_sheet("Lists")
+    list_cols = [("department", "departments", "Departments"), ("origin_port", "ports", "Ports"),
+                 ("account", "accounts", "Accounts"), ("packaging", "packaging", "PackagingTypes")]
+    named = {}
+    for i, (_k, lk, nm) in enumerate(list_cols, start=1):
+        vals = lists.get(lk) or []
+        ls.cell(row=1, column=i, value={"Departments": "Department", "Ports": "Origin / Destination Port",
+                                        "Accounts": "Account", "PackagingTypes": "Packaging Type"}[nm]).font = Font(bold=True)
+        for r, v in enumerate(vals, start=2):
+            ls.cell(row=r, column=i, value=v)
+        ls.column_dimensions[get_column_letter(i)].width = 28
+        if vals:
+            col = get_column_letter(i)
+            ref = f"Lists!${col}$2:${col}${len(vals) + 1}"
+            wb.defined_names[nm] = DefinedName(nm, attr_text=ref)
+            named[lk] = nm
+    ls.sheet_state = "hidden"
+    last = BULK_XLSX_ROWS + 1
+    col_of = {k: get_column_letter(i) for i, k in enumerate(cols, start=1)}
+    for key, lk in (("department", "departments"), ("origin_port", "ports"), ("account", "accounts"),
+                    ("destination_port", "ports"), ("packaging", "packaging")):
+        if lk not in named:
+            continue
+        dv = DataValidation(type="list", formula1="=" + named[lk], allow_blank=True, showDropDown=False)
+        dv.error = f"Pick a {BULK_LABELS[key]} from the list (Master Library)."
+        dv.errorTitle = BULK_LABELS[key]
+        dv.prompt = f"Choose from the list"
+        dv.promptTitle = BULK_LABELS[key]
+        dv.showErrorMessage = True
+        dv.showInputMessage = True
+        ws.add_data_validation(dv)
+        dv.add(f"{col_of[key]}2:{col_of[key]}{last}")
+    q = DataValidation(type="whole", operator="greaterThanOrEqual", formula1="1", allow_blank=True)
+    q.error, q.errorTitle, q.showErrorMessage = "Quantity must be a whole number of at least 1.", "Quantity", True
+    ws.add_data_validation(q)
+    q.add(f"{col_of['quantity']}2:{col_of['quantity']}{last}")
+    for key in ("weight_kg", "volume_cbm"):
+        d = DataValidation(type="decimal", operator="greaterThanOrEqual", formula1="0", allow_blank=True)
+        d.error, d.errorTitle, d.showErrorMessage = f"{BULK_LABELS[key]} must be a number (0 or more).", BULK_LABELS[key], True
+        ws.add_data_validation(d)
+        d.add(f"{col_of[key]}2:{col_of[key]}{last}")
+    for key in ("call_datetime", "customs_cleared_datetime"):
+        for r in range(2, last + 1):
+            ws[f"{col_of[key]}{r}"].number_format = "yyyy-mm-dd hh:mm"
+    for key in ("international_mawb", "domestic_mawb"):
+        for r in range(2, last + 1):
+            ws[f"{col_of[key]}{r}"].number_format = "@"
+    # one example row, from the real Master Library
+    depts, pts, accts, pkgs = lists["departments"], lists["ports"], lists["accounts"], lists["packaging"]
+    now = datetime.now().replace(second=0, microsecond=0)
+    ex = {"department": depts[0] if depts else "", "origin_port": pts[0] if pts else "",
+          "account": accts[0] if accts else "", "destination_port": pts[1] if len(pts) > 1 else (pts[0] if pts else ""),
+          "packaging": pkgs[0] if pkgs else "", "quantity": 10, "international_mawb": "988-12345678",
+          "domestic_mawb": "DOM-00123", "call_datetime": now.replace(hour=9, minute=0) + timedelta(days=1),
+          "customs_cleared_datetime": now.replace(hour=10, minute=0) + timedelta(days=1),
+          "weight_kg": 150.5, "volume_cbm": 1.25, "special_instructions": BULK_EXAMPLE_NOTE}
+    for c, key in enumerate(cols, start=1):
+        cell = ws.cell(row=2, column=c, value=ex[key])
+        cell.font = Font(italic=True, color="6B7280")
+    hs = wb.create_sheet("How to fill in")
+    tips = [
+        "How to fill in the bulk request template",
+        "",
+        "1. Fill one request per row on the Requests sheet, starting at row 2 (row 2 is an example - replace or delete it).",
+        "2. Red headers are required: Department, Origin Port, Account, Destination Port, Packaging Type, Quantity, Initial Call datetime (TBC).",
+        "3. Department, Origin Port, Account, Destination Port and Packaging Type have drop-down lists from the Master Library - click the cell and pick from the list.",
+        "4. Dates and times: type e.g. 2026-10-15 09:00 (or 15/10/2026 9:00).",
+        "5. Save the file as Excel (.xlsx) and upload it on the New Request page. Every row is checked before anything is created.",
+        "",
+        f"The drop-down lists were taken from the Master Library on {now.strftime('%Y-%m-%d %H:%M')}. "
+        "If something was added since, download the template again.",
+    ]
+    for r, t in enumerate(tips, start=1):
+        hs.cell(row=r, column=1, value=t).font = Font(bold=(r == 1), size=13 if r == 1 else 11)
+    hs.column_dimensions["A"].width = 140
+    wb.active = 0
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+def _bulk_cell_txt(v):
+    """An Excel cell as the text the row checks expect."""
+    if v is None:
+        return ""
+    if isinstance(v, datetime):
+        return v.strftime("%Y-%m-%d %H:%M") if (v.hour or v.minute) else v.strftime("%Y-%m-%d")
+    if hasattr(v, "strftime"):   # a date
+        return v.strftime("%Y-%m-%d")
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+def _bulk_parse_xlsx(content: bytes):
+    """Rows of an Excel bulk file: the Requests sheet (or the first sheet with the headers)."""
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        raise HTTPException(500, "Excel support (openpyxl) is not installed on this server")
+    try:
+        wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception:
+        raise HTTPException(400, "Cannot read this file - please upload the Excel template (.xlsx) or a CSV file")
+    try:
+        sheets = list(wb.worksheets)
+        order = [w for w in sheets if str(w.title).strip().lower() == "requests"] + \
+                [w for w in sheets if str(w.title).strip().lower() not in ("requests", "lists", "how to fill in")]
+        for ws in order:
+            rows = []
+            for r in ws.iter_rows(values_only=True):
+                rows.append([_bulk_cell_txt(v) for v in (r or ())])
+                if len(rows) > 20000:
+                    raise HTTPException(400, "Too many rows in the file (max 20,000)")
+            if not rows:
+                continue
+            colmap = {}
+            for i, h in enumerate(rows[0]):
+                key = BULK_HEADER_MAP.get(_norm_hdr(h))
+                if key and key not in colmap:
+                    colmap[key] = i
+            if not colmap:
+                continue
+            missing = [BULK_LABELS[k] for k in BULK_REQUIRED if k not in colmap]
+            if missing:
+                raise HTTPException(400, "Missing required column(s): " + ", ".join(missing))
+            out = []
+            for ln, r in enumerate(rows[1:], start=2):
+                if not any(str(c).strip() for c in r):
+                    continue
+                out.append((ln, {key: (r[i] if i < len(r) else "") for key, i in colmap.items()}))
+            return out
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+    raise HTTPException(400, "Could not find the request columns - please use the Excel template from this page")
+
+@app.get("/api/requests/bulk-template")
+def bulk_template(request: Request, format: str = "xlsx"):
+    get_user(request)
+    lists = _bulk_lists()
+    if format != "csv":
+        data = _bulk_template_xlsx(lists)
+        return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": 'attachment; filename="bulk_requests_template.xlsx"'})
+    depts, accts, pkgs, pts = lists["departments"], lists["accounts"], lists["packaging"], lists["ports"]
     ex_dept = depts[0] if depts else "PHCC"
     ex_acct = accts[0] if accts else "Ninja Van PH"
     ex_pkg = pkgs[0] if pkgs else "Pallet"
@@ -2832,9 +3015,15 @@ async def bulk_validate(request: Request, file: UploadFile = File(...)):
     get_user(request)
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(400, "CSV file is too large (max 10MB)")
+        raise HTTPException(400, "The file is too large (max 10MB)")
+    if not content:
+        raise HTTPException(400, "The uploaded file is empty")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    is_xlsx = ext in (".xlsx", ".xlsm") or content[:2] == b"PK"
+    if not is_xlsx and ext not in ("", ".csv", ".txt"):
+        raise HTTPException(400, "Upload the Excel template (.xlsx) or a CSV file")
     ctx = await run_in_threadpool(_bulk_ctx)
-    parsed = await run_in_threadpool(_bulk_parse_csv, content)
+    parsed = await run_in_threadpool(_bulk_parse_xlsx if is_xlsx else _bulk_parse_csv, content)
     out = []
     for ln, data in parsed:
         issues, _resolved = _bulk_validate_row(data, ctx)
@@ -2848,7 +3037,7 @@ async def bulk_create(request: Request):
     body = await request.json()
     rows = body.get("rows")
     if not isinstance(rows, list) or not rows:
-        raise HTTPException(400, "No rows to create - upload a CSV first")
+        raise HTTPException(400, "No rows to create - upload the template first")
     ctx = await run_in_threadpool(_bulk_ctx)
     results, created, failed = [], 0, 0
     for i, data in enumerate(rows, start=1):
@@ -2918,6 +3107,62 @@ def get_request(rid: int, request: Request):
         item["trip_id"] = resolve_trip_id(item, peers)
     return _request_view_extras(row2d(item))
 
+def _scan_qty_summary(r):
+    """Scan counts for the request view, for this request only.
+
+    Pickup: this request's manifest IDs that were scanned (successful) or never
+    scanned (no scan), and bags forced through with the override code for this
+    request (override). On a multi-drop trip an override bag is not on any manifest,
+    so it belongs to the request it was picked up for (single-drop trips) or, once
+    unloaded, to the drop where it was unloaded; override bags not tied to a drop
+    yet are reported separately (unplaced_override).
+    Unloading: bags picked up for this drop that were unloaded (successful /
+    override) and those still without an unloading scan (no scan)."""
+    rid = r.get("id")
+    base = trip_base(r.get("trip_id")) or f"req-{rid}"
+    trip_rows = _rows_for_base(base) or [r]
+    single = len({x.get("id") for x in trip_rows}) <= 1
+    p_scans = _pickup_scans(base)
+    expected = _manifest_ids_for(rid) or []
+    exp_set = {str(x).lower() for x in expected}
+    p_keys = {str(s.get("bag_id") or "").lower() for s in p_scans}
+    u_scans = _unload_scans(rid)
+    u_keys = {str(s.get("bag_id") or "").lower() for s in u_scans}
+    mine = [s for s in p_scans if s.get("request_id") == rid or (single and not s.get("request_id"))]
+    ov_all = [s for s in p_scans if (s.get("scan_kind") or "original") == "override"]
+    ov_mine = [s for s in ov_all if s.get("request_id") == rid or (single and not s.get("request_id"))
+               or (not s.get("request_id") and str(s.get("bag_id") or "").lower() in u_keys)]
+    placed = set()
+    if not single:
+        for x in trip_rows:
+            for us in _unload_scans(x.get("id")):
+                placed.add(str(us.get("bag_id") or "").lower())
+    unplaced = 0 if single else sum(1 for s in ov_all if not s.get("request_id")
+                                    and str(s.get("bag_id") or "").lower() not in placed)
+    pickup = {
+        "started": bool(p_scans) or any(x.get("pickup_scan_closed_at") for x in trip_rows),
+        "closed": any(x.get("pickup_scan_closed_at") for x in trip_rows),
+        "trip_id": base if not base.startswith("req-") else (r.get("trip_id") or ""),
+        "has_manifest": bool(expected),
+        "expected": len(expected) if expected else None,
+        "successful": (sum(1 for k in exp_set if k in p_keys) if expected
+                       else sum(1 for s in mine if (s.get("scan_kind") or "original") != "override")),
+        "no_scan": sum(1 for k in exp_set if k not in p_keys) if expected else None,
+        "override": len(ov_mine),
+        "unplaced_override": unplaced,
+    }
+    ref = _unload_reference(r, trip_rows)
+    unload = {
+        "started": bool(u_scans) or bool(r.get("unload_scan_closed_at")),
+        "closed": bool(r.get("unload_scan_closed_at")),
+        "expected": len(ref),
+        "successful": sum(1 for s in u_scans if (s.get("scan_kind") or "original") != "override"),
+        "override": sum(1 for s in u_scans if (s.get("scan_kind") or "original") == "override"),
+        "no_scan": sum(1 for b in ref if str(b).lower() not in u_keys),
+        "scanned_total": len(u_scans),
+    }
+    return {"pickup": pickup, "unload": unload}
+
 def _request_view_extras(r):
     """Fields the request view popup shows beside the stored columns: truck plate,
     vendor, driver, delivered date and the foul-trip approver's name."""
@@ -2956,6 +3201,20 @@ def _request_view_extras(r):
     r["pickup_scan_closed"] = bool(r.get("pickup_scan_closed_at"))
     r["unload_scan_closed"] = bool(r.get("unload_scan_closed_at"))
     r["scan_trip_base"] = trip_base(r.get("trip_id")) or f"req-{r.get('id')}"
+    try:
+        r["scan_qty"] = _scan_qty_summary(r)
+    except Exception:
+        r["scan_qty"] = None
+    # Revised Qty: the same rule as the Masterlist column, with where the number comes from.
+    uc = (r.get("scan_qty") or {}).get("unload", {}).get("scanned_total")
+    r["unload_scan_count"] = uc if uc is not None else r.get("unload_scan_count")
+    r["revised_qty"] = _revised_qty(r)
+    if r.get("unload_scan_closed_at") or (r.get("unload_scan_count") or 0) > 0:
+        r["revised_qty_source"] = "unloading scan"
+    elif r.get("manifest"):
+        r["revised_qty_source"] = "manifest IDs"
+    else:
+        r["revised_qty_source"] = "quantity entered"
     for k in ("trip_id", "drop_sequence", "late_reason", "unloading_remarks", "special_instructions", "foul_trip_reason",
               "foul_trip_date", "foul_trip_count", "cancellation_date", "final_call_datetime"):
         r.setdefault(k, None)
@@ -3552,6 +3811,7 @@ def list_pending(request: Request):
                 "dest_lat": next((p.get("latitude") for p in _store["ports"] if p["id"] == req.get("destination_port_id")), None),
                 "dest_lon": next((p.get("longitude") for p in _store["ports"] if p["id"] == req.get("destination_port_id")), None),
                 "department_name": next((d["name"] for d in _store["departments"] if d["id"] == req.get("department_id")), ""),
+                "account_name": next((a["name"] for a in _store["accounts"] if a["id"] == req.get("account_id")), ""),
                 "packaging_type_name": next((p["name"] for p in _store["packaging_types"] if p["id"] == req.get("packaging_type_id")), ""),
                 "truck_type_name": next((t["name"] for t in _store["truck_types"] if t["id"] == req.get("truck_type_id")), ""),
                 "max_capacity_kg": next((t.get("max_capacity_kg", 0) for t in _store["truck_types"] if t["id"] == req.get("truck_type_id")), 0),
@@ -3620,12 +3880,13 @@ def list_pending(request: Request):
         tr.packaging_type_id, tr.quantity, tr.weight_kg, tr.volume_cbm,
         po.name as origin_port_name, po.latitude as origin_lat, po.longitude as origin_lon,
         pd.name as destination_port_name, pd.latitude as dest_lat, pd.longitude as dest_lon,
-        d.name as department_name,
+        d.name as department_name, ac.name as account_name,
         pt.name as packaging_type_name, tt.name as truck_type_name,
         tt.max_capacity_kg, tt.max_capacity_cbm
         FROM pending_allocations pa JOIN truck_requests tr ON pa.truck_request_id=tr.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id LEFT JOIN ports pd ON tr.destination_port_id=pd.id
         LEFT JOIN departments d ON tr.department_id=d.id
+        LEFT JOIN accounts ac ON tr.account_id=ac.id
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         WHERE pa.is_accepted IS NULL AND tr.status_id=1 ORDER BY pa.created_at DESC""")
@@ -3668,9 +3929,8 @@ def list_pending(request: Request):
     return _strip_rate_figures(rows)
 
 def _allocate_vendor(pid, user, body, vendor_id, consolidate_pa_ids):
-    final_call = body.get("final_call_datetime")
-    if not final_call:
-        raise HTTPException(400, "final_call_datetime is required")
+    # Final Call is optional: without it the trip shows its Initial Call (TBC).
+    final_call = str(body.get("final_call_datetime") or "").strip() or None
     if LOCAL_MODE:
         vendor = next((v for v in _store["vendors"] if v["id"] == vendor_id), None)
         if not vendor: raise HTTPException(400, "Vendor not found")
@@ -3972,6 +4232,9 @@ def _trip_payload(key, rs, truck, available_trucks, drivers=None, assigned_drive
         "origin_port_name": first.get("origin_port_name"),
         "destination_port_name": first.get("destination_port_name"),
         "final_call_datetime": first.get("final_call_datetime"),
+        # No Final Call yet (it is optional at allocation): show the earliest Initial Call (TBC).
+        "call_datetime": min((x.get("call_datetime") for x in rs if x.get("call_datetime")), key=str, default=None),
+        "department_ids": sorted({x.get("department_id") for x in rs if x.get("department_id")}),
         "assigned_truck": truck,
         "assigned_driver": assigned_driver,
         "requests": rs,
@@ -4032,6 +4295,7 @@ def trip_assignments(request: Request):
                 r["destination_port_name"] = r.get("destination_port_name") or next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
                 r["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
                 r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+                r["department_name"] = next((d["name"] for d in _store["departments"] if d["id"] == r.get("department_id")), "")
                 tv = r.get("vendor_id")
                 if not tv and r.get("assigned_truck_id"):
                     trow = next((x for x in _store["trucks"] if x["id"] == r.get("assigned_truck_id")), None)
@@ -4041,15 +4305,16 @@ def trip_assignments(request: Request):
             out.append(_trip_payload(key, rs, truck, avail_trucks, drivers,
                                      _driver_public(_driver_row(first.get("driver_account_id")))
                                      if first.get("driver_account_id") else None))
-        out.sort(key=lambda x: str(x.get("final_call_datetime") or "9999-12-31"))
+        out.sort(key=lambda x: str(x.get("final_call_datetime") or x.get("call_datetime") or "9999-12-31").replace("T", " "))
         return out
     rows = db_q("""SELECT tr.id, tr.request_number, tr.requestor_name, tr.status_id, tr.drop_sequence, tr.trip_id,
-        tr.assigned_truck_id, tr.vendor_id, tr.final_call_datetime, tr.quantity, tr.weight_kg, tr.volume_cbm,
+        tr.assigned_truck_id, tr.vendor_id, tr.final_call_datetime, tr.call_datetime, tr.quantity, tr.weight_kg, tr.volume_cbm,
         tr.packaging_type_id, tr.destination_port_id, tr.origin_port_id, tr.truck_type_id, tr.account_id,
-        tr.driver_account_id, tr.international_mawb, tr.domestic_mawb,
+        tr.department_id, tr.driver_account_id, tr.international_mawb, tr.domestic_mawb,
         tt.name as truck_type_name, po.name as origin_port_name, pd.name as destination_port_name,
-        pt.name as packaging_type_name, a.name as account_name, COALESCE(vv.name, v.name) as vendor_name
+        pt.name as packaging_type_name, a.name as account_name, dp.name as department_name, COALESCE(vv.name, v.name) as vendor_name
         FROM truck_requests tr
+        LEFT JOIN departments dp ON tr.department_id=dp.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         LEFT JOIN ports po ON tr.origin_port_id=po.id
         LEFT JOIN ports pd ON tr.destination_port_id=pd.id
@@ -4106,7 +4371,7 @@ def trip_assignments(request: Request):
         out.append(_trip_payload(key, rs, truck, avail_trucks, drivers,
                                  _driver_public(_driver_row(first.get("driver_account_id")))
                                  if first.get("driver_account_id") else None))
-    out.sort(key=lambda x: str(x.get("final_call_datetime") or "9999-12-31"))
+    out.sort(key=lambda x: str(x.get("final_call_datetime") or x.get("call_datetime") or "9999-12-31").replace("T", " "))
     return out
 
 @app.post("/api/trips/{trip_id}/assign-truck")
@@ -4553,13 +4818,67 @@ def _manifest_sheet_candidate(ws):
         return None
     return (sc, n, htxt, ids)
 
-def _parse_manifest(content: bytes):
-    """Read an Excel manifest and return the unique IDs from its key column.
+MANIFEST_EXTS = (".xlsx", ".xlsm", ".csv")
+
+class _CsvSheet:
+    """A CSV file seen through the small part of the openpyxl worksheet API the manifest
+    reader uses, so CSV and Excel manifests go through exactly the same column finding."""
+    title = "CSV"
+
+    def __init__(self, content: bytes):
+        text = None
+        for enc in ("utf-8-sig", "utf-16", "gb18030", "cp1252"):
+            try:
+                text = content.decode(enc)
+                if enc == "utf-16" and not content[:2] in (b"\xff\xfe", b"\xfe\xff"):
+                    continue
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                text = None
+        if text is None:
+            text = content.decode("latin-1")
+        lines = [l for l in text[:50000].splitlines() if l.strip()][:200]
+        best, best_score = ",", (0, 0)
+        for d in (",", ";", "\t", "|"):
+            score = (sum(1 for l in lines if d in l), sum(l.count(d) for l in lines))
+            if score > best_score:
+                best, best_score = d, score
+        self.rows = [[c if c.strip() else None for c in r]
+                     for r in csv.reader(io.StringIO(text), delimiter=best)]
+
+    def iter_rows(self, min_row=1, max_row=None, min_col=None, max_col=None, values_only=True):
+        end = len(self.rows) if max_row is None else min(max_row, len(self.rows))
+        for r in self.rows[min_row - 1:end]:
+            if min_col is not None:
+                lo, hi = min_col - 1, (max_col if max_col is not None else len(r))
+                cells = r[lo:hi]
+                cells += [None] * ((hi - lo) - len(cells))
+                yield tuple(cells)
+            else:
+                yield tuple(r)
+
+def _parse_manifest_csv(content: bytes):
+    try:
+        ws = _CsvSheet(content)
+    except Exception:
+        raise HTTPException(400, "Cannot read this CSV file - please save it as CSV (comma separated) and try again")
+    if not ws.rows:
+        raise HTTPException(400, "The CSV file has no rows")
+    cand = _manifest_sheet_candidate(ws)
+    if not cand:
+        raise HTTPException(400, "Could not find a bag / carton / gunny / sack ID column in the CSV file "
+                                 "- the header should be e.g. 'Carton No', 'Bag ID' or 'Sack No'")
+    return cand[3]
+
+def _parse_manifest(content: bytes, ext: str = ".xlsx"):
+    """Read an Excel or CSV manifest and return the unique IDs from its key column.
 
     Every sheet is checked (not only the one open when the file was saved), and the
     header may sit below title or blank rows. When several sheets have a key column
     the one with the clearest header and the most rows wins - so a raw packing list
     beats a pivot-table summary of it."""
+    if ext == ".csv":
+        return _parse_manifest_csv(content)
     try:
         from openpyxl import load_workbook
     except ImportError:
@@ -4690,14 +5009,14 @@ async def upload_manifest(rid: int, request: Request, file: UploadFile = File(..
     if existing:
         raise HTTPException(400, "A manifest file is already uploaded for this request - delete it first")
     ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in (".xlsx", ".xlsm"):
-        raise HTTPException(400, "Manifest must be an Excel file (.xlsx or .xlsm)")
+    if ext not in MANIFEST_EXTS:
+        raise HTTPException(400, "Manifest must be an Excel (.xlsx / .xlsm) or CSV (.csv) file")
     content = await file.read()
     if not content:
         raise HTTPException(400, "The uploaded file is empty")
     if len(content) > MANIFEST_MAX:
         raise HTTPException(400, "Manifest file must be 10MB or smaller")
-    ids = await run_in_threadpool(_parse_manifest, content)
+    ids = await run_in_threadpool(_parse_manifest, content, ext)
     req_row = await run_in_threadpool(_manifest_request_row, rid)
     st = await run_in_threadpool(_store_manifest_csv, rid, req_row, ids)
     if LOCAL_MODE:
@@ -6722,7 +7041,7 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
             if account_id and r.get("account_id") != account_id: continue
             if department_id and r.get("department_id") != department_id: continue
-            fc = str(r.get("final_call_datetime") or "")[:10]
+            fc = str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10]
             if date_from and fc < date_from: continue
             if date_to and fc > date_to: continue
             if search:
@@ -6777,8 +7096,8 @@ def list_evals(request: Request, vendor_id: Optional[int] = None, date_from: Opt
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if search: wh.append("tr.request_number LIKE %s"); pa.append(f"%{search}%")
-    if date_from: wh.append("DATE(tr.final_call_datetime)>=%s"); pa.append(date_from)
-    if date_to: wh.append("DATE(tr.final_call_datetime)<=%s"); pa.append(date_to)
+    if date_from: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))>=%s"); pa.append(date_from)
+    if date_to: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))<=%s"); pa.append(date_to)
     ws = " AND ".join(wh)
     rows = db_q(f"""SELECT tr.id, tr.request_number, tr.drop_sequence, tr.booking_date, tr.pickup_datetime, tr.call_datetime,
         tr.final_call_datetime, tr.trip_id,
@@ -6935,7 +7254,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         for r in reqs:
             if account_id and r.get("account_id") != account_id: continue
             if department_id and r.get("department_id") != department_id: continue
-            fc = str(r.get("final_call_datetime") or "")[:10]
+            fc = str(r.get("final_call_datetime") or r.get("call_datetime") or "")[:10]
             if not fc or fc < date_from or fc > date_to: continue
             if origin_port_id and r.get("origin_port_id") != origin_port_id: continue
             if destination_port_id and r.get("destination_port_id") != destination_port_id: continue
@@ -7000,7 +7319,7 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
         coords = get_port_coords_map()
         add_distances_to_requests(req_list, coords)
         return {**cost_summary_stats(req_list), "requests": req_list}
-    wh = ["DATE(tr.final_call_datetime)>=%s", "DATE(tr.final_call_datetime)<=%s"]
+    wh = ["DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))>=%s", "DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))<=%s"]
     pa = [date_from, date_to]
     if account_id: wh.append("tr.account_id=%s"); pa.append(account_id)
     if department_id: wh.append("tr.department_id=%s"); pa.append(department_id)
@@ -7053,6 +7372,9 @@ def cost_summary(request: Request, date_from: str = Query(...), date_to: str = Q
 
 BULK_COST_FIELDS = ("toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower",
                     "toll", "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep")
+# Final Call is optional at allocation. Every "Final Call From / To" filter uses the
+# Initial Call (TBC) date for a request that has no Final Call yet, so no request
+# drops out of a report just because its Final Call was never set.
 # Fixed statement per cost field, so no SQL text is ever built from request input.
 # The ID list goes in as one parameter: PyMySQL expands a list to (1,2,3) itself.
 BULK_COST_ADD_SQL = {
@@ -7380,13 +7702,32 @@ def guide_image(name: str):
     if not os.path.isfile(path):
         raise HTTPException(404, "Not found")
     media = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[name.rsplit(".", 1)[1]]
-    return FileResponse(path, media_type=media, headers={"Cache-Control": "public, max-age=86400"})
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "no-cache"})
+
+INDEX_HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
+
+def _app_build():
+    """Short fingerprint of the deployed page: changes whenever a new version is deployed."""
+    try:
+        with open(INDEX_HTML_PATH, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()[:12]
+    except OSError:
+        return "unknown"
+
+APP_BUILD = _app_build()
+NO_STORE = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
+
+@app.get("/api/app-version", tags=["system"])
+def app_version():
+    """Open pages compare this with the version they were loaded with, and offer a reload."""
+    return JSONResponse({"build": APP_BUILD}, headers=NO_STORE)
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def homepage():
-    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
     try:
-        with open(html_path, "r", encoding="utf-8") as f:
-            return f.read()
+        with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
+            html = f.read()
     except FileNotFoundError:
-        return "<h1>Frontend not found</h1>"
+        return HTMLResponse("<h1>Frontend not found</h1>", headers=NO_STORE)
+    # Never cached: after a deploy the next page load is always the new version.
+    return HTMLResponse(html.replace("__APP_BUILD__", APP_BUILD), headers=NO_STORE)

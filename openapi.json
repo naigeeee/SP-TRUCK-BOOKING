@@ -2000,12 +2000,34 @@
       "get": {
         "summary": "Bulk Template",
         "operationId": "bulk_template_api_requests_bulk_template_get",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx",
+              "title": "Format"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -4604,6 +4626,26 @@
       "get": {
         "summary": "Sync Vendors",
         "operationId": "sync_vendors_api_sync_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/app-version": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "App Version",
+        "description": "Open pages compare this with the version they were loaded with, and offer a reload.",
+        "operationId": "app_version_api_app_version_get",
         "responses": {
           "200": {
             "description": "Successful Response",
