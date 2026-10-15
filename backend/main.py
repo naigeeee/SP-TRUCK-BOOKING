@@ -2196,10 +2196,11 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
     if LOCAL_MODE:
         rows = []
         for r in _store["truck_requests"]:
-            if not r.get("trip_id") or not r.get("final_call_datetime"): continue
+            # Final Call is optional: a trip without one is matched on its Initial Call (TBC).
+            if not r.get("trip_id"): continue
             rows.append({**row2d(r)})
     else:
-        wh = ["tr.trip_id IS NOT NULL", "tr.final_call_datetime IS NOT NULL"]
+        wh = ["tr.trip_id IS NOT NULL"]
         pa = []
         if final_from: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))>=%s"); pa.append(final_from)
         if final_to: wh.append("DATE(COALESCE(tr.final_call_datetime, tr.call_datetime))<=%s"); pa.append(final_to)
@@ -2209,7 +2210,7 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
         if vendor_id: wh.append("COALESCE(tr.vendor_id, tk.vendor_id)=%s"); pa.append(vendor_id)
         rows = db_q(f"""SELECT tr.id, tr.request_number, tr.trip_id, tr.quantity, tr.initial_quantity,
             tr.packaging_type_id, tr.truck_type_id, tr.origin_port_id, tr.department_id, tr.status_id,
-            COALESCE(tr.vendor_id, tk.vendor_id) as vendor_id, tr.final_call_datetime,
+            COALESCE(tr.vendor_id, tk.vendor_id) as vendor_id, tr.final_call_datetime, tr.call_datetime,
             po.name as origin_port_name, d.name as department_name,
             tt.name as truck_type_name, tt.max_capacity_units, v.name as vendor_name
             FROM truck_requests tr
@@ -2267,6 +2268,8 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
             "status_name": status_label,
             "trip_ids": sorted({m.get("trip_id") for m in members if m.get("trip_id")}),
             "final_call_datetime": max((str(m.get("final_call_datetime") or "") for m in members), default=""),
+            # Shown (marked TBC) when the trip has no Final Call yet.
+            "call_datetime": min((str(m.get("call_datetime")) for m in members if m.get("call_datetime")), default=""),
             "request_count": len(members),
             "vendor_name": next((m.get("vendor_name") for m in members if m.get("vendor_name")), ""),
             "origin_port_name": next((m.get("origin_port_name") for m in members if m.get("origin_port_name")), ""),
@@ -2280,7 +2283,7 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
             "initial_tier": utilisation_tier(init_pct),
             "revised_tier": utilisation_tier(rev_pct),
         })
-    trips.sort(key=lambda t: t["final_call_datetime"], reverse=True)
+    trips.sort(key=lambda t: (t["final_call_datetime"] or t["call_datetime"]).replace("T", " "), reverse=True)
     return trips
 
 # ---------------------------------------------------------------------------
