@@ -2209,6 +2209,9 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
         if truck_type_id: wh.append("tr.truck_type_id=%s"); pa.append(truck_type_id)
         if vendor_id: wh.append("COALESCE(tr.vendor_id, tk.vendor_id)=%s"); pa.append(vendor_id)
         rows = db_q(f"""SELECT tr.id, tr.request_number, tr.trip_id, tr.quantity, tr.initial_quantity,
+            tr.revised_qty_src, tr.unload_scan_closed_at,
+            (SELECT MAX(mf.id_count) FROM request_manifests mf WHERE mf.truck_request_id=tr.id) AS mf_count,
+            (SELECT COUNT(*) FROM scan_unload_items si WHERE si.request_id=tr.id) AS unload_scan_count,
             tr.packaging_type_id, tr.truck_type_id, tr.origin_port_id, tr.department_id, tr.status_id,
             COALESCE(tr.vendor_id, tk.vendor_id) as vendor_id, tr.final_call_datetime, tr.call_datetime,
             po.name as origin_port_name, d.name as department_name,
@@ -2240,6 +2243,14 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
             r["max_capacity_units"] = tt.get("max_capacity_units") if tt else None
             kept.append(r)
         rows = kept
+        for r in rows:
+            mf = next((m for m in _store["manifests"] if m.get("truck_request_id") == r["id"]), None)
+            r["mf_count"] = (len(mf.get("ids") or []) if mf.get("ids") is not None else mf.get("id_count")) if mf else None
+            r["unload_scan_count"] = sum(1 for x in _store["scan_unload"] if x.get("request_id") == r["id"])
+    for r in rows:
+        # Revised = the same Revised Qty as the Masterlist (manifest / unloading / typed Qty).
+        r["manifest"] = {"id_count": r.get("mf_count") or 0} if r.get("mf_count") is not None else None
+        r["revised_qty"] = _revised_qty(r)
     groups = {}
     for r in rows:
         base = trip_base(r.get("trip_id") or "")
@@ -2260,7 +2271,7 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
         cap = next((m.get("max_capacity_units") for m in members if m.get("max_capacity_units") is not None), None)
         initial_units = sum(to_base_units(m.get("initial_quantity") if m.get("initial_quantity") is not None else m.get("quantity"),
                                           m.get("packaging_type_id"), cfg) for m in members)
-        revised_units = sum(to_base_units(m.get("quantity"), m.get("packaging_type_id"), cfg) for m in members)
+        revised_units = sum(to_base_units(m.get("revised_qty"), m.get("packaging_type_id"), cfg) for m in members)
         init_pct = utilisation_pct(initial_units, cap)
         rev_pct = utilisation_pct(revised_units, cap)
         trips.append({
@@ -2290,15 +2301,65 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
 # Truck Requests
 # ---------------------------------------------------------------------------
 
-def _revised_qty(r):
-    """Manifest count column: what was actually scanned wins over the
-    manifest file's own count, which wins over the original quantity."""
-    if r.get("unload_scan_closed_at") or (r.get("unload_scan_count") or 0) > 0:
-        return int(r.get("unload_scan_count") or 0)
+REVISED_SRC_LABEL = {"manual": "quantity entered", "manifest": "manifest IDs", "unload": "unloading scan"}
+
+def _revised_qty_and_source(r):
+    """Revised Qty and where it comes from. The latest of these sets it:
+      - the Qty typed in New Request / Edit (revised_qty_src = 'manual'),
+      - a manifest upload (number of unique IDs; 'manifest'),
+      - the end of the unloading scan (bags unloaded; 'unload').
+    Each event writes revised_qty_src, so a Qty typed after a manifest upload or
+    after unloading overrides them, and a later manifest / unloading overrides a
+    typed Qty. Requests from before this rule (no source recorded) use: completed
+    unloading scan, else manifest IDs, else the Qty."""
+    src = r.get("revised_qty_src")
+    q = r.get("quantity") or 0
     m = r.get("manifest")
+    closed = bool(r.get("unload_scan_closed_at"))
+    ucnt = int(r.get("unload_scan_count") or 0)
+    mcnt = int((m or {}).get("id_count") or 0) if m else None
+    if src == "manual":
+        return q, "manual"
+    if src == "unload" and closed:
+        return ucnt, "unload"
+    if src == "manifest" and m:
+        return mcnt, "manifest"
+    if closed:
+        return ucnt, "unload"
     if m:
-        return int(m.get("id_count") or 0)
-    return r.get("quantity") or 0
+        return mcnt, "manifest"
+    return q, "manual"
+
+def _revised_qty(r):
+    return _revised_qty_and_source(r)[0]
+
+def _rev_row(rid):
+    """What the Revised Qty rule needs for one request (quantity, source, manifest,
+    unloading scan state and count)."""
+    if LOCAL_MODE:
+        row = next((x for x in _store["truck_requests"] if x["id"] == rid), None)
+        if not row:
+            return None
+        out = dict(row)
+        mf = next((m for m in _store["manifests"] if m.get("truck_request_id") == rid), None)
+        out["manifest"] = {"id_count": len(mf.get("ids") or []) if mf.get("ids") is not None else int(mf.get("id_count") or 0)} if mf else None
+        out["unload_scan_count"] = sum(1 for x in _store["scan_unload"] if x.get("request_id") == rid)
+        return out
+    row = db_1("SELECT id, quantity, revised_qty_src, unload_scan_closed_at FROM truck_requests WHERE id=%s", (rid,))
+    if not row:
+        return None
+    mf = db_1("SELECT id_count FROM request_manifests WHERE truck_request_id=%s", (rid,))
+    row["manifest"] = {"id_count": mf.get("id_count") or 0} if mf else None
+    row["unload_scan_count"] = (db_1("SELECT COUNT(*) AS c FROM scan_unload_items WHERE request_id=%s", (rid,)) or {}).get("c") or 0
+    return row
+
+def _set_revised_src(rid, src):
+    if LOCAL_MODE:
+        for x in _store["truck_requests"]:
+            if x["id"] == rid:
+                x["revised_qty_src"] = src
+        return
+    db_x("UPDATE truck_requests SET revised_qty_src=%s WHERE id=%s", (src, rid))
 
 @app.get("/api/requests")
 def list_requests(request: Request, status_id: Optional[int] = None, account_id: Optional[int] = None,
@@ -2467,8 +2528,10 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     _MFSQL = "EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
     _MFCNT = "(SELECT COALESCE(MAX(mf.id_count),0) FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
     _UCNT = "(SELECT COUNT(*) FROM scan_unload_items si WHERE si.request_id=tr.id)"
-    _REVQTY = (f"(CASE WHEN tr.unload_scan_closed_at IS NOT NULL THEN {_UCNT} "
-               f"WHEN {_UCNT} > 0 THEN {_UCNT} WHEN {_MFSQL} THEN {_MFCNT} "
+    _REVQTY = (f"(CASE WHEN tr.revised_qty_src='manual' THEN COALESCE(tr.quantity,0) "
+               f"WHEN tr.revised_qty_src='unload' AND tr.unload_scan_closed_at IS NOT NULL THEN {_UCNT} "
+               f"WHEN tr.revised_qty_src='manifest' AND {_MFSQL} THEN {_MFCNT} "
+               f"WHEN tr.unload_scan_closed_at IS NOT NULL THEN {_UCNT} WHEN {_MFSQL} THEN {_MFCNT} "
                f"ELSE COALESCE(tr.quantity,0) END)")
     sort_map = {"account_name": "a.name", "department_name": "d.name", "origin_port_name": "po.name", "destination_port_name": "pd.name", "truck_type_name": "tt.name", "packaging_type_name": "pt.name", "quantity": _REVQTY, "revised_qty": _REVQTY, "unload_scan_count": _UCNT, "driver_username": "da.username", "driver_name": "da.driver_name", "driver_phone": "da.driver_phone", "vendor_name": "COALESCE(v.name, vv.name)", "plate_number": "tk.plate_number", "booking_date": "tr.booking_date", "status_name": "ts.name", "delivered_date": "tr.end_unloading_datetime"}
     if sort_by == "trip_id":
@@ -2767,8 +2830,8 @@ def _bulk_validate_row(data, ctx):
         issues.append("International MAWB is too long (max 100 characters)")
     if len(dmawb) > 100:
         issues.append("Domestic MAWB is too long (max 100 characters)")
-    if txt("special_instructions").lower() == BULK_EXAMPLE_NOTE.lower():
-        issues.append("This is the template's example row - replace it with a real request or delete it")
+    if _bulk_is_example(data):
+        issues.append("This is the template's example row - it is never created")
     resolved = {
         "account_id": acc, "department_id": dep, "origin_port_id": org, "destination_port_id": dst,
         "packaging_type_id": pkg, "quantity": qty, "international_mawb": imawb or None,
@@ -2825,7 +2888,12 @@ def _bulk_lists():
             "ports": names(db_q("SELECT name FROM ports ORDER BY id"))}
 
 BULK_XLSX_ROWS = 2000      # rows of the template that get the drop-down lists
-BULK_EXAMPLE_NOTE = "Example row - replace or delete it"
+BULK_EXAMPLE_NOTE = "EXAMPLE ROW - delete this row before uploading"
+# Example-row notes of this and earlier templates: such a row is skipped, never created.
+BULK_EXAMPLE_NOTES = {BULK_EXAMPLE_NOTE.lower(), "example row - replace or delete it"}
+
+def _bulk_is_example(data):
+    return _bulk_txt((data or {}).get("special_instructions")).lower() in BULK_EXAMPLE_NOTES
 
 def _bulk_template_xlsx(lists) -> bytes:
     """The bulk template as an Excel workbook: a Requests sheet with one example row and
@@ -2909,14 +2977,22 @@ def _bulk_template_xlsx(lists) -> bytes:
           "domestic_mawb": "DOM-00123", "call_datetime": now.replace(hour=9, minute=0) + timedelta(days=1),
           "customs_cleared_datetime": now.replace(hour=10, minute=0) + timedelta(days=1),
           "weight_kg": 150.5, "volume_cbm": 1.25, "special_instructions": BULK_EXAMPLE_NOTE}
+    from openpyxl.comments import Comment
+    ex_fill = PatternFill("solid", fgColor="FEF3C7")
     for c, key in enumerate(cols, start=1):
         cell = ws.cell(row=2, column=c, value=ex[key])
-        cell.font = Font(italic=True, color="6B7280")
+        cell.font = Font(italic=True, color="92400E", bold=(key == "special_instructions"))
+        cell.fill = ex_fill
+    note = Comment("EXAMPLE ROW (yellow): delete this whole row before you upload, then add your "
+                   "own requests from row 2. If you keep it, it is skipped - it is never created.",
+                   "SP PH Truck Booking", width=320, height=110)
+    ws.cell(row=2, column=1).comment = note
     hs = wb.create_sheet("How to fill in")
     tips = [
         "How to fill in the bulk request template",
         "",
-        "1. Fill one request per row on the Requests sheet, starting at row 2 (row 2 is an example - replace or delete it).",
+        "1. Row 2 (yellow) is only an EXAMPLE: delete that row first (right-click the row number 2 > Delete), then fill one request per row from row 2.",
+        "   A row whose Special Instructions still says 'EXAMPLE ROW - delete this row before uploading' is skipped and never created.",
         "2. Red headers are required: Department, Origin Port, Account, Destination Port, Packaging Type, Quantity, Initial Call datetime (TBC).",
         "3. Department, Origin Port, Account, Destination Port and Packaging Type have drop-down lists from the Master Library - click the cell and pick from the list.",
         "4. Dates and times: type e.g. 2026-10-15 09:00 (or 15/10/2026 9:00).",
@@ -2926,7 +3002,8 @@ def _bulk_template_xlsx(lists) -> bytes:
         "If something was added since, download the template again.",
     ]
     for r, t in enumerate(tips, start=1):
-        hs.cell(row=r, column=1, value=t).font = Font(bold=(r == 1), size=13 if r == 1 else 11)
+        hs.cell(row=r, column=1, value=t).font = Font(bold=(r in (1, 3)), size=13 if r == 1 else 11,
+                                                      color="B91C1C" if r in (3, 4) else None)
     hs.column_dimensions["A"].width = 140
     wb.active = 0
     buf = io.BytesIO()
@@ -3029,10 +3106,18 @@ async def bulk_validate(request: Request, file: UploadFile = File(...)):
     parsed = await run_in_threadpool(_bulk_parse_xlsx if is_xlsx else _bulk_parse_csv, content)
     out = []
     for ln, data in parsed:
+        if _bulk_is_example(data):
+            # The template's example row: skipped (not an error), never created.
+            out.append({"row": ln, "data": data, "issues": [], "valid": False, "skipped": True,
+                        "note": "Template example row - skipped. Delete it from the file; if this row is a real "
+                                "request, clear its Special Instructions note and upload again."})
+            continue
         issues, _resolved = _bulk_validate_row(data, ctx)
         out.append({"row": ln, "data": data, "issues": issues, "valid": not issues})
     ready = sum(1 for r in out if r["valid"])
-    return {"total": len(out), "ready_count": ready, "issue_count": len(out) - ready, "rows": out}
+    skipped = sum(1 for r in out if r.get("skipped"))
+    return {"total": len(out), "ready_count": ready, "skipped_count": skipped,
+            "issue_count": len(out) - ready - skipped, "rows": out}
 
 @app.post("/api/requests/bulk")
 async def bulk_create(request: Request):
@@ -3211,13 +3296,9 @@ def _request_view_extras(r):
     # Revised Qty: the same rule as the Masterlist column, with where the number comes from.
     uc = (r.get("scan_qty") or {}).get("unload", {}).get("scanned_total")
     r["unload_scan_count"] = uc if uc is not None else r.get("unload_scan_count")
-    r["revised_qty"] = _revised_qty(r)
-    if r.get("unload_scan_closed_at") or (r.get("unload_scan_count") or 0) > 0:
-        r["revised_qty_source"] = "unloading scan"
-    elif r.get("manifest"):
-        r["revised_qty_source"] = "manifest IDs"
-    else:
-        r["revised_qty_source"] = "quantity entered"
+    rq, rsrc = _revised_qty_and_source(r)
+    r["revised_qty"] = rq
+    r["revised_qty_source"] = REVISED_SRC_LABEL[rsrc]
     for k in ("trip_id", "drop_sequence", "late_reason", "unloading_remarks", "special_instructions", "foul_trip_reason",
               "foul_trip_date", "foul_trip_count", "cancellation_date", "final_call_datetime"):
         r.setdefault(k, None)
@@ -3329,6 +3410,22 @@ async def update_request(rid: int, request: Request):
     for k in ("truck_type_id", "assigned_truck_id"):
         if k in body and body[k] in (0, "0", ""):
             body[k] = None
+    if "quantity" in body:
+        # Edit shows the Revised Qty in the Qty box. Saving it unchanged keeps the
+        # current source (manifest / unloading); a different number is a manual
+        # amendment that overrides them until the next manifest or unloading scan.
+        cur = _rev_row(rid)
+        try:
+            new_q = int(float(body.get("quantity")))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Qty must be a whole number")
+        if new_q < 0:
+            raise HTTPException(400, "Qty cannot be negative")
+        if cur is not None and new_q == _revised_qty(cur):
+            body.pop("quantity")
+        else:
+            body["quantity"] = new_q
+            body["revised_qty_src"] = "manual"
     fields = ("account_id", "department_id", "origin_port_id", "destination_port_id", "pickup_datetime",
               "delivery_datetime", "call_datetime", "customs_cleared_datetime", "booking_date",
               "final_call_datetime", "truck_type_id", "packaging_type_id", "quantity", "weight_kg", "volume_cbm",
@@ -3339,7 +3436,8 @@ async def update_request(rid: int, request: Request):
               "foul_trip_date", "cancellation_date", "foul_trip_count",
               "toll_fee", "management_fee", "fuel", "parking", "miscellaneous", "manpower", "toll",
               "welfare", "wh_rental", "toll_fee_easytrip", "toll_fee_autosweep",
-              "drop_sequence", "updated_by", "cost_updated_by", "cost_updated_at", "updated_at")
+              "drop_sequence", "updated_by", "cost_updated_by", "cost_updated_at", "updated_at",
+              "revised_qty_src")
     new_status = body.get("status_id")
     if new_status == 4:
         validate_delivered_chronology(body)
@@ -5020,6 +5118,7 @@ async def upload_manifest(rid: int, request: Request, file: UploadFile = File(..
     if len(content) > MANIFEST_MAX:
         raise HTTPException(400, "Manifest file must be 10MB or smaller")
     ids = await run_in_threadpool(_parse_manifest, content, ext)
+    _set_revised_src(rid, "manifest")   # the manifest count becomes the Revised Qty
     req_row = await run_in_threadpool(_manifest_request_row, rid)
     st = await run_in_threadpool(_store_manifest_csv, rid, req_row, ids)
     if LOCAL_MODE:
@@ -5050,8 +5149,33 @@ def delete_manifest(rid: int, request: Request):
         db_x("DELETE FROM request_manifests WHERE truck_request_id=%s", (rid,))
     return {"ok": True}
 
+def _text_xlsx_bytes(rows, title="Sheet1", widths=None) -> bytes:
+    """A small Excel file with every cell stored as text (row 1 = bold header), so
+    Excel never turns long numeric IDs into 9.3E+12 or 11E-00087 into a number."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    wb = Workbook()
+    ws = wb.active
+    ws.title = title[:31]
+    for i, row in enumerate(rows, start=1):
+        for c, v in enumerate(row, start=1):
+            cell = ws.cell(row=i, column=c, value="" if v is None else str(v))
+            cell.data_type = "s"
+            cell.number_format = "@"
+            if i == 1:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="1E40AF")
+    ncol = max((len(r) for r in rows), default=1)
+    for c in range(1, ncol + 1):
+        ws.column_dimensions[get_column_letter(c)].width = (widths or {}).get(c, 24)
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
 @app.get("/api/requests/{rid}/manifest/download")
-def download_manifest(rid: int, request: Request):
+def download_manifest(rid: int, request: Request, format: str = "xlsx"):
     scope_vid, _ = vendor_scope(request)
     _manifest_scope_check(rid, scope_vid)
     if LOCAL_MODE:
@@ -5098,9 +5222,15 @@ def download_manifest(rid: int, request: Request):
                 storage_path=%s, id_count=%s, ids_json=%s WHERE id=%s""",
                 (st["filename"], st["original_filename"], st["file_size"], st["storage_path"],
                  len(ids), json.dumps(ids), m["id"]))
-    fname = str(req_row.get("request_number") or f"request-{rid}") + "-manifest.csv"
-    return Response(data, media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+    stem = str(req_row.get("request_number") or f"request-{rid}") + "-manifest"
+    if format == "csv":
+        return Response(data, media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{stem}.csv"'})
+    # Default: Excel, every cell text (the stored file stays the small CSV).
+    rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig", "replace"))))
+    return Response(_text_xlsx_bytes(rows, "Manifest", {1: 22, 2: 18, 3: 30}),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{stem}.xlsx"'})
 
 # ---------------------------------------------------------------------------
 # Driver / Fleet accounts and the scanning app (pickup sort + unloading)
@@ -5118,7 +5248,8 @@ MILESTONE_FIELDS = [m[0] for m in MILESTONES]
 MILESTONE_LABEL = dict(MILESTONES)
 SCAN_WRITABLE = set(MILESTONE_FIELDS) | {"late_reason", "driver_account_id", "pickup_scan_key",
                                          "pickup_scan_closed_at", "unload_scan_key",
-                                         "unload_scan_closed_at", "status_id", "unloading_remarks"}
+                                         "unload_scan_closed_at", "status_id", "unloading_remarks",
+                                         "revised_qty_src"}
 UNLOADING_REMARKS_MAX = 1000
 _SCAN_FROM = """FROM truck_requests tr
     LEFT JOIN accounts a ON tr.account_id=a.id
@@ -5774,23 +5905,27 @@ def _scan_summary(kind, rows, key, trip_rows=None):
 SCAN_CSV_HEADER = ["Bag ID", "Trip ID", "International MAWB", "Domestic MAWB", "Account",
                    "Origin", "Destination", "Drop #", "Remark"]
 
-def _scan_csv(rows, scans, expected, label):
+def _scan_lines(rows, scans, expected, placed=None):
     """One line per bag of a scan session: the bag, its trip, the MAWBs, account,
     origin, destination and drop of the request it belongs to, and how it was scanned
-    (original / override / missing)."""
+    (original / override / missing).
+
+    `placed` maps bag id (lower case) -> request for override bags that are on no
+    manifest but were later unloaded at a drop: they take that drop's Trip ID and
+    details (e.g. 11E-00087-A). Override bags not unloaded anywhere yet show the
+    trip's own ID (e.g. 11E-00087)."""
     by_id = {r.get("id"): r for r in rows}
     base = _scan_base(rows) if rows else ""
+    placed = placed or {}
 
     def line(bag, owner, remark):
         o = owner or {}
-        return [bag, o.get("trip_id") or base, o.get("international_mawb") or "", o.get("domestic_mawb") or "",
-                o.get("account_name") or "", o.get("origin_port_name") or "",
-                o.get("destination_port_name") or "", o.get("drop_sequence") or "", remark]
+        return [str(bag), str(o.get("trip_id") or base), str(o.get("international_mawb") or ""),
+                str(o.get("domestic_mawb") or ""), str(o.get("account_name") or ""),
+                str(o.get("origin_port_name") or ""), str(o.get("destination_port_name") or ""),
+                o.get("drop_sequence") or "", remark]
 
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(SCAN_CSV_HEADER)
-    seen = set()
+    out, seen = [], set()
     for x in expected:
         k = str(x).lower()
         if k in seen:
@@ -5804,18 +5939,57 @@ def _scan_csv(rows, scans, expected, label):
         if owner is None and len(rows) == 1:
             owner = rows[0]
         kind = _scan_kind_of(scans, x)
-        w.writerow(line(x, owner, kind if kind else "missing"))
-    for s in scans:
-        b = str(s.get("bag_id") or "")
+        out.append(line(x, owner, kind if kind else "missing"))
+    for sc in scans:
+        b = str(sc.get("bag_id") or "")
         if b.lower() in seen:
             continue
         seen.add(b.lower())
-        owner = by_id.get(s.get("request_id")) or (rows[0] if len(rows) == 1 else None)
-        w.writerow(line(b, owner, s.get("scan_kind") or "original"))
-    data = ("\ufeff" + buf.getvalue()).encode("utf-8")
-    name = f"{label}-scan.csv"
-    return Response(data, media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+        owner = by_id.get(sc.get("request_id")) or placed.get(b.lower()) or (rows[0] if len(rows) == 1 else None)
+        out.append(line(b, owner, sc.get("scan_kind") or "original"))
+    return out
+
+def _scan_xlsx_bytes(lines) -> bytes:
+    """The scan manifest as Excel with every ID / Trip ID stored as text, so Excel shows
+    long numeric bag IDs in full and never reads 11E-00087 as the number 1.1E-86."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Scan manifest"
+    ws.append(SCAN_CSV_HEADER)
+    for c in range(1, len(SCAN_CSV_HEADER) + 1):
+        cell = ws.cell(row=1, column=c)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1E40AF")
+    text_cols = {1, 2, 3, 4}   # Bag ID, Trip ID, MAWBs
+    for i, ln in enumerate(lines, start=2):
+        for c, v in enumerate(ln, start=1):
+            cell = ws.cell(row=i, column=c, value=v)
+            if c in text_cols:
+                cell.data_type = "s"
+                cell.number_format = "@"
+    for c, w in enumerate((30, 16, 20, 18, 18, 16, 18, 8, 10), start=1):
+        ws.column_dimensions[get_column_letter(c)].width = w
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(SCAN_CSV_HEADER))}{max(1, len(lines) + 1)}"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+def _scan_csv(rows, scans, expected, label, fmt="xlsx", placed=None):
+    lines = _scan_lines(rows, scans, expected, placed)
+    if fmt == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(SCAN_CSV_HEADER)
+        w.writerows(lines)
+        return Response(("\ufeff" + buf.getvalue()).encode("utf-8"), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{label}-scan.csv"'})
+    return Response(_scan_xlsx_bytes(lines),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{label}-scan.xlsx"'})
 
 # --- Driver / Fleet account management ------------------------------------
 
@@ -6543,7 +6717,7 @@ async def scan_unload_end(key: str, request: Request):
     if not rows[0].get("arrived_dest_datetime"):
         raise HTTPException(409, "The driver must tap Arrived at destination for this drop first")
     # Anyone on the unloading screen may end it: the scan link is the permission.
-    _write_fields(rows[0], {"unload_scan_closed_at": nows()})
+    _write_fields(rows[0], {"unload_scan_closed_at": nows(), "revised_qty_src": "unload"})
     return _scan_summary("unload", _rows_by_unload_key(key), key)
 
 OVERRIDE_MAX_FAILS = 8          # wrong codes allowed per scan session...
@@ -6805,7 +6979,7 @@ async def unassign_driver(rid: int, request: Request):
 # --- Scan CSV downloads ----------------------------------------------------
 
 @app.get("/api/trips/{base}/pickup-scan/download")
-def download_pickup_scan(base: str, request: Request):
+def download_pickup_scan(base: str, request: Request, format: str = "xlsx"):
     scope_vid, _ = vendor_scope(request)
     rows = _rows_for_base(base)
     if not rows:
@@ -6819,10 +6993,15 @@ def download_pickup_scan(base: str, request: Request):
     scans = _pickup_scans(_scan_base(rows))
     expected = _expected_pickup_ids(rows)
     label = str(base)
-    return _scan_csv(rows, scans, expected, f"{label}-pickup")
+    # Override bags (on no manifest) take the drop where they were unloaded, if any.
+    placed = {}
+    for r in rows:
+        for us in _unload_scans(r.get("id")):
+            placed.setdefault(str(us.get("bag_id") or "").lower(), r)
+    return _scan_csv(rows, scans, expected, f"{label}-pickup", fmt=format, placed=placed)
 
 @app.get("/api/requests/{rid}/unload-scan/download")
-def download_unload_scan(rid: int, request: Request):
+def download_unload_scan(rid: int, request: Request, format: str = "xlsx"):
     scope_vid, _ = vendor_scope(request)
     if LOCAL_MODE:
         row = row2d(next((x for x in _store["truck_requests"] if x["id"] == rid), None))
@@ -6840,7 +7019,7 @@ def download_unload_scan(rid: int, request: Request):
     label = str(row.get("request_number") or f"request-{rid}")
     return _scan_csv([_scan_row_names(row) if LOCAL_MODE else
                       (db_1(_SCAN_SELECT + " WHERE tr.id=%s", (rid,)) or row)],
-                     scans, ref, f"{label}-unloading")
+                     scans, ref, f"{label}-unloading", fmt=format)
 
 # ---------------------------------------------------------------------------
 # Vendor Rates

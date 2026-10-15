@@ -2676,6 +2676,16 @@
               "type": "integer",
               "title": "Rid"
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx",
+              "title": "Format"
+            }
           }
         ],
         "responses": {
@@ -3730,6 +3740,16 @@
               "type": "string",
               "title": "Base"
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx",
+              "title": "Format"
+            }
           }
         ],
         "responses": {
@@ -3766,6 +3786,16 @@
             "schema": {
               "type": "integer",
               "title": "Rid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx",
+              "title": "Format"
             }
           }
         ],

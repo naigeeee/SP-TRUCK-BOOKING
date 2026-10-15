@@ -140,6 +140,7 @@ var FIELDS = {
     ["Vendor", "vendor_name"],
     ["Booking Date", "booking_date", "date"],
     ["Status", "status_name"],
+    ["Initial Call datetime (TBC)", "call_datetime", "datetime"],
     ["Final Call Datetime", "final_call_datetime", "datetime"],
     ["Delivered Date", "delivered_date", "date"],
     ["Customs to Arrival", "lt_customs_to_arrival"],
@@ -221,6 +222,7 @@ var FIELDS = {
   ],
   "Trip Utilisation Review": [
     ["Trip ID", "trip_id"],
+    ["Initial Call datetime (TBC)", "call_datetime", "datetime"],
     ["Final Call Datetime", "final_call_datetime", "datetime"],
     ["Status", "status_name"],
     ["Requests", "request_count", "int"],
