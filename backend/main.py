@@ -7947,7 +7947,7 @@ import urllib.error as _urlerr
 
 CHAT_ALERT_TYPES = [
     ("driver_assigned", "Trip assigned to driver / fleet",
-     "Vendor Truck Assignment: a driver / fleet account is assigned to a trip (or the trip is moved to another driver)."),
+     "Vendor Truck Assignment: a driver / fleet account is assigned to a trip (\U0001F504 when the trip is moved to another driver)."),
     ("departed", "Trip departed (Allocated → In Transit)",
      "Scanning App: the driver taps Depart."),
     ("delivered", "Drop delivered (In Transit → Delivered)",
@@ -7960,6 +7960,9 @@ CHAT_ALERT_TYPES = [
 CHAT_ALERT_LABEL = {k: lbl for k, lbl, _ in CHAT_ALERT_TYPES}
 CHAT_ALERT_LABEL["test"] = "Test alert"
 CHAT_WEBHOOK_ENV = "GOOGLE_CHAT_WEBHOOK_URL"
+# One emoji per alert, at the start of its header, so each kind is easy to tell apart in Chat.
+CHAT_ALERT_EMOJI = {"driver_assigned": "\U0001F4CB", "reassigned": "\U0001F504", "departed": "\U0001F69A",
+                    "delivered": "\u2705", "foul_trip": "\u26A0\uFE0F", "cancelled": "\u274C", "test": "\U0001F514"}
 CHAT_TEXT_MAX = 3900          # Google Chat caps a text message at 4,096 characters
 _CHAT_URL_RE = re.compile(r"^https://chat\.googleapis\.com/v1/spaces/[A-Za-z0-9_-]+/messages\?[^\s<>\"']+$")
 
@@ -8199,7 +8202,8 @@ def _alert_trip_text(atype, base, extra_head=None):
              "departed": "Trip departed — now In Transit"}.get(atype, "Trip update")
     if atype == "driver_assigned" and extra_head == "reassigned":
         title = "Trip re-assigned to another driver / fleet"
-    lines = [f"*{title}*"]
+    emo = CHAT_ALERT_EMOJI["reassigned" if (atype == "driver_assigned" and extra_head == "reassigned") else atype]
+    lines = [f"{emo} *{title}*"]
     if atype == "departed":
         ap = sorted(str(to_gmt8(r.get("arrived_pickup_datetime"))) for r in ordered if r.get("arrived_pickup_datetime"))
         el = sorted(str(to_gmt8(r.get("end_loading_datetime"))) for r in ordered if r.get("end_loading_datetime"))
@@ -8265,7 +8269,7 @@ def _alert_request_text(atype, rid, before=None):
         title = {"delivered": f"Drop delivered \u2014 {vendor}",
                  "foul_trip": f"Truck request updated to Foul Trip by {vendor}",
                  "cancelled": f"Truck request Cancelled by {vendor}"}[atype]
-    lines = [f"*{title}*"]
+    lines = [f"{CHAT_ALERT_EMOJI[atype]} *{title}*"]
     if atype == "delivered":
         lines.append(f"*Delivered:* {_fmt_dt(r.get('end_unloading_datetime'))}")
     elif atype == "foul_trip":
@@ -8321,7 +8325,7 @@ def _chat_public(cfg):
             "webhook_masked": _chat_mask(cfg["url"]),
             "env_set": bool(os.environ.get(CHAT_WEBHOOK_ENV, "").strip()),
             "enabled": cfg["enabled"],
-            "types": [{"key": k, "label": lbl, "when": w} for k, lbl, w in CHAT_ALERT_TYPES]}
+            "types": [{"key": k, "label": lbl, "when": w, "emoji": CHAT_ALERT_EMOJI.get(k, "")} for k, lbl, w in CHAT_ALERT_TYPES]}
 
 @app.get("/api/admin/chat-alerts", tags=["admin"])
 def get_chat_alerts(request: Request):
@@ -8365,7 +8369,7 @@ async def test_chat_alert(request: Request):
     if not _chat_url_ok(cfg["url"]):
         raise HTTPException(400, "The saved webhook is not a Google Chat webhook URL")
     on = [lbl for k, lbl, _ in CHAT_ALERT_TYPES if cfg["enabled"].get(k)]
-    text = ("*Test alert — SP PH Truck Booking*\nGoogle Chat alerts are connected.\n"
+    text = (f"{CHAT_ALERT_EMOJI['test']} *Test alert — SP PH Truck Booking*\nGoogle Chat alerts are connected.\n"
             f"*Sent by:* {u.get('name') or u.get('email') or '-'}\n*Sent at:* {_fmt_dt(nows())}\n"
             f"*Alerts switched on:* {', '.join(on) if on else 'none'}")
     status, detail = await run_in_threadpool(_chat_deliver, "test", text, "", "", cfg["url"])
