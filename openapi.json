@@ -4668,6 +4668,124 @@
         }
       }
     },
+    "/api/admin/chat-alerts": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Chat Alerts",
+        "description": "Google Chat alert settings (webhook shown masked) and the latest alerts.",
+        "operationId": "get_chat_alerts_api_admin_chat_alerts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set Chat Alerts",
+        "description": "Set / remove the webhook and switch each alert on or off (master admin).",
+        "operationId": "set_chat_alerts_api_admin_chat_alerts_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/chat-alerts/test": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Test Chat Alert",
+        "description": "Send a test message to the webhook now and report what Google Chat answered.",
+        "operationId": "test_chat_alert_api_admin_chat_alerts_test_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/storage-usage": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Storage Usage",
+        "description": "Database size, file storage size and Google Sheet cell count, with 30-day growth.",
+        "operationId": "storage_usage_api_admin_storage_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/storage-usage/check-bucket": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Storage Check Bucket",
+        "description": "Count the files really in storage and compare with the files the app has on record.",
+        "operationId": "storage_check_bucket_api_admin_storage_usage_check_bucket_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/sheet-usage": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "summary": "Sync Sheet Usage",
+        "description": "Called by the Google Apps Script after each sync with the spreadsheet's size\n(rows x columns of every tab - Google counts every cell towards its 10 million limit).",
+        "operationId": "sync_sheet_usage_api_sync_sheet_usage_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/app-version": {
       "get": {
         "tags": [

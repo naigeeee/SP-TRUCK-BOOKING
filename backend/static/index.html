@@ -71,6 +71,15 @@ th{text-align:left;padding:12px 16px;background:var(--bg);font-weight:600;color:
 td{padding:12px 16px;border-bottom:1px solid var(--bdr);vertical-align:middle}
 tr:hover td{background:#F8FAFC}
 .badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;gap:4px}
+.su-two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+#pg-storage-usage td[style*="text-align:right"],#pg-storage-usage th[style*="text-align:right"]{white-space:nowrap}
+.su-sub{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.su-bar{height:8px;border-radius:99px;background:var(--bdr);overflow:hidden;margin-top:8px;min-width:120px}.su-bar span{display:block;height:100%;border-radius:99px}
+.su-grow{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-size:13px}.su-grow ul{margin:6px 0 0 18px;line-height:1.7}
+.su-note{margin-top:14px;font-size:12.5px;color:var(--muted);background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px}
+.ca-how{margin-top:16px;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:10px 14px}.ca-how summary{cursor:pointer;font-weight:600}.ca-how ol{margin:10px 0 6px 20px;line-height:1.7}.ca-how p{color:var(--muted);font-size:12.5px}
+.ca-type{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--bdr);cursor:pointer}.ca-type:last-child{border-bottom:none}.ca-type input{margin-top:3px;width:16px;height:16px;flex-shrink:0}.ca-type b{display:block;font-size:13.5px}.ca-type small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+@media(max-width:900px){.su-two{grid-template-columns:1fr}}
 .b-bl{background:#DBEAFE;color:#1D4ED8}.b-gn{background:#D1FAE5;color:#065F46}.b-yl{background:#FEF3C7;color:#92400E}.b-rd{background:#FEE2E2;color:#991B1B}.b-pp{background:#EDE9FE;color:#5B21B6}.b-gy{background:#F1F5F9;color:#475569}
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center}
 .mo.on{display:flex}
@@ -311,6 +320,8 @@ body.scan-mode .layout{display:none}
 <a class="nav-item adm" onclick="showPage('users')" data-page="users" style="display:none"><i class="fas fa-users-cog"></i> User Roles</a>
 <a class="nav-item madm" onclick="showPage('role-visibility')" data-page="role-visibility" style="display:none"><i class="fas fa-eye"></i> Role Visibility</a>
 <a class="nav-item madm" onclick="showPage('page-security')" data-page="page-security" style="display:none"><i class="fas fa-lock"></i> Page Password &amp; Logs</a>
+<a class="nav-item madm" onclick="showPage('storage-usage')" data-page="storage-usage" style="display:none"><i class="fas fa-database"></i> Storage Usage</a>
+<a class="nav-item madm" onclick="showPage('chat-alerts')" data-page="chat-alerts" style="display:none"><i class="fas fa-bell"></i> Google Chat Alerts</a>
 <div class="nav-div"></div><div class="nav-lbl">Help</div>
 <a class="nav-item" onclick="showPage('user-guide')" data-page="user-guide"><i class="fas fa-book-open"></i> User Guide for All</a>
 <a class="nav-item" onclick="showPage('guide-vendor')" data-page="guide-vendor" style="display:none"><i class="fas fa-handshake"></i> User Guide for Vendors</a>
@@ -486,6 +497,27 @@ body.scan-mode .layout{display:none}
 <div class="tw" style="max-height:calc(100vh - 420px);min-height:200px;overflow:auto"><table><thead><tr><th>Date / Time</th><th>Event</th><th>Page</th><th>User</th><th>Email</th><th>Role</th><th>Detail</th><th>IP Address</th></tr></thead><tbody id="plTbl"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody></table></div>
 </div></div>
 </section>
+<!-- Storage Usage (master admin) -->
+<section class="pg" id="pg-storage-usage">
+<div class="pg-hdr"><h1><i class="fas fa-database" style="color:var(--pri)"></i> Storage Usage</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="loadStorage()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
+<div style="font-size:13px;color:var(--muted);margin-bottom:14px"><i class="fas fa-info-circle"></i> How much the app is storing, and how fast it is growing. <strong>Database</strong> = requests, trips, scans and settings. <strong>File storage</strong> = attachments, unloading photos and manifests. <strong>Google Sheet</strong> = the auto-sync spreadsheet (Google caps a spreadsheet at 10 million cells).</div>
+<div class="stats" id="suStats"><div class="stat"><div class="s-info"><div class="s-lbl">Loading...</div></div></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-chart-line"></i> Growth</h3><span id="suGen" style="font-size:12px;color:var(--muted)"></span></div><div class="card-b" id="suGrowth"><p>Loading...</p></div></div>
+<div class="su-two">
+<div class="card"><div class="card-h"><h3><i class="fas fa-table"></i> Database tables</h3><span id="suDbNote" style="font-size:12px;color:var(--muted)"></span></div><div class="card-b" style="padding:0"><div class="tw"><table><thead><tr><th>What</th><th style="text-align:right">Rows</th><th style="text-align:right">Size</th></tr></thead><tbody id="suTbl"><tr><td colspan="3" class="empty"><p>Loading...</p></td></tr></tbody></table></div></div></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-folder-open"></i> File storage</h3><button class="btn btn-o btn-sm" onclick="suCheckBucket()" id="suChkBtn"><i class="fas fa-magnifying-glass"></i> Check bucket</button></div><div class="card-b" style="padding:0"><div class="tw"><table><thead><tr><th>What</th><th style="text-align:right">Files</th><th style="text-align:right">Size</th></tr></thead><tbody id="suFiles"><tr><td colspan="3" class="empty"><p>Loading...</p></td></tr></tbody></table></div><div id="suBucket" style="font-size:12.5px;color:var(--muted);padding:10px 16px"></div></div></div>
+</div>
+<div class="card" style="margin-top:16px"><div class="card-h"><h3><i class="fas fa-file-excel"></i> Google Sheet tabs</h3><span id="suSheetAt" style="font-size:12px;color:var(--muted)"></span></div><div class="card-b" style="padding:0"><div class="tw"><table><thead><tr><th>Tab</th><th style="text-align:right">Rows</th><th style="text-align:right">Columns</th><th style="text-align:right">Cells</th><th style="text-align:right">Rows with data</th></tr></thead><tbody id="suTabs"><tr><td colspan="5" class="empty"><p>Loading...</p></td></tr></tbody></table></div></div></div>
+</section>
+
+<!-- Google Chat Alerts (master admin) -->
+<section class="pg" id="pg-chat-alerts">
+<div class="pg-hdr"><h1><i class="fas fa-bell" style="color:var(--pri)"></i> Google Chat Alerts</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="loadChatAlerts()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
+<div style="font-size:13px;color:var(--muted);margin-bottom:14px"><i class="fas fa-info-circle"></i> The app posts a message to a Google Chat space when a trip gets its driver, departs, a drop is delivered, or a vendor marks a request <strong>Foul Trip</strong> or <strong>Cancelled</strong>.</div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-link"></i> Google Chat webhook</h3><span id="caStatus"></span></div><div class="card-b" id="caHook"><p>Loading...</p></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-toggle-on"></i> Alerts</h3><button class="btn btn-p btn-sm" onclick="saveChatToggles()"><i class="fas fa-save"></i> Save</button></div><div class="card-b" id="caTypes"><p>Loading...</p></div></div>
+<div class="card"><div class="card-h"><h3><i class="fas fa-clipboard-list"></i> Alert log</h3><span id="caCnt" style="font-size:12px;color:var(--muted)"></span></div><div class="card-b" style="padding:0"><div class="tw" style="max-height:calc(100vh - 360px);min-height:180px;overflow:auto"><table><thead><tr><th>Date / Time</th><th>Alert</th><th>Trip ID</th><th>Truck Request #</th><th>Result</th><th>Detail</th></tr></thead><tbody id="caLog"><tr><td colspan="6" class="empty"><p>Loading...</p></td></tr></tbody></table></div></div></div>
+</section>
 
 <!-- Vendor Truck Assignment -->
 <section class="pg" id="pg-vendor-trucks">
@@ -515,7 +547,7 @@ body.scan-mode .layout{display:none}
 <div class="guide-root">
 <div data-gid="top" style="font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.6"><i class="fas fa-info-circle"></i> Short, step-by-step help for every page of the SP PH Truck Booking app. Click a topic to jump to it. Click a picture to open it full size. <span data-needs-page="guide-vendor">Vendors: see <a href="javascript:void(0)" onclick="showPage('guide-vendor')">User Guide for Vendors</a>.</span> <span data-needs-page="guide-driver">Drivers: see <a href="javascript:void(0)" onclick="showPage('guide-driver')">User Guide for Driver/Fleet</a>.</span></div>
 <div class="guide-quick"><div class="gq"><b><span>1</span> Sign in</b><p>Use your company Google account.</p></div><div class="gq"><b><span>2</span> Pick a page</b><p>The menu shows only what your role can use.</p></div><div class="gq"><b><span>3</span> Follow the topic</b><p>Each topic below has short steps and a picture.</p></div></div>
-<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-list"></i> Topics</h3></div><div class="card-b"><div class="guide-toc"><a href="javascript:void(0)" onclick="return guideJump(this,'g-start')">1. Getting started</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-dash')">2. Dashboard</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-new')">3. Creating a truck request</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-ml')">4. Masterlist</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-pending')">5. Allocating requests to vendors</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-fleet')">6. Fleet Management</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-vt')">7. Vendor Truck Assignment</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-da')">8. Driver / Fleet Accounts</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-scan')">9. Scanning App</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-rates')">10. Rate Management</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-eval')">11. Vendor Speed Performance</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-cost')">12. Cost Analysis</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-foul')">13. Foul Trip Approval</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-tu')">14. Trip Utilisation Review</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-lib')">15. Master Library</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-users')">16. User Roles</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-rv')">17. Role Visibility (Master Admin)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-pw')">18. Page Password & Access Logs</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-ref')">19. Quick reference</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-faq')">20. Problems and fixes</a><br></div></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-list"></i> Topics</h3></div><div class="card-b"><div class="guide-toc"><a href="javascript:void(0)" onclick="return guideJump(this,'g-start')">1. Getting started</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-dash')">2. Dashboard</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-new')">3. Creating a truck request</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-ml')">4. Masterlist</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-pending')">5. Allocating requests to vendors</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-fleet')">6. Fleet Management</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-vt')">7. Vendor Truck Assignment</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-da')">8. Driver / Fleet Accounts</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-scan')">9. Scanning App</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-rates')">10. Rate Management</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-eval')">11. Vendor Speed Performance</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-cost')">12. Cost Analysis</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-foul')">13. Foul Trip Approval</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-tu')">14. Trip Utilisation Review</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-lib')">15. Master Library</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-users')">16. User Roles</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-rv')">17. Role Visibility (Master Admin)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-pw')">18. Page Password & Access Logs</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-storage')">19. Storage Usage (Master Admin)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-chat')">20. Google Chat Alerts (Master Admin)</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-ref')">21. Quick reference</a><br><a href="javascript:void(0)" onclick="return guideJump(this,'g-faq')">22. Problems and fixes</a><br></div></div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-start">
 <div class="card-h"><h3><i class="fas fa-door-open"></i> 1. Getting started</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
@@ -632,15 +664,29 @@ body.scan-mode .layout{display:none}
 <div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> After 5 wrong tries the page is blocked for 15 minutes.</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/18a-lock.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18a-lock.jpg" alt="A protected page asks for the password." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A protected page asks for the password.</figcaption></figure><figure class="g-shot"><a href="/guide/18b-security.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18b-security.jpg" alt="Set / change / reset the password and see the user log." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Set / change / reset the password and see the user log.</figcaption></figure></div>
 </div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-storage">
+<div class="card-h"><h3><i class="fas fa-database"></i> 19. Storage Usage (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>Open <strong>Administration &rarr; Storage Usage</strong> to see how much the app is storing: <strong>Database</strong> (requests, trips, scans, settings), <strong>File storage</strong> (attachments, unloading photos, manifests) and the <strong>Google Sheet</strong> (cells used of Google&rsquo;s 10 million limit).</li><li><strong>Growth</strong> shows what was added in the last 30 days and, at that rate, how much a year adds. For the Google Sheet it also shows roughly when it would be full.</li><li>The tables below list each part of the database, the files by kind, and the rows / columns of every Google Sheet tab. <strong>Check bucket</strong> counts the files really in storage and compares them with the app&rsquo;s records.</li><li>The Google Sheet size is sent by the sheet itself after each sync. Paste the latest <strong>Code.gs</strong> into the sheet&rsquo;s Apps Script once to start it.</li></ol>
+<div class="guide-tip"><i class="fas fa-lightbulb"></i> The Google Sheet tile turns amber at 70% and red at 90% of its 10 million cells.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/19-storage.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/19-storage.jpg" alt="Database, file storage and Google Sheet at a glance." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Database, file storage and Google Sheet at a glance.</figcaption></figure></div>
+</div></div>
+<div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-chat">
+<div class="card-h"><h3><i class="fas fa-bell"></i> 20. Google Chat Alerts (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-b">
+<ol class="guide-steps"><li>The app posts to a Google Chat space when: a trip is <strong>assigned to a driver / fleet</strong> (or moved to another driver), the driver taps <strong>Depart</strong> (In Transit), the driver taps <strong>Finish Drop</strong> (Delivered), or a <strong>vendor</strong> changes a request to <strong>Foul Trip</strong> or <strong>Cancelled</strong>.</li><li>Set it up once: in Google Chat open the space &rarr; space name &rarr; <strong>Apps &amp; integrations</strong> &rarr; <strong>Webhooks</strong> &rarr; add one and copy its URL. In the app open <strong>Administration &rarr; Google Chat Alerts</strong>, paste the URL, click <strong>Save webhook</strong>, then <strong>Send test alert</strong>.</li><li>Tick or untick each alert under <strong>Alerts</strong> and click <strong>Save</strong>.</li><li>Trip alerts list the trip, driver, phone, vendor, truck, origin and final call, then every truck request on the trip (MAWBs, account, packaging, Revised Qty, destination, drop #). When the trip has no final call yet, each request&rsquo;s <strong>Initial Call (TBC)</strong> is shown instead.</li><li>The <strong>Alert log</strong> shows every alert: <strong>Sent</strong>, <strong>Failed</strong> (with Google Chat&rsquo;s reason) or <strong>Not sent</strong> (no webhook set).</li></ol>
+<div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> Anyone with the webhook URL can post to the space &mdash; keep it private. The app never shows it again in full.</div>
+<div class="g-shots"><figure class="g-shot"><a href="/guide/20-chat-alerts.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/20-chat-alerts.jpg" alt="Paste the webhook URL, Save, then Send test alert." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Paste the webhook URL, Save, then Send test alert.</figcaption></figure><figure class="g-shot"><a href="/guide/20b-chat-log.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/20b-chat-log.jpg" alt="Switch alerts on / off; every alert is in the log." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Switch alerts on / off; every alert is in the log.</figcaption></figure></div>
+</div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-ref">
-<div class="card-h"><h3><i class="fas fa-palette"></i> 19. Quick reference</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-h"><h3><i class="fas fa-palette"></i> 21. Quick reference</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
 <ol class="guide-steps"><li><strong>Statuses:</strong> Pending &rarr; Allocated &rarr; In Transit (after Depart) &rarr; Delivered; also On Hold, Cancelled and Foul Trip.</li><li><strong>Trip ID</strong> = vendor code + number + drop letter, e.g. <strong>11E-00087-A</strong> (drop 1), <strong>11E-00087-B</strong> (drop 2).</li><li><strong>Utilisation colours:</strong> <span style="color:#DC2626">red &lt;70%</span>, <span style="color:#D97706">yellow 70&ndash;85%</span>, <span style="color:#16A34A">green &gt;85%</span>.</li><li>All times are GMT+8. <strong>Distance (KM)</strong> appears in red once a request is on a trip.</li></ol>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-faq">
-<div class="card-h"><h3><i class="fas fa-life-ring"></i> 20. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
+<div class="card-h"><h3><i class="fas fa-life-ring"></i> 22. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li><strong>A page is missing</strong> &mdash; your role does not have it; ask a Master Admin.</li><li><strong>&ldquo;No pages available&rdquo;</strong> &mdash; your account is still New User; ask an admin to set your role.</li><li><strong>A page asks for a password</strong> &mdash; ask the Master Admin for the page password.</li><li><strong>Manifest upload refused</strong> &mdash; it must be an Excel (.xlsx / .xlsm) or CSV (.csv) file of 10&nbsp;MB or less, with a bag / carton / gunny / sack ID column.</li><li><strong>Attachment refused</strong> &mdash; up to 8 files and 25&nbsp;MB per request.</li><li><strong>No utilisation %</strong> &mdash; the truck type has no Max Capacity, or a packaging type has no factor (Master Library).</li><li><strong>Cost Analysis is empty</strong> &mdash; check the Final Call dates (a request with no Final Call is matched on its Initial Call date); only Delivered and approved Foul Trip requests count.</li><li><strong>Anything else</strong> &mdash; note the exact message on screen and the page, and send it to the administrators.</li></ol>
+<ol class="guide-steps"><li><strong>A page is missing</strong> &mdash; your role does not have it; ask a Master Admin.</li><li><strong>&ldquo;No pages available&rdquo;</strong> &mdash; your account is still New User; ask an admin to set your role.</li><li><strong>A page asks for a password</strong> &mdash; ask the Master Admin for the page password.</li><li><strong>Manifest upload refused</strong> &mdash; it must be an Excel (.xlsx / .xlsm) or CSV (.csv) file of 10&nbsp;MB or less, with a bag / carton / gunny / sack ID column.</li><li><strong>Attachment refused</strong> &mdash; up to 8 files and 25&nbsp;MB per request.</li><li><strong>No Google Chat alerts</strong> &mdash; open Google Chat Alerts (Master Admin): check the webhook is <strong>Connected</strong>, the alert is ticked, and the Alert log for the reason.</li><li><strong>No utilisation %</strong> &mdash; the truck type has no Max Capacity, or a packaging type has no factor (Master Library).</li><li><strong>Cost Analysis is empty</strong> &mdash; check the Final Call dates (a request with no Final Call is matched on its Initial Call date); only Delivered and approved Foul Trip requests count.</li><li><strong>Anything else</strong> &mdash; note the exact message on screen and the page, and send it to the administrators.</li></ol>
 </div></div>
 </div>
 </section>
@@ -667,7 +713,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-assign">
 <div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 3. Assign a driver to a trip</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Open <strong>Vendor Truck Assignment</strong>. Each card is a trip waiting for a driver, with its final call time (or its Initial Call (TBC) if no final call is set yet), truck type and every drop. Use the <strong>Truck Type</strong> and <strong>Origin</strong> filters to find a trip quickly.</li><li>In <strong>Select driver / fleet account</strong>, pick a driver. Only your <strong>active</strong> accounts whose truck matches the trip's <strong>truck type</strong> are listed (username, name, phone, plate).</li><li>Click <strong>Assign Driver</strong>. The trip leaves this list and appears in the driver's Scanning App.</li><li>No driver in the list? Add one (or set the right truck) on <strong>Driver / Fleet Accounts</strong>.</li></ol>
+<ol class="guide-steps"><li>Open <strong>Vendor Truck Assignment</strong>. Each card is a trip waiting for a driver, with its final call time (or its Initial Call (TBC) if no final call is set yet), truck type and every drop. Use the <strong>Truck Type</strong> and <strong>Origin</strong> filters to find a trip quickly.</li><li>In <strong>Select driver / fleet account</strong>, pick a driver. Only your <strong>active</strong> accounts whose truck matches the trip's <strong>truck type</strong> are listed (username, name, phone, plate).</li><li>Click <strong>Assign Driver</strong>. The trip leaves this list and appears in the driver's Scanning App. The SP PH operations team gets a Google Chat alert with the trip, driver and truck details.</li><li>No driver in the list? Add one (or set the right truck) on <strong>Driver / Fleet Accounts</strong>.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> Wrong driver? On the Masterlist use <i class="fas fa-user-slash"></i> <strong>Remove driver</strong> &mdash; the trip comes back here.</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/v04-assign.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v04-assign.jpg" alt="Pick the driver for the trip, then Assign Driver." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Pick the driver for the trip, then Assign Driver.</figcaption></figure></div>
 </div></div>
@@ -680,7 +726,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-edit">
 <div class="card-h"><h3><i class="fas fa-edit"></i> 5. Update a request (Edit)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>On the Masterlist, click <i class="fas fa-edit"></i> <strong>Edit</strong>.</li><li>You can update the <strong>status</strong>, <strong>truck plate</strong>, <strong>Revised Qty</strong>, milestone times, foul trip details, <strong>attachments</strong> (e.g. proof of delivery) and the <strong>manifest</strong>.</li><li>Greyed-out fields (account, department, ports, MAWBs, call times) belong to the requester and cannot be changed by vendors. A vendor also cannot move a request back to <strong>Pending</strong>.</li></ol>
+<ol class="guide-steps"><li>On the Masterlist, click <i class="fas fa-edit"></i> <strong>Edit</strong>.</li><li>You can update the <strong>status</strong>, <strong>truck plate</strong>, <strong>Revised Qty</strong>, milestone times, foul trip details, <strong>attachments</strong> (e.g. proof of delivery) and the <strong>manifest</strong>.</li><li>Greyed-out fields (account, department, ports, MAWBs, call times) belong to the requester and cannot be changed by vendors. A vendor also cannot move a request back to <strong>Pending</strong>.</li><li>Changing a request to <strong>Foul Trip</strong> or <strong>Cancelled</strong> sends a Google Chat alert to the SP PH operations team.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> Most milestone times are filled in automatically by the driver's scanning app &mdash; you rarely need to type them.</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/v06-edit.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v06-edit.jpg" alt="Edit  greyed-out fields are locked for vendors." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Edit &mdash; greyed-out fields are locked for vendors.</figcaption></figure></div>
 </div></div>
@@ -725,13 +771,13 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-depart">
 <div class="card-h"><h3><i class="fas fa-truck-fast"></i> 4. Steps 3 and 4 &ndash; End loading and Depart</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Tap <strong>Back to the trip</strong>, then <strong>End loading</strong> when the truck is loaded.</li><li>Tap <strong>Depart</strong> when you leave. The trip is now <strong>In Transit</strong>.</li></ol>
+<ol class="guide-steps"><li>Tap <strong>Back to the trip</strong>, then <strong>End loading</strong> when the truck is loaded.</li><li>Tap <strong>Depart</strong> when you leave. The trip is now <strong>In Transit</strong> and the operations team is told you have left.</li></ol>
 <div class="g-shots"><figure class="g-shot g-phone"><a href="/guide/d05-depart.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d05-depart.jpg" alt="After Depart, the drops unlock one by one." loading="lazy"></a><figcaption><i class="fas fa-image"></i> After Depart, the drops unlock one by one.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-drop">
 <div class="card-h"><h3><i class="fas fa-location-dot"></i> 5. At each drop</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted (a bag accepted with the override code at pickup can be unloaded at any drop).</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery), and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>Check your photos</strong> &mdash; tap a photo to see it full screen (use the arrows for the others). To remove one, tap its <i class="fas fa-trash-can"></i> (or <strong>Remove this photo</strong>) and confirm. Up to 8 files per drop; photos can be removed until you tap Finish Drop.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it and the next drop unlocks.</li></ol>
+<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted (a bag accepted with the override code at pickup can be unloaded at any drop).</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery), and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>Check your photos</strong> &mdash; tap a photo to see it full screen (use the arrows for the others). To remove one, tap its <i class="fas fa-trash-can"></i> (or <strong>Remove this photo</strong>) and confirm. Up to 8 files per drop; photos can be removed until you tap Finish Drop.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it, the operations team is told the drop is delivered, and the next drop unlocks.</li></ol>
 <div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d06-unload.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d06-unload.jpg" alt="Unloading scan, then the summary before ending it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Unloading scan, then the summary before ending it.</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d07-photos.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d07-photos.jpg" alt="Add photos and remarks, then Finish Drop." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add photos and remarks, then <strong>Finish Drop</strong>.</figcaption></figure><figure class="g-shot g-pair"><a href="/guide/d08-review.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d08-review.jpg" alt="Review a photo full screen, and confirm before removing it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Review a photo full screen, and confirm before removing it.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-done">
@@ -799,8 +845,8 @@ async function init(){
       if(isAdmin)userPages.push('rates','evaluation','cost','foul-trip-review','trip-utilisation','library','users','vendor-trucks','driver-accounts');
       if(isMaster)userPages.push('role-visibility');
     }
-    if(isMaster&&!userPages.includes('page-security'))userPages.push('page-security');
-    if(!isMaster)userPages=userPages.filter(p=>p!=='page-security');
+    MASTER_ONLY_PAGES.forEach(p=>{if(isMaster&&!userPages.includes(p))userPages.push(p)});
+    if(!isMaster)userPages=userPages.filter(p=>!MASTER_ONLY_PAGES.includes(p));
     try{pageLock=await(await fetch('/api/page-lock')).json()}catch(e){pageLock={enabled:false,applies:[],pages:{}}}
     document.querySelectorAll('.nav-item[data-page]').forEach(n=>{
       const pg=n.dataset.page;
@@ -916,7 +962,8 @@ function tidyNavSections(){
     const prev=lbl.previousElementSibling;if(prev&&prev.classList.contains('nav-div'))prev.style.display=any?'':'none';
   });
 }
-function pageLoaders(){return{dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,'vendor-trucks':loadVT,'driver-accounts':loadDA,rates:loadRates,evaluation:loadEvals,cost:()=>{},'foul-trip-review':loadFT,'trip-utilisation':loadTU,library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers,'role-visibility':loadRoleVisibility,'page-security':loadSecurity}}
+function pageLoaders(){return{dashboard:loadDash,masterlist:loadML,pending:loadPend,fleet:loadFleet,'vendor-trucks':loadVT,'driver-accounts':loadDA,rates:loadRates,evaluation:loadEvals,cost:()=>{},'foul-trip-review':loadFT,'trip-utilisation':loadTU,library:()=>libTab('ports',document.querySelector('#libTabs .tab')),users:loadUsers,'role-visibility':loadRoleVisibility,'page-security':loadSecurity,'storage-usage':loadStorage,'chat-alerts':loadChatAlerts}}
+var MASTER_ONLY_PAGES=['page-security','storage-usage','chat-alerts'];
 
 // ---- Protected pages (common page password) ---------------------------------
 let pageLock={enabled:false,applies:[],pages:{}},pageTokens={};
@@ -1023,6 +1070,103 @@ async function loadPageLogs(){
   tb.innerHTML=pageLogRows.map(r=>{const ev=PL_EVENTS[r.event_type]||[r.event_type,'b-gy'];return'<tr><td style="white-space:nowrap">'+fmtD(r.created_at)+'</td><td><span class="badge '+ev[1]+'">'+esc(ev[0])+'</span></td><td>'+esc(r.page_name||'-')+'</td><td>'+esc(r.user_name||'-')+'</td><td>'+esc(r.user_email||'-')+'</td><td>'+esc(roleName(r.user_role||'')||'-')+'</td><td>'+esc(r.detail||'-')+'</td><td>'+esc(r.ip_address||'-')+'</td></tr>'}).join('');
 }
 function exportPageLogCSV(){exportShownTable('plTbl','page-access-log')}
+
+// ---- Storage Usage (master admin) -------------------------------------------
+function fmtBytes(b){b=Number(b)||0;if(b<1024)return b+' B';const u=['KB','MB','GB','TB'];let i=-1;do{b/=1024;i++}while(b>=1024&&i<u.length-1);return(b>=100?b.toFixed(0):b>=10?b.toFixed(1):b.toFixed(2))+' '+u[i]}
+function fmtNum(n){return n==null?'-':Number(n).toLocaleString('en-PH')}
+async function loadStorage(){
+  let d;
+  try{const r=await fetch('/api/admin/storage-usage');if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||('HTTP '+r.status));d=await r.json()}
+  catch(e){document.getElementById('suStats').innerHTML='<div class="stat"><div class="s-info"><div class="s-lbl">Could not load storage usage: '+esc(e.message)+'</div></div></div>';return}
+  const db=d.database||{},fl=d.files||{},sh=d.sheet||{},g=d.growth_30d||{},py=d.per_year||{};
+  const pct=sh.reported?sh.pct:0,col=pct>=90?'var(--err)':pct>=70?'var(--warn)':'var(--ok)';
+  const bar='<div class="su-bar" title="'+pct+'% of 10,000,000 cells"><span style="width:'+Math.min(100,pct)+'%;background:'+col+'"></span></div>';
+  let sheetVal,sheetSub;
+  if(sh.reported){
+    sheetVal=fmtNum(sh.total_cells)+' <span style="font-size:13px;font-weight:600;color:var(--muted)">/ 10M cells</span>';
+    sheetSub=bar+'<div class="su-sub">'+pct+'% used'+(sh.days_left!=null?' &middot; full in about '+(sh.days_left>730?Math.round(sh.days_left/365)+' years':sh.days_left>60?Math.round(sh.days_left/30)+' months':sh.days_left+' days')+' at the current rate':'')+'</div>';
+  }else{
+    sheetVal='<span style="font-size:15px">Not reported yet</span>';
+    sheetSub='<div class="su-sub">Update the Apps Script to the latest Code.gs; it reports the size after each sync.</div>';
+  }
+  document.getElementById('suStats').innerHTML=
+    '<div class="stat"><div class="s-ico bl"><i class="fas fa-database"></i></div><div class="s-info"><div class="s-lbl">Database'+(db.estimated?' (estimated)':'')+'</div><div class="s-val">'+fmtBytes(db.bytes)+'</div><div class="su-sub">'+esc(db.engine||'')+'</div></div></div>'+
+    '<div class="stat"><div class="s-ico gn"><i class="fas fa-folder-open"></i></div><div class="s-info"><div class="s-lbl">File storage</div><div class="s-val">'+fmtBytes(fl.bytes)+'</div><div class="su-sub">'+fmtNum(fl.count)+' files &middot; '+esc(fl.store||'')+'</div></div></div>'+
+    '<div class="stat"><div class="s-ico '+(pct>=90?'rd':pct>=70?'yl':'pp')+'"><i class="fas fa-file-excel"></i></div><div class="s-info"><div class="s-lbl">Google Sheet'+(sh.reported&&sh.spreadsheet_name?' &middot; '+esc(sh.spreadsheet_name):'')+'</div><div class="s-val">'+sheetVal+'</div>'+sheetSub+'</div></div>';
+  document.getElementById('suGen').textContent='Updated '+fmtD(d.generated_at);
+  document.getElementById('suGrowth').innerHTML=
+    '<div class="su-grow"><div><b>Last 30 days</b><ul><li>'+fmtNum(g.requests)+' new truck requests</li><li>'+fmtNum(g.scans)+' bag scans</li><li>'+fmtNum(g.files)+' files ('+fmtBytes(g.file_bytes)+')</li><li>Database about +'+fmtBytes(g.db_bytes)+'</li></ul></div>'+
+    '<div><b>At this rate, per year</b><ul><li>'+fmtNum(py.requests)+' truck requests</li><li>'+fmtNum(py.scans)+' bag scans</li><li>Database about +'+fmtBytes(py.db_bytes)+'</li><li>File storage about +'+fmtBytes(py.file_bytes)+'</li></ul></div>'+
+    '<div><b>Google Sheet</b><ul>'+(sh.reported?('<li>'+fmtNum(sh.total_cells)+' cells in '+fmtNum(sh.sheet_count)+' tabs ('+fmtNum(sh.used_cells)+' with data)</li>'+(sh.per_day!=null?'<li>'+(sh.per_day>=0?'+':'')+fmtNum(sh.per_day)+' cells a day since '+fmtDDate(sh.since)+'</li>':'<li>Growth shows after a day of syncs</li>')+(sh.spreadsheet_url?'<li><a href="'+esc(sh.spreadsheet_url)+'" target="_blank" rel="noopener">Open the Google Sheet <i class="fas fa-external-link-alt" style="font-size:10px"></i></a></li>':'')):'<li>No report yet</li>')+'</ul></div></div>'+
+    '<div class="su-note"><i class="fas fa-lightbulb"></i> File storage (Google Cloud bucket) has no practical size limit. Substrait does not publish a database quota, so ask the Substrait team if the database passes a few GB. The Google Sheet turns amber at 70% and red at 90% of its 10 million cells.</div>';
+  document.getElementById('suDbNote').textContent=db.estimated?'Sizes estimated from row counts':'Sizes from the database';
+  document.getElementById('suTbl').innerHTML=(db.tables||[]).map(t=>'<tr><td>'+esc(t.label)+'</td><td style="text-align:right">'+fmtNum(t.rows)+'</td><td style="text-align:right">'+fmtBytes(t.bytes)+'</td></tr>').join('')+'<tr style="font-weight:700"><td>Total</td><td></td><td style="text-align:right">'+fmtBytes(db.bytes)+'</td></tr>';
+  const b=fl.breakdown||{},fr=(lbl,x)=>'<tr><td>'+lbl+'</td><td style="text-align:right">'+fmtNum((x||{}).count)+'</td><td style="text-align:right">'+fmtBytes((x||{}).bytes)+'</td></tr>';
+  document.getElementById('suFiles').innerHTML=fr('Photos (attachments &amp; unloading photos)',b.photos)+fr('Other attachments (PDF, Excel...)',b.other)+fr('Manifests (CSV of bag IDs)',b.manifests)+'<tr style="font-weight:700"><td>Total</td><td style="text-align:right">'+fmtNum(fl.count)+'</td><td style="text-align:right">'+fmtBytes(fl.bytes)+'</td></tr>';
+  document.getElementById('suSheetAt').textContent=sh.reported?('Reported '+fmtD(sh.reported_at)):'';
+  document.getElementById('suTabs').innerHTML=sh.reported&&(sh.tabs||[]).length?(sh.tabs.map(t=>'<tr><td>'+esc(t.name)+'</td><td style="text-align:right">'+fmtNum(t.rows)+'</td><td style="text-align:right">'+fmtNum(t.cols)+'</td><td style="text-align:right">'+fmtNum(t.cells)+'</td><td style="text-align:right">'+fmtNum(t.used_rows)+'</td></tr>').join('')):'<tr><td colspan="5" class="empty"><p>The Google Sheet has not reported its size yet. It does after each sync once the latest Code.gs is in the Apps Script.</p></td></tr>';
+}
+async function suCheckBucket(){
+  const btn=document.getElementById('suChkBtn'),out=document.getElementById('suBucket');
+  btn.disabled=true;out.textContent='Counting the files in storage...';
+  try{const r=await fetch('/api/admin/storage-usage/check-bucket',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));
+    const same=d.objects===d.tracked;
+    out.innerHTML=(same?'<i class="fas fa-check-circle" style="color:var(--ok)"></i> ':'<i class="fas fa-info-circle" style="color:var(--warn)"></i> ')+fmtNum(d.objects)+' files in storage, '+fmtNum(d.tracked)+' on record in the app'+(same?' &mdash; they match.':' &mdash; a small difference can come from files replaced or removed while a request was being edited.');
+  }catch(e){out.textContent='Could not check: '+e.message}
+  btn.disabled=false;
+}
+
+// ---- Google Chat Alerts (master admin) --------------------------------------
+let caData=null;
+async function loadChatAlerts(){
+  try{const r=await fetch('/api/admin/chat-alerts');if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||('HTTP '+r.status));caData=await r.json()}
+  catch(e){document.getElementById('caHook').innerHTML='<p>Could not load: '+esc(e.message)+'</p>';return}
+  renderChatAlerts();
+}
+function renderChatAlerts(){
+  const d=caData||{};
+  document.getElementById('caStatus').innerHTML=d.configured?'<span class="badge b-gn"><i class="fas fa-check"></i> Connected'+(d.source==='env'?' (environment variable)':'')+'</span>':'<span class="badge b-yl"><i class="fas fa-triangle-exclamation"></i> Not set &mdash; no alerts are sent</span>';
+  let h='';
+  if(d.configured)h+='<div style="font-size:13px;margin-bottom:12px"><span style="color:var(--muted)">Posting to:</span> <code style="font-size:12px;word-break:break-all">'+esc(d.webhook_masked)+'</code></div>';
+  h+='<div class="fg"><label class="fl">'+(d.configured?'Replace with a new webhook URL':'Webhook URL')+'</label><input class="fi" id="caUrl" type="password" autocomplete="off" placeholder="https://chat.googleapis.com/v1/spaces/.../messages?key=...&amp;token=..."></div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" onclick="saveChatHook()"><i class="fas fa-save"></i> Save webhook</button>'+(d.configured?'<button class="btn btn-o" onclick="testChatAlert()" id="caTestBtn"><i class="fas fa-paper-plane"></i> Send test alert</button>':'')+(d.configured&&d.source==='app'?'<button class="btn btn-o" onclick="clearChatHook()" style="color:var(--err)"><i class="fas fa-trash-can"></i> Remove</button>':'')+'</div>';
+  h+='<div id="caTestRes" style="font-size:13px;margin-top:10px"></div>';
+  h+='<details class="ca-how"><summary><i class="fas fa-circle-question"></i> How to get the webhook URL</summary><ol><li>In Google Chat, open the space that should receive the alerts.</li><li>Click the space name &rarr; <strong>Apps &amp; integrations</strong> &rarr; <strong>Webhooks</strong> (or <strong>Add webhooks</strong>).</li><li>Give it a name (e.g. <em>SP PH Truck Booking</em>) and click <strong>Save</strong>.</li><li>Copy the URL, paste it above and click <strong>Save webhook</strong>, then <strong>Send test alert</strong>.</li></ol><p>Anyone with the URL can post to the space, so keep it private. It is never shown again in full here.</p></details>';
+  document.getElementById('caHook').innerHTML=h;
+  document.getElementById('caTypes').innerHTML=(d.types||[]).map(t=>'<label class="ca-type"><input type="checkbox" class="ca-cb" data-k="'+t.key+'"'+((d.enabled||{})[t.key]?' checked':'')+'><span><b>'+esc(t.label)+'</b><small>'+esc(t.when)+'</small></span></label>').join('');
+  const log=d.log||[];
+  document.getElementById('caCnt').textContent=log.length?('Latest '+log.length):'';
+  const badge=s=>s==='sent'?'<span class="badge b-gn">Sent</span>':s==='failed'?'<span class="badge b-rd">Failed</span>':'<span class="badge b-yl">Not sent</span>';
+  document.getElementById('caLog').innerHTML=log.length?log.map(r=>'<tr><td style="white-space:nowrap">'+fmtD(r.created_at)+'</td><td>'+esc(r.alert_label||r.alert_type)+'</td><td>'+esc(r.trip_id||'-')+'</td><td>'+esc(r.request_number||'-')+'</td><td>'+badge(r.status)+'</td><td style="font-size:12px;color:var(--muted)">'+esc(r.detail||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty"><p>No alerts yet.</p></td></tr>';
+}
+async function putChatAlerts(body){
+  const r=await fetch('/api/admin/chat-alerts',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));
+  return d;
+}
+async function saveChatHook(){
+  const url=(document.getElementById('caUrl').value||'').trim();
+  if(!url){toast('Paste the Google Chat webhook URL first','error');return}
+  try{await putChatAlerts({webhook_url:url});toast('Webhook saved');await loadChatAlerts()}catch(e){toast(e.message,'error')}
+}
+function clearChatHook(){
+  if(!confirm('Remove the Google Chat webhook? No alerts will be sent until a new one is saved.'))return;
+  putChatAlerts({clear_webhook:true}).then(()=>{toast('Webhook removed');loadChatAlerts()}).catch(e=>toast(e.message,'error'));
+}
+async function saveChatToggles(){
+  const en={};document.querySelectorAll('.ca-cb').forEach(c=>{en[c.dataset.k]=c.checked});
+  try{await putChatAlerts({enabled:en});toast('Alerts saved');await loadChatAlerts()}catch(e){toast(e.message,'error')}
+}
+async function testChatAlert(){
+  const btn=document.getElementById('caTestBtn'),out=document.getElementById('caTestRes');
+  if(btn)btn.disabled=true;out.innerHTML='<i class="fas fa-spinner fa-spin"></i> Sending...';
+  try{const r=await fetch('/api/admin/chat-alerts/test',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));
+    out.innerHTML=d.ok?'<span style="color:var(--ok)"><i class="fas fa-check-circle"></i> Sent &mdash; check the Google Chat space.</span>':'<span style="color:var(--err)"><i class="fas fa-times-circle"></i> Not sent: '+esc(d.detail||'')+'</span>';
+  }catch(e){out.innerHTML='<span style="color:var(--err)">'+esc(e.message)+'</span>'}
+  if(btn)btn.disabled=false;
+  loadChatAlerts().then(()=>{const o=document.getElementById('caTestRes');if(o&&out.innerHTML)o.innerHTML=out.innerHTML});
+}
 
 function myVendorId(){
   if(!isVendor||!user)return null;

@@ -9,6 +9,8 @@
 //    script to add the new tabs: Foul Trip Approval, Trip Utilisation Review and
 //    Capacity Conversion)
 // 5. Run installTrigger() once to enable hourly auto-sync
+//    After each sync the sheet also reports its size (cells used of Google's 10 million
+//    limit) to the app's Storage Usage page.
 //
 // Each tab mirrors the matching page in the app: the backend /api/sync/* endpoints
 // return the same rows the page shows, and the column headers below follow the
@@ -304,6 +306,28 @@ function syncAll() {
     }
   });
   Logger.log("Sync complete at " + new Date().toISOString());
+  try {
+    reportSheetUsage();
+  } catch (e) {
+    Logger.log("Could not report the sheet size: " + e);
+  }
+}
+
+// Sends the spreadsheet's size (rows x columns of every tab) to the app, where the
+// Master Admin sees it on the Storage Usage page. Google caps a spreadsheet at
+// 10 million cells, counting every cell of every tab (empty ones too).
+function reportSheetUsage() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tabs = ss.getSheets().map(function(sh) {
+    return { name: sh.getName(), rows: sh.getMaxRows(), cols: sh.getMaxColumns(),
+             used_rows: sh.getLastRow(), used_cols: sh.getLastColumn() };
+  });
+  var total = tabs.reduce(function(n, t) { return n + t.rows * t.cols; }, 0);
+  var resp = UrlFetchApp.fetch(BACKEND_URL + "/api/sync/sheet-usage", {
+    "method": "post", "contentType": "application/json", "muteHttpExceptions": true,
+    "payload": JSON.stringify({ spreadsheet_name: ss.getName(), spreadsheet_url: ss.getUrl(), tabs: tabs })
+  });
+  Logger.log("Sheet size: " + total + " of 10,000,000 cells (" + (total / 100000).toFixed(1) + "%) - reported, HTTP " + resp.getResponseCode());
 }
 
 function absUrl(path) {

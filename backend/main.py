@@ -1230,7 +1230,7 @@ DEFAULT_ROLE_VISIBILITY = {
     "viewer": ["dashboard", "masterlist", "scan-app", "user-guide"],
     "normal_user": ["dashboard", "new-request", "masterlist", "pending", "scan-app", "user-guide"],
     "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "page-security", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "page-security", "storage-usage", "chat-alerts", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
     "driver_fleet": ["scan-app"],
     "new_user": [],
     "_scan_app_v1": True,
@@ -1241,6 +1241,8 @@ DEFAULT_ROLE_VISIBILITY = {
 # get it for every role that could already open the scanning app (everyone but New User).
 SCAN_APP_MARKER = "_scan_app_v1"
 SECURITY_PAGE = "page-security"
+# Pages only the master admin can open (never listed on Role Visibility).
+MASTER_ONLY_PAGES = (SECURITY_PAGE, "storage-usage", "chat-alerts")
 
 def _load_role_visibility_cfg():
     """Stored config dict (pages per role + role_labels) or None when absent."""
@@ -1308,10 +1310,11 @@ def _merge_role_visibility(cfg):
         if not isinstance(v, list):
             continue
         if k == "master_admin":
-            if SECURITY_PAGE not in v:
-                out[k] = list(v) + [SECURITY_PAGE]
-        elif SECURITY_PAGE in v:
-            out[k] = [p for p in v if p != SECURITY_PAGE]
+            missing = [p for p in MASTER_ONLY_PAGES if p not in v]
+            if missing:
+                out[k] = list(v) + missing
+        elif any(p in v for p in MASTER_ONLY_PAGES):
+            out[k] = [p for p in v if p not in MASTER_ONLY_PAGES]
     if "master_admin" not in out:
         out["master_admin"] = list(DEFAULT_ROLE_VISIBILITY["master_admin"])
     valid = set(BASE_ROLES) | {"vendor"} | live_vendors
@@ -3372,8 +3375,26 @@ async def create_request(request: Request):
         import traceback; traceback.print_exc()
         raise HTTPException(500, str(e))
 
+def _status_of(rid):
+    if LOCAL_MODE:
+        x = next((x for x in _store["truck_requests"] if x["id"] == rid), None)
+        return x.get("status_id") if x else None
+    x = db_1("SELECT status_id FROM truck_requests WHERE id=%s", (rid,))
+    return x.get("status_id") if x else None
+
 @app.put("/api/requests/{rid}")
 async def update_request(rid: int, request: Request):
+    user = get_user(request)
+    before = _status_of(rid)
+    res = await _update_request_core(rid, request)
+    # Google Chat: a vendor user moved this request to Foul Trip or Cancelled.
+    if is_vendor_role(user.get("role", "")):
+        after = _status_of(rid)
+        if after != before and after in (5, 7):
+            alert_request("foul_trip" if after == 7 else "cancelled", rid)
+    return res
+
+async def _update_request_core(rid: int, request: Request):
     user = get_user(request)
     body = await request.json()
     body["updated_by"] = user.get("email", "")
@@ -6404,6 +6425,7 @@ async def scan_depart(base: str, request: Request):
         raise HTTPException(400, "Complete Step 3 (End Loading) before setting off")
     for r in rows:
         _write_fields(r, {"status_id": 3}, driver.get("username"))
+    alert_trip("departed", _scan_base(rows))
     return _trip_detail(driver, _driver_trip_rows(driver, base))
 
 @app.post("/api/scan/requests/{rid}/drop-arrival")
@@ -6480,6 +6502,7 @@ async def scan_finish(rid: int, request: Request):
     validate_delivered_chronology(body)
     _write_fields(target, vals, driver.get("username"))
     _finalize_delivered(target, driver.get("username"))
+    alert_request("delivered", rid)
     left = [r for r in rows if r.get("id") != rid]
     if not left:
         _set_active_trip(driver, None)
@@ -6893,6 +6916,7 @@ async def assign_trip_driver(trip_id: str, request: Request):
     if not tid:
         raise HTTPException(400, "This driver / fleet account has no truck - set one on the Driver / Fleet Accounts page first")
     base = _scan_base(rows)
+    prev_drivers = {r.get("driver_account_id") for r in rows}
     _assign_truck_core(u, vid, trip_id, tid, keep_status=True)
     rows = _trip_assign_rows(trip_id, vid)
     pk = next((r.get("pickup_scan_key") for r in rows if r.get("pickup_scan_key")), None) \
@@ -6904,6 +6928,10 @@ async def assign_trip_driver(trip_id: str, request: Request):
         if not r.get("unload_scan_key"):
             vals["unload_scan_key"] = secrets.token_hex(16)
         _write_fields(r, vals, u.get("email", ""))
+    if rows and prev_drivers != {did}:
+        # Google Chat: a new driver on this trip (not a repeat save of the same driver).
+        alert_trip("driver_assigned", _scan_base(rows),
+                   "reassigned" if (prev_drivers - {None, did}) else None)
     return {"ok": True, "trip_id": base, "assigned": len(rows),
             "driver_account_id": did, "truck_id": tid,
             "plate_number": _truck_plate(tid), "status_id": 2,
@@ -7872,6 +7900,676 @@ def sync_vendors():
 # ---------------------------------------------------------------------------
 # Frontend
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Settings kept in the app (app_settings): small values the master admin changes.
+# ---------------------------------------------------------------------------
+
+def _setting_get(key):
+    if LOCAL_MODE:
+        return (_store.get("app_settings") or {}).get(key)
+    try:
+        row = db_1("SELECT setting_value FROM app_settings WHERE setting_key=%s", (key,))
+    except Exception:
+        return None
+    return row.get("setting_value") if row else None
+
+def _setting_set(key, value, email=""):
+    if LOCAL_MODE:
+        s = _store.setdefault("app_settings", {})
+        if value is None:
+            s.pop(key, None)
+        else:
+            s[key] = value
+        return
+    if value is None:
+        db_x("DELETE FROM app_settings WHERE setting_key=%s", (key,))
+        return
+    db_x("""INSERT INTO app_settings (setting_key, setting_value, updated_by, updated_at)
+        VALUES (%s,%s,%s,%s) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),
+        updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)""", (key, value, email, nows()))
+
+
+# ---------------------------------------------------------------------------
+# Google Chat alerts. One incoming webhook (set by the master admin on the Google Chat
+# Alerts page, or the GOOGLE_CHAT_WEBHOOK_URL environment variable) receives a message
+# when a trip gets its driver, departs, a drop is delivered, or a vendor marks a request
+# Foul Trip / Cancelled. Alerts are built and sent in the background: a slow or failing
+# Google Chat never delays or breaks the action that triggered it. Every alert is logged.
+# ---------------------------------------------------------------------------
+import threading as _threading
+import urllib.request as _urlreq
+import urllib.error as _urlerr
+
+CHAT_ALERT_TYPES = [
+    ("driver_assigned", "Trip assigned to driver / fleet",
+     "Vendor Truck Assignment: a driver / fleet account is assigned to a trip (or the trip is moved to another driver)."),
+    ("departed", "Trip departed (Allocated → In Transit)",
+     "Scanning App: the driver taps Depart."),
+    ("delivered", "Drop delivered (In Transit → Delivered)",
+     "Scanning App: the driver taps Finish Drop."),
+    ("foul_trip", "Foul Trip by vendor",
+     "A vendor user changes a truck request to Foul Trip."),
+    ("cancelled", "Cancelled by vendor",
+     "A vendor user changes a truck request to Cancelled."),
+]
+CHAT_ALERT_LABEL = {k: lbl for k, lbl, _ in CHAT_ALERT_TYPES}
+CHAT_ALERT_LABEL["test"] = "Test alert"
+CHAT_WEBHOOK_ENV = "GOOGLE_CHAT_WEBHOOK_URL"
+CHAT_TEXT_MAX = 3900          # Google Chat caps a text message at 4,096 characters
+_CHAT_URL_RE = re.compile(r"^https://chat\.googleapis\.com/v1/spaces/[A-Za-z0-9_-]+/messages\?[^\s<>\"']+$")
+
+def _chat_url_ok(url):
+    url = str(url or "").strip()
+    if _CHAT_URL_RE.match(url):
+        return True
+    # Local runs (no database) may point at a test receiver on this machine.
+    return LOCAL_MODE and bool(re.match(r"^http://(127\.0\.0\.1|localhost)(:\d+)?/", url))
+
+def _chat_config():
+    url = (_setting_get("chat_webhook_url") or "").strip()
+    source = "app" if url else ""
+    if not url:
+        url = os.environ.get(CHAT_WEBHOOK_ENV, "").strip()
+        source = "env" if url else ""
+    try:
+        en = json.loads(_setting_get("chat_alerts_enabled") or "{}")
+    except Exception:
+        en = {}
+    if not isinstance(en, dict):
+        en = {}
+    return {"url": url, "source": source,
+            "enabled": {k: bool(en.get(k, True)) for k, _, _ in CHAT_ALERT_TYPES}}
+
+def _chat_mask(url):
+    """Show where the webhook points without revealing its key / token."""
+    if not url:
+        return ""
+    m = re.match(r"^(https://chat\.googleapis\.com/v1/spaces/)([A-Za-z0-9_-]+)", url)
+    if m:
+        sp = m.group(2)
+        return f"{m.group(1)}{sp[:4]}…/messages?key=••••&token=••••"
+    return url.split("?")[0] + ("?••••" if "?" in url else "")
+
+def _chat_log(atype, trip, reqno, status, detail):
+    rec = {"alert_type": atype, "trip_id": str(trip or "")[:64], "request_number": str(reqno or "")[:64],
+           "status": status, "detail": str(detail or "")[:500], "created_at": nows()}
+    try:
+        if LOCAL_MODE:
+            lst = _store.setdefault("chat_alert_log", [])
+            rec["id"] = (lst[-1]["id"] + 1) if lst else 1
+            lst.append(rec)
+            del lst[:-500]
+            return
+        db_i("""INSERT INTO chat_alert_log (alert_type, trip_id, request_number, status, detail, created_at)
+            VALUES (%s,%s,%s,%s,%s,%s)""", (rec["alert_type"], rec["trip_id"], rec["request_number"],
+                                          rec["status"], rec["detail"], rec["created_at"]))
+        if secrets.randbelow(50) == 0:
+            cutoff = (datetime.now(_GMT8) - timedelta(days=180)).strftime("%Y-%m-%d %H:%M:%S")
+            db_x("DELETE FROM chat_alert_log WHERE created_at < %s", (cutoff,))
+    except Exception:
+        pass
+
+def _chat_post(url, text, timeout=10):
+    data = json.dumps({"text": text}).encode("utf-8")
+    req = _urlreq.Request(url, data=data, method="POST",
+                          headers={"Content-Type": "application/json; charset=UTF-8"})
+    with _urlreq.urlopen(req, timeout=timeout) as r:
+        return r.status
+
+def _chat_split(text):
+    """Messages of at most CHAT_TEXT_MAX characters, split between blocks (blank lines)."""
+    if len(text) <= CHAT_TEXT_MAX:
+        return [text]
+    blocks, out, cur = text.split("\n\n"), [], ""
+    for b in blocks:
+        b = b[:CHAT_TEXT_MAX]
+        if cur and len(cur) + 2 + len(b) > CHAT_TEXT_MAX:
+            out.append(cur)
+            cur = "_(continued)_\n" + b
+        else:
+            cur = (cur + "\n\n" + b) if cur else b
+    if cur:
+        out.append(cur)
+    return out
+
+def _chat_deliver(atype, text, trip, reqno, url):
+    """Send one alert (in parts if it is long); returns (status, detail) and logs it."""
+    status, detail = "sent", ""
+    parts = _chat_split(text)
+    for i, part in enumerate(parts):
+        ok, last = False, ""
+        for attempt in range(2):
+            try:
+                code = _chat_post(url, part)
+                ok, last = True, f"HTTP {code}"
+                break
+            except _urlerr.HTTPError as e:
+                try:
+                    body = e.read()[:200].decode("utf-8", "replace")
+                except Exception:
+                    body = ""
+                last = f"Google Chat answered HTTP {e.code}" + (f": {body}" if body else "")
+                if e.code not in (429, 500, 502, 503, 504):
+                    break
+            except Exception as e:
+                last = f"Could not reach Google Chat ({type(e).__name__}: {e})"
+            time.sleep(2)
+        if not ok:
+            status, detail = "failed", last
+            break
+        detail = last + (f" ({len(parts)} messages)" if len(parts) > 1 else "")
+    _chat_log(atype, trip, reqno, status, detail)
+    return status, detail
+
+def _chat_run(atype, build):
+    try:
+        cfg = _chat_config()
+        if not cfg["enabled"].get(atype, True):
+            return
+        built = build()
+        if not built:
+            return
+        text, trip, reqno = built
+        if not cfg["url"]:
+            _chat_log(atype, trip, reqno, "skipped", "No Google Chat webhook is set")
+            return
+        if not _chat_url_ok(cfg["url"]):
+            _chat_log(atype, trip, reqno, "failed", "The webhook is not a Google Chat webhook URL")
+            return
+        _chat_deliver(atype, text, trip, reqno, cfg["url"])
+    except Exception as e:
+        _chat_log(atype, "", "", "failed", f"Alert could not be prepared ({type(e).__name__}: {e})")
+
+def chat_alert(atype, build):
+    """Queue one alert. `build()` returns (text, trip_id, request_number) or None."""
+    try:
+        _threading.Thread(target=_chat_run, args=(atype, build), daemon=True).start()
+    except Exception:
+        pass
+
+# --- What goes into the alerts ----------------------------------------------
+
+def _fmt_dt(v):
+    if not v:
+        return "-"
+    s = str(to_gmt8(v) or v).replace("T", " ")
+    for fmt, n in (("%Y-%m-%d %H:%M:%S", 19), ("%Y-%m-%d %H:%M", 16)):
+        try:
+            return datetime.strptime(s[:n], fmt).strftime("%b %d, %Y, %I:%M %p")
+        except ValueError:
+            pass
+    try:
+        return datetime.strptime(s[:10], "%Y-%m-%d").strftime("%b %d, %Y")
+    except ValueError:
+        return s
+
+def _fmt_d(v):
+    if not v:
+        return "-"
+    s = str(to_gmt8(v) or v)
+    try:
+        return datetime.strptime(s[:10], "%Y-%m-%d").strftime("%b %d, %Y")
+    except ValueError:
+        return s
+
+def _v(x):
+    s = str(x if x is not None else "").strip()
+    return s or "-"
+
+def _alert_rows(ids):
+    """Truck requests with the names an alert shows (account, packaging, ports, Revised Qty)."""
+    ids = [i for i in ids if i]
+    if not ids:
+        return []
+    if LOCAL_MODE:
+        out = []
+        for x in _store["truck_requests"]:
+            if x["id"] in ids:
+                r = row2d(dict(x))
+                r["account_name"] = next((a["name"] for a in _store["accounts"] if a["id"] == r.get("account_id")), "")
+                r["packaging_type_name"] = next((p["name"] for p in _store["packaging_types"] if p["id"] == r.get("packaging_type_id")), "")
+                r["origin_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("origin_port_id")), "")
+                r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
+                out.append(r)
+    else:
+        out = db_q("""SELECT tr.*, a.name as account_name, pt.name as packaging_type_name,
+            po.name as origin_port_name, pd.name as destination_port_name
+            FROM truck_requests tr LEFT JOIN accounts a ON tr.account_id=a.id
+            LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
+            LEFT JOIN ports po ON tr.origin_port_id=po.id
+            LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+            WHERE tr.id IN %s""", ([int(i) for i in ids],))
+    for r in out:
+        rr = _rev_row(r["id"])
+        r["revised_qty_alert"] = _revised_qty(rr) if rr is not None else (r.get("quantity") or 0)
+    return out
+
+def _alert_truck(tid):
+    if not tid:
+        return {"plate": "", "type": "", "vendor": ""}
+    if LOCAL_MODE:
+        t = next((x for x in _store["trucks"] if x["id"] == tid), None) or {}
+        return {"plate": t.get("plate_number") or "",
+                "type": next((tt["name"] for tt in _store["truck_types"] if tt["id"] == t.get("truck_type_id")), ""),
+                "vendor": next((v["name"] for v in _store["vendors"] if v["id"] == t.get("vendor_id")), "")}
+    t = db_1("""SELECT t.plate_number, tt.name as type_name, v.name as vendor_name FROM trucks t
+        LEFT JOIN truck_types tt ON t.truck_type_id=tt.id LEFT JOIN vendors v ON t.vendor_id=v.id
+        WHERE t.id=%s""", (tid,)) or {}
+    return {"plate": t.get("plate_number") or "", "type": t.get("type_name") or "", "vendor": t.get("vendor_name") or ""}
+
+def _alert_driver(did):
+    if not did:
+        return {}
+    d = _driver_row(did) or {}
+    if LOCAL_MODE and d and not d.get("vendor_name"):
+        d["vendor_name"] = next((v["name"] for v in _store["vendors"] if v["id"] == d.get("vendor_id")), "")
+    return d
+
+def _trip_label(base, rows):
+    if base and not str(base).startswith("req-"):
+        return base
+    return next((r.get("trip_id") for r in rows if r.get("trip_id")), "") or "-"
+
+def _alert_trip_text(atype, base, extra_head=None):
+    """Trip alert (driver assigned / departed): trip, driver, truck, then each request."""
+    all_rows = [r for r in _rows_for_base(base) if r.get("status_id") not in (5, 7)]
+    if not all_rows:
+        return None
+    rows = _alert_rows([r.get("id") for r in all_rows])
+    by_id = {r["id"]: r for r in rows}
+    ordered = [by_id[r["id"]] for r in _ordered(all_rows) if r.get("id") in by_id]
+    lead = ordered[0]
+    did = next((r.get("driver_account_id") for r in ordered if r.get("driver_account_id")), None)
+    d = _alert_driver(did)
+    tk = _alert_truck(next((r.get("assigned_truck_id") for r in ordered if r.get("assigned_truck_id")), None) or d.get("truck_id"))
+    fcs = sorted(str(to_gmt8(r.get("final_call_datetime"))) for r in ordered if r.get("final_call_datetime"))
+    fc = fcs[0] if fcs else None
+    origins = []
+    for r in ordered:
+        o = r.get("origin_port_name") or ""
+        if o and o not in origins:
+            origins.append(o)
+    trip = _trip_label(base, ordered)
+    title = {"driver_assigned": "Trip assigned to driver / fleet",
+             "departed": "Trip departed — now In Transit"}.get(atype, "Trip update")
+    if atype == "driver_assigned" and extra_head == "reassigned":
+        title = "Trip re-assigned to another driver / fleet"
+    lines = [f"*{title}*"]
+    if atype == "departed":
+        ap = sorted(str(to_gmt8(r.get("arrived_pickup_datetime"))) for r in ordered if r.get("arrived_pickup_datetime"))
+        el = sorted(str(to_gmt8(r.get("end_loading_datetime"))) for r in ordered if r.get("end_loading_datetime"))
+        lines.append(f"*Arrived Pickup:* {_fmt_dt(ap[0] if ap else None)}")
+        lines.append(f"*End Loading:* {_fmt_dt(el[-1] if el else None)}")
+    lines += [f"*Trip ID:* {trip}",
+              f"*Driver / Fleet username:* {_v(d.get('username'))}",
+              f"*Driver name:* {_v(d.get('driver_name'))}",
+              f"*Phone number:* {_v(d.get('driver_phone'))}",
+              f"*Vendor:* {_v(d.get('vendor_name') or tk['vendor'])}",
+              f"*Truck plate #:* {_v(tk['plate'] or d.get('plate_number'))}",
+              f"*Truck type:* {_v(tk['type'] or d.get('truck_type_name'))}",
+              f"*Origin port:* {_v(', '.join(origins))}",
+              f"*Final Call:* {_fmt_dt(fc) if fc else 'Not set (Initial Call TBC applies)'}"]
+    if atype == "departed":
+        late = next((str(r.get("late_reason")).strip() for r in ordered if str(r.get("late_reason") or "").strip()), "")
+        if late:
+            lines.append(f"*Late reason:* {late}")
+    blocks = ["\n".join(lines), f"*Truck requests on this trip ({len(ordered)})*"]
+    for r in ordered:
+        b = [f"*Drop {_drop_no(r, all_rows)} — {_v(r.get('request_number'))}*",
+             f"International MAWB: {_v(r.get('international_mawb'))}",
+             f"Domestic MAWB: {_v(r.get('domestic_mawb'))}",
+             f"Account: {_v(r.get('account_name'))}",
+             f"Packaging: {_v(r.get('packaging_type_name'))}",
+             f"Revised Qty: {_v(r.get('revised_qty_alert'))}",
+             f"Destination port: {_v(r.get('destination_port_name'))}"]
+        if not fc:
+            b.append(f"Initial Call (TBC): {_fmt_dt(r.get('call_datetime'))}")
+        blocks.append("\n".join(b))
+    return "\n\n".join(blocks), trip, lead.get("request_number") if len(ordered) == 1 else ""
+
+def _alert_request_text(atype, rid):
+    """Request alert (delivered / foul trip / cancelled)."""
+    rows = _alert_rows([rid])
+    if not rows:
+        return None
+    r = rows[0]
+    base = _trip_key_of(r)
+    trip_rows = _rows_for_base(base) if not base.startswith("req-") else [r]
+    drop = _drop_no(r, trip_rows or [r]) if r.get("trip_id") or r.get("drop_sequence") else None
+    title = {"delivered": "Drop delivered", "foul_trip": "Truck request updated to Foul Trip by vendor",
+             "cancelled": "Truck request Cancelled by vendor"}[atype]
+    lines = [f"*{title}*"]
+    if atype == "delivered":
+        lines.append(f"*Delivered:* {_fmt_dt(r.get('end_unloading_datetime'))}")
+    elif atype == "foul_trip":
+        lines += [f"*Foul Trip Date:* {_fmt_d(r.get('foul_trip_date'))}",
+                  f"*Foul Trip Reason:* {_v(r.get('foul_trip_reason'))}",
+                  f"*Foul Trip Count Confirmation:* {_v(r.get('foul_trip_count'))}"]
+    elif atype == "cancelled":
+        lines.append(f"*Cancellation Date:* {_fmt_d(r.get('cancellation_date'))}")
+    lines += [f"*Trip ID:* {_v(r.get('trip_id'))}",
+              f"*Drop #:* {_v(drop)}",
+              f"*Truck request #:* {_v(r.get('request_number'))}",
+              f"*International MAWB:* {_v(r.get('international_mawb'))}",
+              f"*Domestic MAWB:* {_v(r.get('domestic_mawb'))}",
+              f"*Account:* {_v(r.get('account_name'))}",
+              f"*Packaging:* {_v(r.get('packaging_type_name'))}",
+              f"*Revised Qty:* {_v(r.get('revised_qty_alert'))}",
+              f"*Origin port:* {_v(r.get('origin_port_name'))}",
+              f"*Destination port:* {_v(r.get('destination_port_name'))}"]
+    return "\n".join(lines), r.get("trip_id") or "", r.get("request_number") or ""
+
+def alert_trip(atype, base, extra_head=None):
+    chat_alert(atype, lambda: _alert_trip_text(atype, base, extra_head))
+
+def alert_request(atype, rid):
+    chat_alert(atype, lambda: _alert_request_text(atype, rid))
+
+def _chat_log_rows(limit=200):
+    if LOCAL_MODE:
+        rows = list(reversed(_store.get("chat_alert_log", [])))[:limit]
+    else:
+        try:
+            rows = db_q("SELECT * FROM chat_alert_log ORDER BY id DESC LIMIT %s", (int(limit),))
+        except Exception:
+            rows = []
+    for r in rows:
+        r["alert_label"] = CHAT_ALERT_LABEL.get(r.get("alert_type"), r.get("alert_type"))
+        r["created_at"] = to_gmt8(r.get("created_at"))
+    return rows
+
+def _chat_public(cfg):
+    return {"configured": bool(cfg["url"]), "source": cfg["source"],
+            "webhook_masked": _chat_mask(cfg["url"]),
+            "env_set": bool(os.environ.get(CHAT_WEBHOOK_ENV, "").strip()),
+            "enabled": cfg["enabled"],
+            "types": [{"key": k, "label": lbl, "when": w} for k, lbl, w in CHAT_ALERT_TYPES]}
+
+@app.get("/api/admin/chat-alerts", tags=["admin"])
+def get_chat_alerts(request: Request):
+    """Google Chat alert settings (webhook shown masked) and the latest alerts."""
+    require_master(request)
+    cfg = _chat_config()
+    out = _chat_public(cfg)
+    out["log"] = _chat_log_rows()
+    return out
+
+@app.put("/api/admin/chat-alerts", tags=["admin"])
+async def set_chat_alerts(request: Request):
+    """Set / remove the webhook and switch each alert on or off (master admin)."""
+    u = require_master(request)
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "Invalid request")
+    email = u.get("email", "")
+    if body.get("clear_webhook"):
+        _setting_set("chat_webhook_url", None, email)
+    elif str(body.get("webhook_url") or "").strip():
+        url = str(body.get("webhook_url")).strip()
+        if len(url) > 1000 or not _chat_url_ok(url):
+            raise HTTPException(400, "Paste the Google Chat webhook URL - it starts with https://chat.googleapis.com/v1/spaces/")
+        _setting_set("chat_webhook_url", url, email)
+    if isinstance(body.get("enabled"), dict):
+        cur = _chat_config()["enabled"]
+        for k in cur:
+            if k in body["enabled"]:
+                cur[k] = bool(body["enabled"][k])
+        _setting_set("chat_alerts_enabled", json.dumps(cur), email)
+    return _chat_public(_chat_config())
+
+@app.post("/api/admin/chat-alerts/test", tags=["admin"])
+async def test_chat_alert(request: Request):
+    """Send a test message to the webhook now and report what Google Chat answered."""
+    u = require_master(request)
+    cfg = _chat_config()
+    if not cfg["url"]:
+        raise HTTPException(400, "Set the Google Chat webhook first")
+    if not _chat_url_ok(cfg["url"]):
+        raise HTTPException(400, "The saved webhook is not a Google Chat webhook URL")
+    on = [lbl for k, lbl, _ in CHAT_ALERT_TYPES if cfg["enabled"].get(k)]
+    text = ("*Test alert — SP PH Truck Booking*\nGoogle Chat alerts are connected.\n"
+            f"*Sent by:* {u.get('name') or u.get('email') or '-'}\n*Sent at:* {_fmt_dt(nows())}\n"
+            f"*Alerts switched on:* {', '.join(on) if on else 'none'}")
+    status, detail = await run_in_threadpool(_chat_deliver, "test", text, "", "", cfg["url"])
+    return {"ok": status == "sent", "status": status, "detail": detail}
+
+
+# ---------------------------------------------------------------------------
+# Storage Usage (master admin): database size, file storage size and the Google
+# Sheet's cell count (reported by the Apps Script after each sync), with growth.
+# ---------------------------------------------------------------------------
+SHEET_CELL_LIMIT = 10_000_000
+_STORAGE_TABLES = [
+    ("truck_requests", "Truck requests", 1500),
+    ("truck_request_history", "Request history (trip archive)", 1200),
+    ("scan_pickup_items", "Pickup scans (one row per bag)", 200),
+    ("scan_unload_items", "Unloading scans (one row per bag)", 200),
+    ("request_manifests", "Manifests (bag ID lists)", 400),
+    ("truck_request_attachments", "Attachment & photo records", 400),
+    ("trucks", "Trucks", 400),
+    ("driver_accounts", "Driver / fleet accounts", 400),
+    ("vendor_rates", "Vendor rates", 600),
+    ("chat_alert_log", "Google Chat alert log", 300),
+    ("page_lock_logs", "Page access log", 300),
+    ("sheet_usage_log", "Google Sheet size reports", 600),
+]
+_LOCAL_TABLE = {"truck_requests": "truck_requests", "truck_request_history": "truck_request_history",
+                "scan_pickup_items": "scan_pickup", "scan_unload_items": "scan_unload",
+                "request_manifests": "manifests", "truck_request_attachments": "attachments",
+                "trucks": "trucks", "driver_accounts": "driver_accounts", "vendor_rates": "vendor_rates",
+                "chat_alert_log": "chat_alert_log", "page_lock_logs": "page_lock_logs",
+                "sheet_usage_log": "sheet_usage_log"}
+
+def _ago(days):
+    return (datetime.now(_GMT8) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+
+def _local_json_size(x):
+    try:
+        return len(json.dumps(x, default=str).encode("utf-8"))
+    except Exception:
+        return 0
+
+def _sheet_reports(limit=400):
+    if LOCAL_MODE:
+        return list(_store.get("sheet_usage_log", []))[-limit:]
+    try:
+        rows = db_q("SELECT * FROM sheet_usage_log ORDER BY id DESC LIMIT %s", (int(limit),))
+    except Exception:
+        return []
+    return list(reversed(rows))
+
+def _sheet_summary():
+    reps = _sheet_reports()
+    if not reps:
+        return {"reported": False, "limit": SHEET_CELL_LIMIT}
+    last = reps[-1]
+    try:
+        tabs = json.loads(last.get("tabs_json") or "[]")
+    except Exception:
+        tabs = []
+    total = int(last.get("total_cells") or 0)
+    out = {"reported": True, "limit": SHEET_CELL_LIMIT, "total_cells": total,
+           "used_cells": int(last.get("used_cells") or 0), "sheet_count": int(last.get("sheet_count") or 0),
+           "pct": round(total * 100.0 / SHEET_CELL_LIMIT, 1), "tabs": tabs,
+           "spreadsheet_name": last.get("spreadsheet_name") or "",
+           "spreadsheet_url": last.get("spreadsheet_url") or "",
+           "reported_at": to_gmt8(last.get("created_at")), "per_day": None, "days_left": None}
+    # Growth: compare with the oldest report from the last 30 days (at least a day apart).
+    try:
+        t_last = datetime.strptime(str(to_gmt8(last["created_at"]))[:19], "%Y-%m-%d %H:%M:%S")
+        cutoff = t_last - timedelta(days=30)
+        first = next((r for r in reps if datetime.strptime(str(to_gmt8(r["created_at"]))[:19], "%Y-%m-%d %H:%M:%S") >= cutoff), None)
+        if first is not None:
+            t0 = datetime.strptime(str(to_gmt8(first["created_at"]))[:19], "%Y-%m-%d %H:%M:%S")
+            days = (t_last - t0).total_seconds() / 86400.0
+            if days >= 1:
+                per_day = (total - int(first.get("total_cells") or 0)) / days
+                out["per_day"] = round(per_day)
+                out["since"] = to_gmt8(first["created_at"])
+                if per_day > 0:
+                    out["days_left"] = int(max(0, SHEET_CELL_LIMIT - total) / per_day)
+    except Exception:
+        pass
+    return out
+
+def _storage_usage():
+    tables, estimated = [], False
+    files = {"photos": {"count": 0, "bytes": 0}, "other": {"count": 0, "bytes": 0},
+             "manifests": {"count": 0, "bytes": 0}}
+    g = {"requests": 0, "scans": 0, "file_bytes": 0, "files": 0, "db_bytes": 0}
+    if LOCAL_MODE:
+        estimated = True
+        for t, label, avg in _STORAGE_TABLES:
+            data = _store.get(_LOCAL_TABLE[t]) or []
+            n = len(data)
+            tables.append({"table": t, "label": label, "rows": n, "bytes": _local_json_size(data) if n else 0})
+        for a in _store["attachments"]:
+            k = "photos" if str(a.get("file_type") or "").startswith("image/") else "other"
+            files[k]["count"] += 1
+            files[k]["bytes"] += int(a.get("file_size") or 0)
+            if str(a.get("created_at") or "") >= _ago(30):
+                g["files"] += 1
+                g["file_bytes"] += int(a.get("file_size") or 0)
+        for m in _store["manifests"]:
+            files["manifests"]["count"] += 1
+            files["manifests"]["bytes"] += int(m.get("file_size") or 0)
+        g["requests"] = sum(1 for r in _store["truck_requests"] if str(r.get("created_at") or "") >= _ago(30))
+        g["scans"] = sum(1 for s in _store["scan_pickup"] + _store["scan_unload"] if str(s.get("scanned_at") or "") >= _ago(30))
+        g["db_bytes"] = g["requests"] * 2700 + g["scans"] * 200
+        db_total = sum(t["bytes"] for t in tables)
+    else:
+        sizes = {}
+        try:
+            for r in db_q("""SELECT table_name AS t, COALESCE(data_length,0)+COALESCE(index_length,0) AS b
+                FROM information_schema.tables WHERE table_schema = DATABASE()"""):
+                sizes[str(r.get("t") or "").lower()] = int(r.get("b") or 0)
+        except Exception:
+            sizes = {}
+        mf_json = 0
+        try:
+            mf_json = int((db_1("SELECT COALESCE(SUM(LENGTH(ids_json)),0) AS b FROM request_manifests") or {}).get("b") or 0)
+        except Exception:
+            pass
+        for t, label, avg in _STORAGE_TABLES:
+            try:
+                n = int((db_1(f"SELECT COUNT(*) AS c FROM {t}") or {}).get("c") or 0)
+            except Exception:
+                continue
+            b = sizes.get(t, 0)
+            est = n * avg + (mf_json if t == "request_manifests" else 0)
+            if not b and n:
+                b, estimated = est, True
+            tables.append({"table": t, "label": label, "rows": n, "bytes": b})
+        listed = {t for t, _, _ in _STORAGE_TABLES}
+        other = sum(b for t, b in sizes.items() if t not in listed and not t.startswith("flyway"))
+        if other:
+            tables.append({"table": "other", "label": "Other tables (master lists, settings, users...)", "rows": None, "bytes": other})
+        db_total = sum(t["bytes"] for t in tables)
+        try:
+            for r in db_q("""SELECT CASE WHEN file_type LIKE 'image/%%' THEN 'photos' ELSE 'other' END AS k,
+                COUNT(*) AS c, COALESCE(SUM(file_size),0) AS b FROM truck_request_attachments GROUP BY 1"""):
+                files[r["k"]] = {"count": int(r.get("c") or 0), "bytes": int(r.get("b") or 0)}
+            m = db_1("SELECT COUNT(*) AS c, COALESCE(SUM(file_size),0) AS b FROM request_manifests") or {}
+            files["manifests"] = {"count": int(m.get("c") or 0), "bytes": int(m.get("b") or 0)}
+            since = _ago(30)
+            g["requests"] = int((db_1("SELECT COUNT(*) AS c FROM truck_requests WHERE created_at >= %s", (since,)) or {}).get("c") or 0)
+            g["scans"] = sum(int((db_1(f"SELECT COUNT(*) AS c FROM {t} WHERE scanned_at >= %s", (since,)) or {}).get("c") or 0)
+                             for t in ("scan_pickup_items", "scan_unload_items"))
+            fa = db_1("SELECT COUNT(*) AS c, COALESCE(SUM(file_size),0) AS b FROM truck_request_attachments WHERE created_at >= %s", (since,)) or {}
+            fm = db_1("SELECT COUNT(*) AS c, COALESCE(SUM(file_size),0) AS b, COALESCE(SUM(LENGTH(ids_json)),0) AS j FROM request_manifests WHERE created_at >= %s", (since,)) or {}
+            g["files"] = int(fa.get("c") or 0) + int(fm.get("c") or 0)
+            g["file_bytes"] = int(fa.get("b") or 0) + int(fm.get("b") or 0)
+            g["db_bytes"] = g["requests"] * 2700 + g["scans"] * 200 + int(fm.get("j") or 0)
+        except Exception:
+            pass
+    file_total = sum(v["bytes"] for v in files.values())
+    file_count = sum(v["count"] for v in files.values())
+    return {"database": {"bytes": db_total, "estimated": estimated, "tables": tables,
+                         "engine": "OceanBase (Substrait, highly available, backed up)" if not LOCAL_MODE else "Local test run (no database)"},
+            "files": {"bytes": file_total, "count": file_count, "breakdown": files,
+                      "store": "Object storage (Google Cloud bucket)" if _obj_storage_on() else "Local folder (test run)"},
+            "sheet": _sheet_summary(),
+            "growth_30d": g,
+            "per_year": {"db_bytes": int(g["db_bytes"] * 365 / 30), "file_bytes": int(g["file_bytes"] * 365 / 30),
+                         "requests": int(g["requests"] * 365 / 30), "scans": int(g["scans"] * 365 / 30)},
+            "generated_at": nows()}
+
+@app.get("/api/admin/storage-usage", tags=["admin"])
+def storage_usage(request: Request):
+    """Database size, file storage size and Google Sheet cell count, with 30-day growth."""
+    require_master(request)
+    return _storage_usage()
+
+@app.post("/api/admin/storage-usage/check-bucket", tags=["admin"])
+def storage_check_bucket(request: Request):
+    """Count the files really in storage and compare with the files the app has on record."""
+    require_master(request)
+    if LOCAL_MODE:
+        tracked = len(_store["attachments"]) + len(_store["manifests"])
+    else:
+        tracked = int((db_1("SELECT COUNT(*) AS c FROM truck_request_attachments") or {}).get("c") or 0) + \
+                  int((db_1("SELECT COUNT(*) AS c FROM request_manifests WHERE storage_path IS NOT NULL AND storage_path<>''") or {}).get("c") or 0)
+    try:
+        if _obj_storage_on():
+            n = len(obj_storage.list_keys("attachments/"))
+        else:
+            d = _store["_upload"]
+            n = len([f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))]) if os.path.isdir(d) else 0
+    except Exception as e:
+        raise HTTPException(502, f"Could not list the storage bucket ({type(e).__name__})")
+    return {"objects": n, "tracked": tracked, "checked_at": nows()}
+
+_SHEET_URL_RE = re.compile(r"^https://docs\.google\.com/spreadsheets/d/[A-Za-z0-9_-]+(/[A-Za-z0-9_#=&?/-]*)?$")
+
+@app.post("/api/sync/sheet-usage", tags=["sync"])
+async def sync_sheet_usage(request: Request):
+    """Called by the Google Apps Script after each sync with the spreadsheet's size
+    (rows x columns of every tab - Google counts every cell towards its 10 million limit)."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Send JSON")
+    tabs_in = body.get("tabs") if isinstance(body, dict) else None
+    if not isinstance(tabs_in, list) or not tabs_in or len(tabs_in) > 200:
+        raise HTTPException(400, "tabs must be a list of 1-200 sheets")
+    tabs, total, used = [], 0, 0
+    def _n(x, hi):
+        try:
+            v = int(x)
+        except (TypeError, ValueError):
+            return 0
+        return max(0, min(v, hi))
+    for t in tabs_in:
+        if not isinstance(t, dict):
+            continue
+        rows, cols = _n(t.get("rows"), 10_000_000), _n(t.get("cols"), 18_278)
+        ur, uc = min(_n(t.get("used_rows"), 10_000_000), rows), min(_n(t.get("used_cols"), 18_278), cols)
+        cells = min(rows * cols, 20_000_000)
+        total += cells
+        used += ur * uc
+        tabs.append({"name": str(t.get("name") or "")[:100], "rows": rows, "cols": cols,
+                     "cells": cells, "used_rows": ur, "used_cols": uc})
+    total, used = min(total, 50_000_000), min(used, 50_000_000)
+    url = str(body.get("spreadsheet_url") or "").strip()
+    if not _SHEET_URL_RE.match(url):
+        url = ""
+    rec = {"spreadsheet_name": str(body.get("spreadsheet_name") or "")[:255], "spreadsheet_url": url[:500],
+           "total_cells": total, "used_cells": used, "sheet_count": len(tabs),
+           "tabs_json": json.dumps(tabs)[:60000], "created_at": nows()}
+    if LOCAL_MODE:
+        lst = _store.setdefault("sheet_usage_log", [])
+        rec["id"] = (lst[-1]["id"] + 1) if lst else 1
+        lst.append(rec)
+        del lst[:-2000]
+    else:
+        db_i("""INSERT INTO sheet_usage_log (spreadsheet_name, spreadsheet_url, total_cells, used_cells,
+            sheet_count, tabs_json, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+             (rec["spreadsheet_name"], rec["spreadsheet_url"], total, used, len(tabs), rec["tabs_json"], rec["created_at"]))
+        if secrets.randbelow(100) == 0:
+            db_x("DELETE FROM sheet_usage_log WHERE created_at < %s", (_ago(400),))
+    return {"ok": True, "total_cells": total, "limit": SHEET_CELL_LIMIT,
+            "pct": round(total * 100.0 / SHEET_CELL_LIMIT, 1)}
 
 GUIDE_IMG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "guide")
 
