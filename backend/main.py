@@ -3375,23 +3375,27 @@ async def create_request(request: Request):
         import traceback; traceback.print_exc()
         raise HTTPException(500, str(e))
 
-def _status_of(rid):
+def _status_row(rid):
     if LOCAL_MODE:
         x = next((x for x in _store["truck_requests"] if x["id"] == rid), None)
-        return x.get("status_id") if x else None
-    x = db_1("SELECT status_id FROM truck_requests WHERE id=%s", (rid,))
+        return dict(x) if x else None
+    return db_1("SELECT status_id, driver_account_id, assigned_truck_id, vendor_id FROM truck_requests WHERE id=%s", (rid,))
+
+def _status_of(rid):
+    x = _status_row(rid)
     return x.get("status_id") if x else None
 
 @app.put("/api/requests/{rid}")
 async def update_request(rid: int, request: Request):
     user = get_user(request)
-    before = _status_of(rid)
+    prev = _status_row(rid) or {}
+    before = prev.get("status_id")
     res = await _update_request_core(rid, request)
     # Google Chat: a vendor user moved this request to Foul Trip or Cancelled.
     if is_vendor_role(user.get("role", "")):
         after = _status_of(rid)
         if after != before and after in (5, 7):
-            alert_request("foul_trip" if after == 7 else "cancelled", rid)
+            alert_request("foul_trip" if after == 7 else "cancelled", rid, _alert_before(prev))
     return res
 
 async def _update_request_core(rid: int, request: Request):
@@ -6502,7 +6506,7 @@ async def scan_finish(rid: int, request: Request):
     validate_delivered_chronology(body)
     _write_fields(target, vals, driver.get("username"))
     _finalize_delivered(target, driver.get("username"))
-    alert_request("delivered", rid)
+    alert_request("delivered", rid, _alert_before(target))
     left = [r for r in rows if r.get("id") != rid]
     if not left:
         _set_active_trip(driver, None)
@@ -8228,17 +8232,39 @@ def _alert_trip_text(atype, base, extra_head=None):
         blocks.append("\n".join(b))
     return "\n\n".join(blocks), trip, lead.get("request_number") if len(ordered) == 1 else ""
 
-def _alert_request_text(atype, rid):
-    """Request alert (delivered / foul trip / cancelled)."""
+def _alert_vendor_name(r, d=None, tk=None):
+    """Vendor of a request: its own vendor, else its truck's, else its driver's."""
+    vid = r.get("vendor_id")
+    if vid:
+        if LOCAL_MODE:
+            n = next((v["name"] for v in _store["vendors"] if v["id"] == vid), "")
+        else:
+            n = (db_1("SELECT name FROM vendors WHERE id=%s", (vid,)) or {}).get("name") or ""
+        if n:
+            return n
+    return (tk or {}).get("vendor") or (d or {}).get("vendor_name") or ""
+
+def _alert_request_text(atype, rid, before=None):
+    """Request alert (delivered / foul trip / cancelled). `before` holds the request's
+    driver / truck / vendor from just before the change, in case the change cleared them."""
     rows = _alert_rows([rid])
     if not rows:
         return None
     r = rows[0]
+    before = before or {}
     base = _trip_key_of(r)
     trip_rows = _rows_for_base(base) if not base.startswith("req-") else [r]
     drop = _drop_no(r, trip_rows or [r]) if r.get("trip_id") or r.get("drop_sequence") else None
+    did = r.get("driver_account_id") or before.get("driver_account_id")
+    d = _alert_driver(did) if did else {}
+    tk = _alert_truck(r.get("assigned_truck_id") or before.get("assigned_truck_id") or d.get("truck_id"))
+    vendor = _alert_vendor_name(dict(r, vendor_id=r.get("vendor_id") or before.get("vendor_id")), d, tk)
     title = {"delivered": "Drop delivered", "foul_trip": "Truck request updated to Foul Trip by vendor",
              "cancelled": "Truck request Cancelled by vendor"}[atype]
+    if vendor:
+        title = {"delivered": f"Drop delivered \u2014 {vendor}",
+                 "foul_trip": f"Truck request updated to Foul Trip by {vendor}",
+                 "cancelled": f"Truck request Cancelled by {vendor}"}[atype]
     lines = [f"*{title}*"]
     if atype == "delivered":
         lines.append(f"*Delivered:* {_fmt_dt(r.get('end_unloading_datetime'))}")
@@ -8258,13 +8284,24 @@ def _alert_request_text(atype, rid):
               f"*Revised Qty:* {_v(r.get('revised_qty_alert'))}",
               f"*Origin port:* {_v(r.get('origin_port_name'))}",
               f"*Destination port:* {_v(r.get('destination_port_name'))}"]
+    if atype in ("delivered", "foul_trip"):
+        lines += [f"*Driver / Fleet username:* {_v(d.get('username'))}",
+                  f"*Driver name:* {_v(d.get('driver_name'))}",
+                  f"*Phone number:* {_v(d.get('driver_phone'))}",
+                  f"*Truck plate #:* {_v(tk['plate'] or d.get('plate_number'))}",
+                  f"*Truck type:* {_v(tk['type'] or d.get('truck_type_name'))}"]
     return "\n".join(lines), r.get("trip_id") or "", r.get("request_number") or ""
 
 def alert_trip(atype, base, extra_head=None):
     chat_alert(atype, lambda: _alert_trip_text(atype, base, extra_head))
 
-def alert_request(atype, rid):
-    chat_alert(atype, lambda: _alert_request_text(atype, rid))
+def _alert_before(row):
+    """Driver / truck / vendor of a request as they are now (before a change)."""
+    row = row or {}
+    return {k: row.get(k) for k in ("driver_account_id", "assigned_truck_id", "vendor_id")}
+
+def alert_request(atype, rid, before=None):
+    chat_alert(atype, lambda: _alert_request_text(atype, rid, before))
 
 def _chat_log_rows(limit=200):
     if LOCAL_MODE:
