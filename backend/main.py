@@ -3391,12 +3391,19 @@ async def update_request(rid: int, request: Request):
     prev = _status_row(rid) or {}
     before = prev.get("status_id")
     res = await _update_request_core(rid, request)
-    # Google Chat: a vendor user moved this request to Foul Trip or Cancelled.
-    if is_vendor_role(user.get("role", "")):
-        after = _status_of(rid)
-        if after != before and after in (5, 7):
-            alert_request("foul_trip" if after == 7 else "cancelled", rid, _alert_before(prev))
+    _alert_status_change(user, rid, prev)
     return res
+
+def _alert_status_change(user, rid, prev):
+    """Google Chat: someone moved this request to Foul Trip or Cancelled. A vendor user is
+    named by the vendor; an internal user (any non-vendor role) by their own name."""
+    prev = prev or {}
+    after = _status_of(rid)
+    if after == prev.get("status_id") or after not in (5, 7):
+        return
+    by = None if is_vendor_role((user or {}).get("role", "")) else \
+        ((user or {}).get("name") or (user or {}).get("email") or "internal user")
+    alert_request("foul_trip" if after == 7 else "cancelled", rid, _alert_before(prev), by)
 
 async def _update_request_core(rid: int, request: Request):
     user = get_user(request)
@@ -4672,6 +4679,19 @@ def _free_truck_assignment(rids, email):
 
 @app.post("/api/pending-allocations/{pid}/reject")
 async def reject_alloc(pid: int, request: Request):
+    user = get_user(request)
+    if LOCAL_MODE:
+        pa0 = next((p for p in _store["pending_allocations"] if p["id"] == pid), None)
+    else:
+        pa0 = db_1("SELECT truck_request_id FROM pending_allocations WHERE id=%s", (pid,))
+    rid0 = (pa0 or {}).get("truck_request_id")
+    prev = _status_row(rid0) if rid0 else None
+    res = await _reject_alloc_core(pid, request)
+    if rid0:
+        _alert_status_change(user, rid0, prev)
+    return res
+
+async def _reject_alloc_core(pid: int, request: Request):
     user = get_user(request)
     body = await request.json()
     reason = body.get("reason", "Rejected")
@@ -7952,10 +7972,10 @@ CHAT_ALERT_TYPES = [
      "Scanning App: the driver taps Depart."),
     ("delivered", "Drop delivered (In Transit → Delivered)",
      "Scanning App: the driver taps Finish Drop."),
-    ("foul_trip", "Foul Trip by vendor",
-     "A vendor user changes a truck request to Foul Trip."),
-    ("cancelled", "Cancelled by vendor",
-     "A vendor user changes a truck request to Cancelled."),
+    ("foul_trip", "Foul Trip",
+     "A vendor or internal user changes a truck request to Foul Trip (the header names the vendor, or the internal user)."),
+    ("cancelled", "Cancelled",
+     "A vendor or internal user changes a truck request to Cancelled, including Reject on Pending Allocation (the header names the vendor, or the internal user)."),
 ]
 CHAT_ALERT_LABEL = {k: lbl for k, lbl, _ in CHAT_ALERT_TYPES}
 CHAT_ALERT_LABEL["test"] = "Test alert"
@@ -8248,7 +8268,7 @@ def _alert_vendor_name(r, d=None, tk=None):
             return n
     return (tk or {}).get("vendor") or (d or {}).get("vendor_name") or ""
 
-def _alert_request_text(atype, rid, before=None):
+def _alert_request_text(atype, rid, before=None, by_user=None):
     """Request alert (delivered / foul trip / cancelled). `before` holds the request's
     driver / truck / vendor from just before the change, in case the change cleared them."""
     rows = _alert_rows([rid])
@@ -8265,7 +8285,11 @@ def _alert_request_text(atype, rid, before=None):
     vendor = _alert_vendor_name(dict(r, vendor_id=r.get("vendor_id") or before.get("vendor_id")), d, tk)
     title = {"delivered": "Drop delivered", "foul_trip": "Truck request updated to Foul Trip by vendor",
              "cancelled": "Truck request Cancelled by vendor"}[atype]
-    if vendor:
+    if by_user and atype in ("foul_trip", "cancelled"):
+        # Changed by an internal (non-vendor) user: the header names that person.
+        title = {"foul_trip": f"Truck request updated to Foul Trip by {by_user}",
+                 "cancelled": f"Truck request Cancelled by {by_user}"}[atype]
+    elif vendor:
         title = {"delivered": f"Drop delivered \u2014 {vendor}",
                  "foul_trip": f"Truck request updated to Foul Trip by {vendor}",
                  "cancelled": f"Truck request Cancelled by {vendor}"}[atype]
@@ -8304,8 +8328,8 @@ def _alert_before(row):
     row = row or {}
     return {k: row.get(k) for k in ("driver_account_id", "assigned_truck_id", "vendor_id")}
 
-def alert_request(atype, rid, before=None):
-    chat_alert(atype, lambda: _alert_request_text(atype, rid, before))
+def alert_request(atype, rid, before=None, by_user=None):
+    chat_alert(atype, lambda: _alert_request_text(atype, rid, before, by_user))
 
 def _chat_log_rows(limit=200):
     if LOCAL_MODE:
