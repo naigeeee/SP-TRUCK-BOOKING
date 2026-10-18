@@ -151,7 +151,7 @@ _store = {
     "role_visibility": {
         "viewer": ["dashboard", "masterlist", "user-guide"],
         "normal_user": ["dashboard", "new-request", "masterlist", "pending", "user-guide"],
-        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "user-guide"],
+        "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "vendor-trucks", "driver-accounts", "user-guide"],
         "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "user-guide"]
     },
     "_cnt": {"users": 1, "ports": 3, "accounts": 1, "departments": 4, "packaging_types": 3,
@@ -967,6 +967,10 @@ DRIVER_GUIDE_PAGE = "guide-driver"
 # "Scanning App only" mode (the driver guide is opened from inside the scanning app).
 HELP_PAGES = {GUIDE_PAGE, VENDOR_GUIDE_PAGE, DRIVER_GUIDE_PAGE}
 ROLE_GUIDES_MARKER = "_role_guides_v1"
+# Marker stored with the config: once present, Admin has already lost Role Visibility
+# (only a Master Admin can save it). Configs saved before get it removed from Admin once;
+# after that the master admin may tick it again and that choice is kept.
+RV_ADMIN_MARKER = "_rv_admin_off_v1"
 # The Driver / Fleet Accounts page belongs beside Vendor Truck Assignment.
 VT_PAGE = "vendor-trucks"
 DA_PAGE = "driver-accounts"
@@ -1229,12 +1233,13 @@ async def remove_user(uid: int, request: Request):
 DEFAULT_ROLE_VISIBILITY = {
     "viewer": ["dashboard", "masterlist", "scan-app", "user-guide"],
     "normal_user": ["dashboard", "new-request", "masterlist", "pending", "scan-app", "user-guide"],
-    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
-    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "page-security", "storage-usage", "chat-alerts", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
+    "admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
+    "master_admin": ["dashboard", "new-request", "masterlist", "pending", "fleet", "rates", "evaluation", "cost", "foul-trip-review", "trip-utilisation", "library", "users", "role-visibility", "page-security", "storage-usage", "chat-alerts", "drive-backup", "vendor-trucks", "driver-accounts", "scan-app", "user-guide", "guide-vendor", "guide-driver"],
     "driver_fleet": ["scan-app"],
     "new_user": [],
     "_scan_app_v1": True,
     "_role_guides_v1": True,
+    "_rv_admin_off_v1": True,
 }
 # Marker stored with the config: once present, Scanning App is a normal page that a
 # master admin can switch on or off per role. Configs saved before the page existed
@@ -1242,7 +1247,7 @@ DEFAULT_ROLE_VISIBILITY = {
 SCAN_APP_MARKER = "_scan_app_v1"
 SECURITY_PAGE = "page-security"
 # Pages only the master admin can open (never listed on Role Visibility).
-MASTER_ONLY_PAGES = (SECURITY_PAGE, "storage-usage", "chat-alerts")
+MASTER_ONLY_PAGES = (SECURITY_PAGE, "storage-usage", "chat-alerts", "drive-backup")
 
 def _load_role_visibility_cfg():
     """Stored config dict (pages per role + role_labels) or None when absent."""
@@ -1265,7 +1270,10 @@ def _merge_role_visibility(cfg):
     labels = clean_role_labels(raw.get(ROLE_LABELS_KEY))
     upgraded = bool(raw.get(SCAN_APP_MARKER))
     guides_added = bool(raw.get(ROLE_GUIDES_MARKER))
-    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER, ROLE_GUIDES_MARKER)}
+    rv_admin_done = bool(raw.get(RV_ADMIN_MARKER))
+    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER, ROLE_GUIDES_MARKER, RV_ADMIN_MARKER)}
+    if not rv_admin_done and isinstance(out.get("admin"), list):
+        out["admin"] = [p for p in out["admin"] if p != "role-visibility"]
     out.setdefault("new_user", [])
     if not upgraded:
         for k, v in list(out.items()):
@@ -1359,6 +1367,7 @@ async def set_role_visibility(request: Request):
     expanded.setdefault(DRIVER_FLEET_ROLE, [SCAN_PAGE])
     expanded[SCAN_APP_MARKER] = True
     expanded[ROLE_GUIDES_MARKER] = True
+    expanded[RV_ADMIN_MARKER] = True
     if LOCAL_MODE:
         _store["role_visibility"] = expanded
         return {"ok": True}
@@ -8418,13 +8427,14 @@ _STORAGE_TABLES = [
     ("chat_alert_log", "Google Chat alert log", 300),
     ("page_lock_logs", "Page access log", 300),
     ("sheet_usage_log", "Google Sheet size reports", 600),
+    ("drive_backup_files", "Google Drive backup records", 300),
 ]
 _LOCAL_TABLE = {"truck_requests": "truck_requests", "truck_request_history": "truck_request_history",
                 "scan_pickup_items": "scan_pickup", "scan_unload_items": "scan_unload",
                 "request_manifests": "manifests", "truck_request_attachments": "attachments",
                 "trucks": "trucks", "driver_accounts": "driver_accounts", "vendor_rates": "vendor_rates",
                 "chat_alert_log": "chat_alert_log", "page_lock_logs": "page_lock_logs",
-                "sheet_usage_log": "sheet_usage_log"}
+                "sheet_usage_log": "sheet_usage_log", "drive_backup_files": "drive_backup_files"}
 
 def _ago(days):
     return (datetime.now(_GMT8) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
@@ -8635,6 +8645,359 @@ async def sync_sheet_usage(request: Request):
             db_x("DELETE FROM sheet_usage_log WHERE created_at < %s", (_ago(400),))
     return {"ok": True, "total_cells": total, "limit": SHEET_CELL_LIMIT,
             "pct": round(total * 100.0 / SHEET_CELL_LIMIT, 1)}
+
+# ---------------------------------------------------------------------------
+# Google Drive backup. The Google Apps Script (Code.gs, running as the sheet owner's
+# Google account) asks /api/sync/drive-backup/pending for files that are not in Drive
+# yet, downloads each one with the backup key and saves it under
+#   <backup folder> / <final call date, else initial call date> / <request #> /
+# then reports back. Attachments (incl. unloading photos), the manifest (Excel), the
+# pickup scan manifest (after pickup scanning ends) and the unloading scan manifest
+# (after unloading ends) are copied. Files deleted in the app stay in Drive.
+# ---------------------------------------------------------------------------
+DRIVE_KIND_LABEL = {"att": "Attachment", "mf": "Manifest", "pick": "Pickup scan manifest", "unl": "Unloading scan manifest"}
+DRIVE_BATCH_FILES = 25
+DRIVE_BATCH_BYTES = 120 * 1024 * 1024
+DRIVE_MAX_ATTEMPTS = 8
+DRIVE_RETRY_AFTER_MIN = 10
+_DRIVE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,200}$")
+
+def _drive_folder_id(text):
+    """Folder ID from a Google Drive folder link (or the ID itself)."""
+    t = str(text or "").strip()
+    m = re.search(r"drive\.google\.com/(?:drive/(?:u/\d+/)?folders/|open\?id=)([A-Za-z0-9_-]+)", t)
+    fid = m.group(1) if m else t
+    return fid if _DRIVE_ID_RE.match(fid) else ""
+
+def _drive_cfg():
+    return {"folder_id": (_setting_get("drive_backup_folder_id") or "").strip(),
+            "enabled": (_setting_get("drive_backup_enabled") or "1") == "1",
+            "key_hash": _setting_get("drive_backup_key_hash") or "",
+            "key_set_at": _setting_get("drive_backup_key_set_at") or "",
+            "last_poll": _setting_get("drive_backup_last_poll") or "",
+            "last_report": _setting_get("drive_backup_last_report") or ""}
+
+def _drive_key_ok(request):
+    got = request.headers.get("x-backup-key") or ""
+    want = _drive_cfg()["key_hash"]
+    if not got or not want:
+        return False
+    return secrets.compare_digest(hashlib.sha256(got.encode("utf-8")).hexdigest(), want)
+
+def _drive_require_key(request):
+    if not _drive_key_ok(request):
+        raise HTTPException(401, "Backup key missing or wrong - copy the key from Google Drive Backup in the app into Code.gs")
+
+def _drive_date_folder(r):
+    v = r.get("final_call_datetime") or r.get("call_datetime")
+    s = str(to_gmt8(v) or "") if v else ""
+    return s[:10] if re.match(r"^\d{4}-\d{2}-\d{2}", s) else "No call date"
+
+def _drive_state():
+    """{item_key: row} and {request_id: folder row} of what is in Drive."""
+    if LOCAL_MODE:
+        return dict(_store.setdefault("drive_backup_files", {})), dict(_store.setdefault("drive_backup_folders", {}))
+    try:
+        files = {r["item_key"]: r for r in db_q("SELECT * FROM drive_backup_files")}
+        folders = {r["request_id"]: r for r in db_q("SELECT * FROM drive_backup_folders")}
+    except Exception:
+        files, folders = {}, {}
+    return files, folders
+
+def _drive_expected():
+    """Every file that should be in Drive now: (key, request_id, kind, version, name, size)."""
+    out = []
+    if LOCAL_MODE:
+        atts = [dict(a) for a in _store["attachments"]]
+        mfs = [dict(m) for m in _store["manifests"]]
+        reqs = {r["id"]: r for r in _store["truck_requests"]}
+        scan_rows = [r for r in _store["truck_requests"] if r.get("pickup_scan_key") or r.get("unload_scan_closed_at")]
+    else:
+        atts = db_q("SELECT id, truck_request_id, original_filename, file_size FROM truck_request_attachments")
+        mfs = db_q("SELECT id, truck_request_id, file_size, created_at FROM request_manifests")
+        scan_rows = db_q("""SELECT id, request_number, trip_id, status_id, pickup_scan_key, pickup_scan_closed_at,
+            unload_scan_closed_at FROM truck_requests WHERE pickup_scan_key IS NOT NULL OR unload_scan_closed_at IS NOT NULL""")
+        reqs = None
+    for a in atts:
+        out.append(("att:%s" % a["id"], a.get("truck_request_id"), "att", "1",
+                    str(a.get("original_filename") or "attachment")[:200], int(a.get("file_size") or 0)))
+    for m in mfs:
+        # A new upload (after Delete) is a new record: id + upload time identify the version.
+        rid = m.get("truck_request_id")
+        out.append(("mf:%s" % rid, rid, "mf", "%s|%s" % (m.get("id"), to_gmt8(m.get("created_at"))), None, int(m.get("file_size") or 0) * 2))
+    # Pickup scan: one manifest per trip, copied into every request folder of the trip once
+    # pickup scanning has ended (refreshed as drops are delivered: override bags get their drop).
+    trips = {}
+    for r in scan_rows:
+        if r.get("pickup_scan_key"):
+            trips.setdefault(_trip_key_of(r), []).append(r)
+    for base, rows in trips.items():
+        closed = sorted(str(to_gmt8(r.get("pickup_scan_closed_at"))) for r in rows if r.get("pickup_scan_closed_at"))
+        if not closed:
+            continue
+        done = sum(1 for r in rows if r.get("status_id") == 4)
+        for r in rows:
+            out.append(("pick:%s" % r["id"], r["id"], "pick", "%s|%s" % (closed[0], done), None, 0))
+    for r in scan_rows:
+        if r.get("unload_scan_closed_at"):
+            out.append(("unl:%s" % r["id"], r["id"], "unl", str(to_gmt8(r.get("unload_scan_closed_at"))), None, 0))
+    return out
+
+def _drive_requests(ids):
+    ids = [i for i in set(ids) if i]
+    if not ids:
+        return {}
+    if LOCAL_MODE:
+        return {r["id"]: row2d(dict(r)) for r in _store["truck_requests"] if r["id"] in ids}
+    return {r["id"]: r for r in db_q("""SELECT id, request_number, trip_id, final_call_datetime, call_datetime
+        FROM truck_requests WHERE id IN %s""", ([int(i) for i in ids],))}
+
+def _drive_file_name(kind, req, default):
+    rn = str(req.get("request_number") or "request-%s" % req.get("id"))
+    if kind == "mf":
+        return f"{rn}-manifest.xlsx"
+    if kind == "pick":
+        b = trip_base(req.get("trip_id"))
+        return f"{b or rn}-pickup-scan.xlsx"
+    if kind == "unl":
+        return f"{rn}-unloading-scan.xlsx"
+    return default
+
+def _drive_pending(limit_files=DRIVE_BATCH_FILES, limit_bytes=DRIVE_BATCH_BYTES):
+    """What is not (or no longer) in Drive, grouped per request; also request folders
+    whose date changed (final call set / changed) so they can be moved."""
+    files, folders = _drive_state()
+    exp = _drive_expected()
+    now = datetime.now(_GMT8)
+    todo, waiting, failed = [], 0, 0
+    for key, rid, kind, ver, name, size in exp:
+        cur = files.get(key)
+        if cur and cur.get("status") == "done" and cur.get("version") == ver:
+            continue
+        if cur and cur.get("status") == "failed":
+            if int(cur.get("attempts") or 0) >= DRIVE_MAX_ATTEMPTS:
+                failed += 1
+                continue
+            try:
+                t = datetime.strptime(str(to_gmt8(cur.get("updated_at")))[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_GMT8)
+                if now - t < timedelta(minutes=DRIVE_RETRY_AFTER_MIN):
+                    failed += 1
+                    continue
+            except Exception:
+                pass
+        waiting += 1
+        todo.append((key, rid, kind, ver, name, size, (cur or {}).get("drive_file_id") or None))
+    reqs = _drive_requests([t[1] for t in todo] + list(folders.keys()))
+    batch, by_rid, n, nbytes = [], {}, 0, 0
+    for key, rid, kind, ver, name, size, old_id in todo:
+        r = reqs.get(rid)
+        if not r:
+            continue
+        if n >= limit_files or (n and nbytes + size > limit_bytes):
+            break
+        e = by_rid.get(rid)
+        if e is None:
+            fo = folders.get(rid) or {}
+            e = {"request_id": rid, "request_number": r.get("request_number") or f"request-{rid}",
+                 "date_folder": _drive_date_folder(r), "folder_id": fo.get("drive_folder_id") or None, "items": []}
+            by_rid[rid] = e
+            batch.append(e)
+        e["items"].append({"key": key, "kind": kind, "kind_label": DRIVE_KIND_LABEL[kind], "version": ver,
+                           "name": _drive_file_name(kind, r, name), "size": size, "replace_file_id": old_id,
+                           "url": f"/api/sync/drive-backup/file?key={quote(key)}"})
+        n += 1
+        nbytes += size
+    # Folders to move: everything already in Drive, but the request's date changed.
+    for rid, fo in folders.items():
+        if rid in by_rid or len(batch) >= limit_files + 20:
+            continue
+        r = reqs.get(rid)
+        if r and _drive_date_folder(r) != fo.get("date_folder"):
+            batch.append({"request_id": rid, "request_number": r.get("request_number") or f"request-{rid}",
+                          "date_folder": _drive_date_folder(r), "folder_id": fo.get("drive_folder_id"), "items": []})
+    return batch, {"expected": len(exp), "waiting": waiting, "failed": failed,
+                   "done": sum(1 for k, *_ in exp if (files.get(k) or {}).get("status") == "done")}
+
+def _drive_save_file(key, rid, kind, version, name, file_id, ok_, detail):
+    now = nows()
+    if LOCAL_MODE:
+        st = _store.setdefault("drive_backup_files", {})
+        cur = st.get(key) or {}
+        if ok_:
+            st[key] = {"item_key": key, "request_id": rid, "kind": kind, "version": version, "file_name": name,
+                       "drive_file_id": file_id, "status": "done", "detail": "", "attempts": 0, "updated_at": now}
+        else:
+            # Keep the version / Drive file of the last good copy, so a retry replaces it.
+            st[key] = dict(cur, item_key=key, request_id=rid, kind=kind, file_name=name, status="failed",
+                           detail=str(detail or "")[:500], attempts=int(cur.get("attempts") or 0) + 1, updated_at=now)
+        return
+    if ok_:
+        db_x("""INSERT INTO drive_backup_files (item_key, request_id, kind, version, file_name, drive_file_id, status, detail, attempts, updated_at)
+            VALUES (%s,%s,%s,%s,%s,%s,'done','',0,%s) ON DUPLICATE KEY UPDATE request_id=VALUES(request_id), kind=VALUES(kind),
+            version=VALUES(version), file_name=VALUES(file_name), drive_file_id=VALUES(drive_file_id), status='done', detail='',
+            attempts=0, updated_at=VALUES(updated_at)""", (key, rid, kind, version, name, file_id, now))
+    else:
+        db_x("""INSERT INTO drive_backup_files (item_key, request_id, kind, version, file_name, drive_file_id, status, detail, attempts, updated_at)
+            VALUES (%s,%s,%s,NULL,%s,NULL,'failed',%s,1,%s) ON DUPLICATE KEY UPDATE status='failed', detail=VALUES(detail),
+            attempts=attempts+1, updated_at=VALUES(updated_at), file_name=VALUES(file_name)""",
+             (key, rid, kind, name, str(detail or "")[:500], now))
+
+def _drive_save_folder(rid, folder_id, date_folder):
+    now = nows()
+    if LOCAL_MODE:
+        _store.setdefault("drive_backup_folders", {})[rid] = {"request_id": rid, "drive_folder_id": folder_id,
+                                                              "date_folder": date_folder, "updated_at": now}
+        return
+    db_x("""INSERT INTO drive_backup_folders (request_id, drive_folder_id, date_folder, updated_at) VALUES (%s,%s,%s,%s)
+        ON DUPLICATE KEY UPDATE drive_folder_id=VALUES(drive_folder_id), date_folder=VALUES(date_folder), updated_at=VALUES(updated_at)""",
+         (rid, folder_id, date_folder, now))
+
+@app.get("/api/sync/drive-backup/pending", tags=["sync"])
+def drive_backup_pending(request: Request):
+    """For the Apps Script: the next files to copy into Google Drive (backup key required)."""
+    _drive_require_key(request)
+    cfg = _drive_cfg()
+    _setting_set("drive_backup_last_poll", nows(), "google-apps-script")
+    if not cfg["enabled"] or not cfg["folder_id"]:
+        return {"enabled": cfg["enabled"], "root_folder_id": cfg["folder_id"], "batch": [], "stats": {}}
+    batch, stats = _drive_pending()
+    return {"enabled": True, "root_folder_id": cfg["folder_id"], "batch": batch, "stats": stats}
+
+@app.get("/api/sync/drive-backup/file", tags=["sync"])
+def drive_backup_file(request: Request, key: str = ""):
+    """For the Apps Script: one file to copy (same file the app's download gives)."""
+    _drive_require_key(request)
+    m = re.fullmatch(r"(att|mf|pick|unl):(\d+)", key or "")
+    if not m:
+        raise HTTPException(400, "Unknown file")
+    kind, n = m.group(1), int(m.group(2))
+    if kind == "att":
+        att = next((a for a in _store["attachments"] if a["id"] == n), None) if LOCAL_MODE else \
+            db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (n,))
+        if not att:
+            raise HTTPException(404, "Attachment no longer exists")
+        return _att_file_response(att)
+    if kind == "mf":
+        return _sync_call(lambda req: download_manifest(n, req, "xlsx"))
+    req_row = _drive_requests([n]).get(n)
+    if not req_row:
+        raise HTTPException(404, "Request no longer exists")
+    if kind == "pick":
+        return _sync_call(lambda req: download_pickup_scan(_trip_key_of(req_row), req, "xlsx"))
+    return _sync_call(lambda req: download_unload_scan(n, req, "xlsx"))
+
+@app.post("/api/sync/drive-backup/report", tags=["sync"])
+async def drive_backup_report(request: Request):
+    """For the Apps Script: which files were saved in Drive (or failed) and the request folders."""
+    _drive_require_key(request)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Send JSON")
+    if not isinstance(body, dict):
+        raise HTTPException(400, "Send JSON")
+    nf = nfi = 0
+    for f in (body.get("folders") or [])[:500]:
+        try:
+            rid = int(f.get("request_id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        fid, dfol = str(f.get("folder_id") or ""), str(f.get("date_folder") or "")[:16]
+        if _DRIVE_ID_RE.match(fid) and dfol:
+            _drive_save_folder(rid, fid, dfol)
+            nf += 1
+    for f in (body.get("files") or [])[:500]:
+        if not isinstance(f, dict):
+            continue
+        key = str(f.get("key") or "")
+        m = re.fullmatch(r"(att|mf|pick|unl):(\d+)", key)
+        if not m:
+            continue
+        try:
+            rid = int(f.get("request_id"))
+        except (TypeError, ValueError):
+            continue
+        ok_ = bool(f.get("ok"))
+        fid = str(f.get("file_id") or "")
+        if ok_ and not _DRIVE_ID_RE.match(fid):
+            ok_, f["detail"] = False, "Drive did not return a file ID"
+        _drive_save_file(key, rid, m.group(1), str(f.get("version") or "")[:255], str(f.get("name") or "")[:255],
+                         fid if ok_ else None, ok_, f.get("detail"))
+        nfi += 1
+    _setting_set("drive_backup_last_report", nows(), "google-apps-script")
+    return {"ok": True, "folders": nf, "files": nfi}
+
+def _drive_recent(limit=150):
+    files, folders = _drive_state()
+    rows = sorted(files.values(), key=lambda r: str(r.get("updated_at") or ""), reverse=True)[:limit]
+    reqs = _drive_requests([r.get("request_id") for r in rows])
+    out = []
+    for r in rows:
+        rq = reqs.get(r.get("request_id")) or {}
+        fo = folders.get(r.get("request_id")) or {}
+        out.append({"updated_at": to_gmt8(r.get("updated_at")), "request_number": rq.get("request_number") or "",
+                    "kind": DRIVE_KIND_LABEL.get(r.get("kind"), r.get("kind")), "file_name": r.get("file_name") or "",
+                    "status": r.get("status"), "detail": r.get("detail") or "", "attempts": int(r.get("attempts") or 0),
+                    "date_folder": fo.get("date_folder") or "",
+                    "folder_url": f"https://drive.google.com/drive/folders/{fo['drive_folder_id']}" if fo.get("drive_folder_id") else "",
+                    "file_url": f"https://drive.google.com/file/d/{r['drive_file_id']}/view" if r.get("drive_file_id") and r.get("status") == "done" else ""})
+    return out
+
+def _drive_public():
+    cfg = _drive_cfg()
+    _, stats = _drive_pending(limit_files=0)
+    return {"folder_id": cfg["folder_id"],
+            "folder_url": f"https://drive.google.com/drive/folders/{cfg['folder_id']}" if cfg["folder_id"] else "",
+            "enabled": cfg["enabled"], "key_set": bool(cfg["key_hash"]), "key_set_at": to_gmt8(cfg["key_set_at"]) if cfg["key_set_at"] else "",
+            "last_poll": to_gmt8(cfg["last_poll"]) if cfg["last_poll"] else "",
+            "last_report": to_gmt8(cfg["last_report"]) if cfg["last_report"] else "",
+            "stats": stats, "recent": _drive_recent()}
+
+@app.get("/api/admin/drive-backup", tags=["admin"])
+def get_drive_backup(request: Request):
+    """Google Drive backup settings, progress and the latest files (master admin)."""
+    require_master(request)
+    return _drive_public()
+
+@app.put("/api/admin/drive-backup", tags=["admin"])
+async def set_drive_backup(request: Request):
+    """Set the backup folder (link or ID) and switch the backup on / off (master admin)."""
+    u = require_master(request)
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "Invalid request")
+    if "folder" in body:
+        fid = _drive_folder_id(body.get("folder"))
+        if not fid:
+            raise HTTPException(400, "Paste the Google Drive folder link - it looks like https://drive.google.com/drive/folders/...")
+        _setting_set("drive_backup_folder_id", fid, u.get("email", ""))
+    if "enabled" in body:
+        _setting_set("drive_backup_enabled", "1" if body.get("enabled") else "0", u.get("email", ""))
+    return _drive_public()
+
+@app.post("/api/admin/drive-backup/key", tags=["admin"])
+def new_drive_backup_key(request: Request):
+    """Make a new backup key for Code.gs. It is shown once; the old key stops working."""
+    u = require_master(request)
+    key = "spb_" + secrets.token_urlsafe(30)
+    _setting_set("drive_backup_key_hash", hashlib.sha256(key.encode("utf-8")).hexdigest(), u.get("email", ""))
+    _setting_set("drive_backup_key_set_at", nows(), u.get("email", ""))
+    return {"key": key}
+
+@app.post("/api/admin/drive-backup/retry", tags=["admin"])
+def retry_drive_backup(request: Request):
+    """Try every failed file again on the next run."""
+    require_master(request)
+    if LOCAL_MODE:
+        n = 0
+        for r in _store.setdefault("drive_backup_files", {}).values():
+            if r.get("status") == "failed":
+                r["attempts"] = 0
+                r["updated_at"] = "2000-01-01 00:00:00"
+                n += 1
+        return {"ok": True, "reset": n}
+    n = db_x("UPDATE drive_backup_files SET attempts=0, updated_at='2000-01-01 00:00:00' WHERE status='failed'")
+    return {"ok": True, "reset": n}
 
 GUIDE_IMG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "guide")
 

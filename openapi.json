@@ -4786,6 +4786,166 @@
         }
       }
     },
+    "/api/sync/drive-backup/pending": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "summary": "Drive Backup Pending",
+        "description": "For the Apps Script: the next files to copy into Google Drive (backup key required).",
+        "operationId": "drive_backup_pending_api_sync_drive_backup_pending_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/drive-backup/file": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "summary": "Drive Backup File",
+        "description": "For the Apps Script: one file to copy (same file the app's download gives).",
+        "operationId": "drive_backup_file_api_sync_drive_backup_file_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/drive-backup/report": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "summary": "Drive Backup Report",
+        "description": "For the Apps Script: which files were saved in Drive (or failed) and the request folders.",
+        "operationId": "drive_backup_report_api_sync_drive_backup_report_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/drive-backup": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Drive Backup",
+        "description": "Google Drive backup settings, progress and the latest files (master admin).",
+        "operationId": "get_drive_backup_api_admin_drive_backup_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set Drive Backup",
+        "description": "Set the backup folder (link or ID) and switch the backup on / off (master admin).",
+        "operationId": "set_drive_backup_api_admin_drive_backup_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/drive-backup/key": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "New Drive Backup Key",
+        "description": "Make a new backup key for Code.gs. It is shown once; the old key stops working.",
+        "operationId": "new_drive_backup_key_api_admin_drive_backup_key_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/drive-backup/retry": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Retry Drive Backup",
+        "description": "Try every failed file again on the next run.",
+        "operationId": "retry_drive_backup_api_admin_drive_backup_retry_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/app-version": {
       "get": {
         "tags": [

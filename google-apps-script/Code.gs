@@ -8,7 +8,10 @@
 // 4. Run setupSheets() once to create all tabs (re-run it after updating this
 //    script to add the new tabs: Foul Trip Approval, Trip Utilisation Review and
 //    Capacity Conversion)
-// 5. Run installTrigger() once to enable hourly auto-sync
+// 5. Run installTrigger() once to enable hourly auto-sync (and the Google Drive
+//    backup every 15 minutes)
+// 6. Google Drive backup: paste the backup key from the app into DRIVE_BACKUP_KEY
+//    below, run runDriveBackup() once and allow Google Drive access when asked.
 //    After each sync the sheet also reports its size (cells used of Google's 10 million
 //    limit) to the app's Storage Usage page.
 //
@@ -19,6 +22,10 @@
 // ============================================================
 
 var BACKEND_URL = "https://sp-truck-booking--dev.ninjavan.apps.substrait.build";
+
+// Google Drive backup: paste the key from the app (Administration -> Google Drive
+// Backup -> Generate backup key). Leave it empty to switch the backup off here.
+var DRIVE_BACKUP_KEY = "";
 
 var SECTIONS = [
   { key: "masterlist",          sheet: "Masterlist",               endpoint: "/api/sync/masterlist" },
@@ -465,7 +472,8 @@ function syncSection(section) {
 function installTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(function(t) {
-    if (t.getHandlerFunction() === "syncAll") {
+    var h = t.getHandlerFunction();
+    if (h === "syncAll" || h === "runDriveBackup") {
       ScriptApp.deleteTrigger(t);
     }
   });
@@ -473,17 +481,115 @@ function installTrigger() {
     .timeBased()
     .everyHours(1)
     .create();
-  Logger.log("Hourly auto-sync trigger installed.");
+  ScriptApp.newTrigger("runDriveBackup")
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+  Logger.log("Hourly auto-sync and 15-minute Google Drive backup triggers installed.");
 }
 
 function removeTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(function(t) {
-    if (t.getHandlerFunction() === "syncAll") {
+    var h = t.getHandlerFunction();
+    if (h === "syncAll" || h === "runDriveBackup") {
       ScriptApp.deleteTrigger(t);
     }
   });
-  Logger.log("Auto-sync trigger removed.");
+  Logger.log("Auto-sync and Google Drive backup triggers removed.");
+}
+
+// ============================================================
+// GOOGLE DRIVE BACKUP
+// Copies attachments (incl. unloading photos), manifests (Excel) and the pickup /
+// unloading scan manifests into:
+//   <backup folder> / <final call date, else initial call date> / <request #> /
+// The backup folder is set in the app (Google Drive Backup page). A request folder
+// moves to the new date folder when its final call date is set or changed. Files
+// deleted in the app stay in Drive.
+// ============================================================
+
+function runDriveBackup() {
+  if (!DRIVE_BACKUP_KEY) {
+    Logger.log("Google Drive backup is off: paste the backup key from the app into DRIVE_BACKUP_KEY.");
+    return;
+  }
+  var started = Date.now();
+  var hdr = { "X-Backup-Key": DRIVE_BACKUP_KEY };
+  var root = null, dateFolders = {}, saved = 0, failed = 0, moved = 0;
+  for (var round = 0; round < 40 && Date.now() - started < 4.5 * 60 * 1000; round++) {
+    var resp = UrlFetchApp.fetch(BACKEND_URL + "/api/sync/drive-backup/pending",
+                                 { "headers": hdr, "muteHttpExceptions": true });
+    if (resp.getResponseCode() !== 200) {
+      Logger.log("Drive backup: HTTP " + resp.getResponseCode() + " - " + resp.getContentText().slice(0, 200));
+      return;
+    }
+    var p = JSON.parse(resp.getContentText());
+    if (!p.enabled) { Logger.log("Drive backup is switched off in the app."); return; }
+    if (!p.root_folder_id) { Logger.log("Set the Google Drive backup folder in the app first."); return; }
+    if (!p.batch || !p.batch.length) break;
+    if (!root) root = DriveApp.getFolderById(p.root_folder_id);
+    var report = { folders: [], files: [] };
+    p.batch.forEach(function(req) {
+      if (Date.now() - started > 5.2 * 60 * 1000) return;   // leave the rest for the next run
+      var folder = null;
+      try {
+        var day = dateFolders[req.date_folder] || (dateFolders[req.date_folder] = driveChildFolder(root, req.date_folder));
+        if (req.folder_id) {
+          try { folder = DriveApp.getFolderById(req.folder_id); if (folder.isTrashed()) folder = null; } catch (e) { folder = null; }
+        }
+        if (folder) {
+          if (!driveIsIn(folder, day)) { folder.moveTo(day); moved++; }
+        } else {
+          folder = driveChildFolder(day, req.request_number);
+        }
+        report.folders.push({ request_id: req.request_id, folder_id: folder.getId(), date_folder: req.date_folder });
+      } catch (e) {
+        req.items.forEach(function(it) {
+          report.files.push({ key: it.key, request_id: req.request_id, version: it.version, name: it.name,
+                              ok: false, detail: "Folder: " + String(e).slice(0, 250) });
+          failed++;
+        });
+        return;
+      }
+      req.items.forEach(function(it) {
+        try {
+          var r = UrlFetchApp.fetch(BACKEND_URL + it.url, { "headers": hdr, "muteHttpExceptions": true });
+          if (r.getResponseCode() !== 200) throw new Error("HTTP " + r.getResponseCode() + " " + r.getContentText().slice(0, 150));
+          var f = folder.createFile(r.getBlob().setName(it.name));
+          if (it.replace_file_id) {
+            try { DriveApp.getFileById(it.replace_file_id).setTrashed(true); } catch (e2) {}
+          }
+          report.files.push({ key: it.key, request_id: req.request_id, version: it.version, name: it.name,
+                              ok: true, file_id: f.getId() });
+          saved++;
+        } catch (e) {
+          report.files.push({ key: it.key, request_id: req.request_id, version: it.version, name: it.name,
+                              ok: false, detail: String(e).slice(0, 300) });
+          failed++;
+        }
+      });
+    });
+    if (!report.folders.length && !report.files.length) break;   // nothing could be done this round
+    UrlFetchApp.fetch(BACKEND_URL + "/api/sync/drive-backup/report", {
+      "method": "post", "contentType": "application/json", "headers": hdr,
+      "muteHttpExceptions": true, "payload": JSON.stringify(report)
+    });
+  }
+  Logger.log("Drive backup: " + saved + " file(s) saved, " + failed + " failed, " + moved + " folder(s) moved.");
+}
+
+function driveChildFolder(parent, name) {
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+function driveIsIn(folder, parent) {
+  var ps = folder.getParents();
+  while (ps.hasNext()) {
+    if (ps.next().getId() === parent.getId()) return true;
+  }
+  return false;
 }
 
 // ============================================================
