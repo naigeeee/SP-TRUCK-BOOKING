@@ -19,7 +19,8 @@ What's in here:
 | File | What it is |
 |---|---|
 | `SETUP.md` | One-time check of your computer. Start with this. |
-| `AGENTS.md` | Instructions your AI reads. You don't need to. |
+| `AGENTS.md` | Core rules your AI reads. You don't need to. |
+| `docs/` | Detailed runbooks your AI reads when needed. You don't need to. |
 | `backend/main.py` | The whole app — the web page and the API. |
 | `substrait.yaml` | What the app is, in one sentence. |
 | `cicd/Dockerfile.backend` | How Substrait builds it. Rarely changes. |

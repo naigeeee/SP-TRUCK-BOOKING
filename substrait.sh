@@ -5,9 +5,13 @@
 #   bash substrait.sh doctor    check this machine and this project, change nothing
 #   bash substrait.sh check     audit the project against Substrait's deploy contract
 #   bash substrait.sh link      authorise this machine (opens your browser)
-#   bash substrait.sh deploy    build and ship, streaming the log
+#   bash substrait.sh deploy    build and ship, streaming the log; returns once the app is live
+#   bash substrait.sh security  Dev security findings that block going live (status|findings|submit-fp)
 #   bash substrait.sh env ...   manage the app's env vars and secrets
 #   bash substrait.sh library   browse the internal API catalogue (needs the account link)
+#   bash substrait.sh logs      read the deployed app's runtime logs (needs the account link)
+#   bash substrait.sh logout    sign this machine out of Substrait (revokes the token)
+#   bash substrait.sh update    pull latest scaffolding (AGENTS.md, docs/, substrait.sh, SETUP.md)
 set -uo pipefail
 
 # ── Always run from the project root, whatever the caller's working directory ─────
@@ -66,8 +70,25 @@ if [ -z "${SUBSTRAIT_GLOBAL_CONFIG:-}" ] && [ ! -f "$HOME/.substrait/config.json
   fi
 fi
 
-# Substrait ships no default portal URL; setting this means no subcommand needs --portal-url.
-export SUBSTRAIT_PORTAL_URL="${SUBSTRAIT_PORTAL_URL:-https://api.substrait.build}"
+# Substrait ships no default portal URL. Since plugin v2026.11.05 the saved login follows the
+# installation when its API address moves — but only when the URL comes from the saved login,
+# never from $SUBSTRAIT_PORTAL_URL. So read the saved address first and export the hosted
+# default ONLY when nothing is saved yet (a machine that has never linked). Logins get the
+# address passed explicitly (see `link` below).
+_SUBSTRAIT_DEFAULT_PORTAL="https://api.substrait.build"
+_saved_portal() {
+  local f gc="${SUBSTRAIT_GLOBAL_CONFIG:-$HOME/.substrait/config.json}" v
+  for f in .substrait/config.json "$gc" "$(dirname "$gc")"/profiles/*.json; do
+    [ -f "$f" ] || continue
+    v="$(sed -n 's/.*"portal_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" 2>/dev/null | head -1)"
+    [ -n "$v" ] && { printf '%s' "${v%/}"; return 0; }
+  done
+  return 1
+}
+SUBSTRAIT_LOGIN_PORTAL="${SUBSTRAIT_PORTAL_URL:-$(_saved_portal || printf '%s' "$_SUBSTRAIT_DEFAULT_PORTAL")}"
+if [ -z "${SUBSTRAIT_PORTAL_URL:-}" ] && ! _saved_portal >/dev/null; then
+  export SUBSTRAIT_PORTAL_URL="$_SUBSTRAIT_DEFAULT_PORTAL"
+fi
 # Linking appends the platform's own contract block to a memory file. Keep it out of
 # AGENTS.md — its text describes the zip-upload path and would contradict ours.
 export SUBSTRAIT_MEMO_FILE="${SUBSTRAIT_MEMO_FILE:-SUBSTRAIT-CONTRACT.md}"
@@ -122,30 +143,8 @@ fetch_tools() {
   fi
 }
 
-# ── Open a URL in the real browser ───────────────────────────────────────────────
-# explorer.exe first: a shell opening a URL is not an EDR signature, whereas
-# bash -> powershell -> Start-Process is a classic one and gets blocked silently.
-# MSYS_NO_PATHCONV is set for THIS command only — setting it globally breaks the path
-# conversion curl needs for its CA bundle, and every API call then fails.
-# ── Make the platform's own browser-opener work ──────────────────────────────────
-# substrait-link.sh calls substrait_open_url(), which on Windows runs `explorer.exe "$url"`.
-# Git Bash mangles the URL on the way, so Explorer gets something it can't parse and falls
-# back to opening the user's Documents folder. Exporting a shell function with that exact
-# name shadows the real binary inside the child script, so THEIR call lands here and we
-# open the browser properly. Fixing it at the source beats racing it with a second opener,
-# which is what produced a Documents window every time regardless.
-#
-# MSYS_NO_PATHCONV is scoped to this one command. Setting it globally breaks the path
-# conversion curl needs for its CA bundle, and every API call then fails with
-# "could not reach".
-explorer.exe() {
-  local url="${1:-}"
-  [ -n "$url" ] || return 1
-  MSYS_NO_PATHCONV=1 powershell.exe -NoProfile -NonInteractive \
-    -Command "Start-Process '"'"'$url'"'"'" >/dev/null 2>&1 && return 0
-  return 1
-}
-export -f explorer.exe 2>/dev/null || true
+# (Browser opening: the plugin's own opener has used rundll32 on Git Bash since v2026.11.05,
+# which fixed the "opens File Explorer / Documents" bug this wrapper used to patch around.)
 
 # ── doctor: one command that tells you whether anything here can work ────────────
 doctor() {
@@ -206,7 +205,7 @@ doctor() {
 
   local code
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
-          "$SUBSTRAIT_PORTAL_URL/api/link/start" 2>/dev/null)" || code=""
+          "$SUBSTRAIT_LOGIN_PORTAL/api/link/start" 2>/dev/null)" || code=""
   if [ -n "$code" ] && [ "$code" != "000" ]; then
     echo "substrait api   : reachable (HTTP $code)"
   else
@@ -220,6 +219,97 @@ doctor() {
   if [ "$fail" -ne 0 ]; then echo "RESULT: BLOCKED — fix the PROBLEM lines above."; return 1
   elif [ "$warn" -ne 0 ]; then echo "RESULT: OK WITH WARNINGS"; return 0
   else echo "RESULT: READY"; return 0; fi
+}
+
+# ── update: pull the latest scaffolding files from the starter repo ─────────
+# Replaces ONLY the infrastructure files (AGENTS.md, substrait.sh, docs/, SETUP.md,
+# README.md). Never touches the app's own code or config: backend/, frontend/, cicd/,
+# substrait.yaml, openapi.json, .substrait/, .gitignore.
+STARTER_REPO="https://github.com/XB-AI-Champions/substrait-starter.git"
+_SCAFFOLD_FILES="AGENTS.md substrait.sh SETUP.md README.md docs"
+
+update_scaffold() {
+  echo "Updating scaffolding from the starter repo…"
+  local tmpdir
+  tmpdir="$(mktemp -d)" || { echo "Error: could not create temp directory." >&2; exit 1; }
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmpdir'" EXIT
+
+  if ! git clone --depth 1 --config core.autocrlf=false --config core.eol=lf \
+       "$STARTER_REPO" "$tmpdir/starter" 2>&1; then
+    echo "Error: could not fetch the starter repo." >&2
+    echo "       Check your network and try again." >&2
+    exit 1
+  fi
+
+  # Remove old docs/ so deleted files don't linger
+  rm -rf docs/
+
+  # Copy each scaffold file/directory
+  local item
+  for item in $_SCAFFOLD_FILES; do
+    if [ -e "$tmpdir/starter/$item" ]; then
+      if [ -d "$tmpdir/starter/$item" ]; then
+        cp -r "$tmpdir/starter/$item" "$item"
+      else
+        cp "$tmpdir/starter/$item" "$item"
+      fi
+      echo "  updated: $item"
+    fi
+  done
+
+  # Fix line endings on Windows — the clone should be LF but be safe
+  if command -v sed >/dev/null 2>&1; then
+    sed -i 's/\r$//' substrait.sh 2>/dev/null || true
+  fi
+
+  rm -rf "$tmpdir"
+  trap - EXIT
+
+  echo ""
+  echo "Scaffolding updated. Your app code is untouched."
+  echo "Run 'git diff' to review, then commit when ready."
+}
+
+# ── deploy: return as soon as the app is live ─────────────────────────────────
+# Since plugin v2026.10.25, a --watch deploy to a non-production environment (dev) keeps
+# running for up to 10 more minutes AFTER the app is live, waiting for the Dev security
+# scans to print a go-live verdict. That verdict is advisory, but editor runners time out
+# long before 10 minutes and report a failure for a deploy that succeeded. So stop at the
+# plugin's "✅ Live:" line (its own message says interrupting the wait is safe) and leave
+# the verdict to `bash substrait.sh security status`.
+# SUBSTRAIT_WAIT_FOR_SCANS=1 keeps the plugin's full behaviour.
+deploy_until_live() {
+  if [ "${SUBSTRAIT_WAIT_FOR_SCANS:-0}" = "1" ]; then
+    bash "$SCRIPTS/substrait-deploy.sh" --watch "$@"; return $?
+  fi
+  local out pid shown=0 total live=0 rc
+  out="$(mktemp)" || { bash "$SCRIPTS/substrait-deploy.sh" --watch "$@"; return $?; }
+  bash "$SCRIPTS/substrait-deploy.sh" --watch "$@" > "$out" 2>&1 &
+  pid=$!
+  while :; do
+    total="$(wc -l < "$out" | tr -d ' ')"
+    if [ "$total" -gt "$shown" ]; then
+      sed -n "$((shown + 1)),${total}p" "$out" | LC_ALL=C grep -vF "Dev security scans (up to 10 min"
+      shown=$total
+    fi
+    if LC_ALL=C grep -qF '✅ Live: https://' "$out"; then live=1; break; fi
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 2
+  done
+  if [ "$live" -eq 1 ]; then
+    sleep 1   # let the Live line finish writing
+    kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+    sed -n "$((shown + 1)),\$p" "$out" | LC_ALL=C grep -vF "Dev security scans (up to 10 min"
+    rm -f "$out"
+    echo "Deploy finished — the app is live. Security scans continue on Substrait's side;"
+    echo "'bash substrait.sh security status' shows whether anything blocks going live."
+    return 0
+  fi
+  wait "$pid"; rc=$?
+  sed -n "$((shown + 1)),\$p" "$out"
+  rm -f "$out"
+  return $rc
 }
 
 cmd="${1:-}"; shift 2>/dev/null || true
@@ -238,7 +328,7 @@ _guard_starter() {
       echo "         $_origin"                                                 >&2
       echo ""                                                                  >&2
       echo "  You must create your OWN repository first."                      >&2
-      echo "  See AGENTS.md → 'Setting up a new app from the starter'."       >&2
+      echo "  See docs/new-app-setup.md for the full steps."                   >&2
       echo ""                                                                  >&2
       echo "  Quick fix:"                                                      >&2
       echo "    rm -rf .git && git init -b main"                               >&2
@@ -256,9 +346,18 @@ case "$cmd" in
   check)  _guard_starter; fetch_tools; bash "$SCRIPTS/substrait-deploy.sh" check ;;
   link)   fetch_tools
           if [ $# -eq 0 ]; then set -- account; fi
+          # A login needs the portal address; pass the saved one (else the hosted default)
+          # unless the caller gave --portal-url.
+          case "$1" in account|save-account)
+            case " $* " in *" --portal-url"*) ;; *) set -- "$@" --portal-url "$SUBSTRAIT_LOGIN_PORTAL" ;; esac ;;
+          esac
           bash "$SCRIPTS/substrait-link.sh" "$@" ;;
-  deploy) _guard_starter; fetch_tools; bash "$SCRIPTS/substrait-deploy.sh" --watch "$@" ;;
+  deploy) _guard_starter; fetch_tools; deploy_until_live "$@" ;;
+  security) fetch_tools; bash "$SCRIPTS/substrait-security.sh" "$@" ;;
   env)    fetch_tools; bash "$SCRIPTS/substrait-env.sh" "$@" ;;
   library) fetch_tools; bash "$SCRIPTS/substrait-library.sh" "$@" ;;
-  *) echo "usage: bash substrait.sh {doctor|check|link|deploy|env|library}" >&2; exit 2 ;;
+  logs)   fetch_tools; bash "$SCRIPTS/substrait-logs.sh" "$@" ;;
+  logout) fetch_tools; bash "$SCRIPTS/substrait-link.sh" logout "$@" ;;
+  update) update_scaffold ;;
+  *) echo "usage: bash substrait.sh {doctor|check|link|deploy|security|env|library|logs|logout|update}" >&2; exit 2 ;;
 esac
