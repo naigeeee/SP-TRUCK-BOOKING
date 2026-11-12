@@ -951,6 +951,25 @@ def require_master(request):
     if u["role"] != "master_admin": raise HTTPException(403, "Master admin access required")
     return u
 
+_PAGE_NAMES = {"page-security": "Page Password & Logs", "storage-usage": "Storage Usage",
+               "chat-alerts": "Google Chat Alerts", "drive-backup": "Google Drive Backup"}
+
+def _role_pages(role):
+    """Pages a role may open, from the saved Role Visibility (same rules as the menu)."""
+    cfg = _merge_role_visibility(_load_role_visibility_cfg() or DEFAULT_ROLE_VISIBILITY)
+    pages = cfg.get(role)
+    return pages if isinstance(pages, list) else []
+
+def has_page(user, page):
+    return page in _role_pages((user or {}).get("role", ""))
+
+def require_page(request, page):
+    """403 unless the caller's role has this page ticked on Role Visibility."""
+    u = get_user(request)
+    if not has_page(u, page):
+        raise HTTPException(403, f"Your role does not have access to {_PAGE_NAMES.get(page, page)}")
+    return u
+
 # ---------------------------------------------------------------------------
 # Roles: base roles, "New User" (no access) and dynamic Vendor - "<name>" roles
 # ---------------------------------------------------------------------------
@@ -1240,14 +1259,19 @@ DEFAULT_ROLE_VISIBILITY = {
     "_scan_app_v1": True,
     "_role_guides_v1": True,
     "_rv_admin_off_v1": True,
+    "_admin_tools_v1": True,
 }
 # Marker stored with the config: once present, Scanning App is a normal page that a
 # master admin can switch on or off per role. Configs saved before the page existed
 # get it for every role that could already open the scanning app (everyone but New User).
 SCAN_APP_MARKER = "_scan_app_v1"
 SECURITY_PAGE = "page-security"
-# Pages only the master admin can open (never listed on Role Visibility).
-MASTER_ONLY_PAGES = (SECURITY_PAGE, "storage-usage", "chat-alerts", "drive-backup")
+# Admin tool pages: ticked for Master Admin by default; the master admin may tick them for
+# other roles on Role Visibility. Their APIs check that the caller's role has the page.
+ADMIN_TOOL_PAGES = (SECURITY_PAGE, "storage-usage", "chat-alerts", "drive-backup")
+# Marker stored with the config: once present, these pages are ordinary tickable pages.
+# Configs saved before then get them added to Master Admin once (they were implied before).
+ADMIN_TOOLS_MARKER = "_admin_tools_v1"
 
 def _load_role_visibility_cfg():
     """Stored config dict (pages per role + role_labels) or None when absent."""
@@ -1271,7 +1295,8 @@ def _merge_role_visibility(cfg):
     upgraded = bool(raw.get(SCAN_APP_MARKER))
     guides_added = bool(raw.get(ROLE_GUIDES_MARKER))
     rv_admin_done = bool(raw.get(RV_ADMIN_MARKER))
-    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER, ROLE_GUIDES_MARKER, RV_ADMIN_MARKER)}
+    admin_tools_done = bool(raw.get(ADMIN_TOOLS_MARKER))
+    out = {k: v for k, v in raw.items() if k not in (ROLE_LABELS_KEY, SCAN_APP_MARKER, ROLE_GUIDES_MARKER, RV_ADMIN_MARKER, ADMIN_TOOLS_MARKER)}
     if not rv_admin_done and isinstance(out.get("admin"), list):
         out["admin"] = [p for p in out["admin"] if p != "role-visibility"]
     out.setdefault("new_user", [])
@@ -1312,17 +1337,9 @@ def _merge_role_visibility(cfg):
                 out[k] = list(v) + [DA_PAGE]
     # Nothing below adds a page the master admin can tick or untick: once Role
     # Visibility is saved, exactly what was ticked is what each role gets.
-    # Page Password & Access Logs belongs to the master admin only.
-    for k in list(out):
-        v = out.get(k)
-        if not isinstance(v, list):
-            continue
-        if k == "master_admin":
-            missing = [p for p in MASTER_ONLY_PAGES if p not in v]
-            if missing:
-                out[k] = list(v) + missing
-        elif any(p in v for p in MASTER_ONLY_PAGES):
-            out[k] = [p for p in v if p not in MASTER_ONLY_PAGES]
+    # One-time upgrade: the admin tool pages used to be implied for Master Admin only.
+    if not admin_tools_done and isinstance(out.get("master_admin"), list):
+        out["master_admin"] = list(out["master_admin"]) + [p for p in ADMIN_TOOL_PAGES if p not in out["master_admin"]]
     if "master_admin" not in out:
         out["master_admin"] = list(DEFAULT_ROLE_VISIBILITY["master_admin"])
     valid = set(BASE_ROLES) | {"vendor"} | live_vendors
@@ -1368,6 +1385,7 @@ async def set_role_visibility(request: Request):
     expanded[SCAN_APP_MARKER] = True
     expanded[ROLE_GUIDES_MARKER] = True
     expanded[RV_ADMIN_MARKER] = True
+    expanded[ADMIN_TOOLS_MARKER] = True
     if LOCAL_MODE:
         _store["role_visibility"] = expanded
         return {"ok": True}
@@ -5454,7 +5472,7 @@ def page_lock_status(request: Request):
     on = page_lock_enabled(row)
     out = {"enabled": on, "pages": PROTECTED_PAGES,
            "applies": [p for p in PROTECTED_PAGES if page_lock_applies(user, p, row)]}
-    if user.get("role") == "master_admin" and row:
+    if row and has_page(user, SECURITY_PAGE):
         out["updated_at"] = to_gmt8(row.get("updated_at")) if row.get("updated_at") else None
         out["updated_by"] = row.get("updated_by") or ""
         out["can_show"] = bool(on and _pw_decrypt(row.get("password_enc")) is not None)
@@ -5462,16 +5480,16 @@ def page_lock_status(request: Request):
 
 @app.post("/api/page-lock/reveal")
 def page_lock_reveal(request: Request):
-    """Master admin only: the current page password (asked for when they tick Show password).
-    Every reveal is written to the user log."""
-    user = require_master(request)
+    """The current page password, for roles with Page Password & Logs (asked for when they tick
+    Show password). Every reveal is written to the user log."""
+    user = require_page(request, "page-security")
     row = _page_lock_row()
     if not page_lock_enabled(row):
         raise HTTPException(404, "No page password is set")
     pw = _pw_decrypt(row.get("password_enc"))
     if pw is None:
         raise HTTPException(409, "The current password was set before it could be shown here - use Reset to set it again, then it can be shown")
-    _page_log("PASSWORD_VIEWED", user, None, "Current page password shown to the master admin", request)
+    _page_log("PASSWORD_VIEWED", user, None, "Current page password shown", request)
     return {"password": pw}
 
 @app.post("/api/page-lock/unlock")
@@ -5502,7 +5520,7 @@ async def page_lock_unlock(request: Request):
 
 @app.post("/api/page-lock/password")
 async def page_lock_set_password(request: Request):
-    user = require_master(request)
+    user = require_page(request, "page-security")
     body = await request.json()
     action = str(body.get("action") or "").lower()
     new_pw = str(body.get("new_password") or "")
@@ -5537,14 +5555,14 @@ async def page_lock_set_password(request: Request):
              (h, salt, enc, user.get("email", ""), stamp))
     ev = {"set": "PASSWORD_SET", "change": "PASSWORD_CHANGED", "reset": "PASSWORD_RESET"}[action]
     _page_log(ev, user, None, {"set": "Page password set", "change": "Page password changed (current password confirmed)",
-                               "reset": "Page password reset by master admin"}[action], request)
+                               "reset": "Page password reset (current password not needed)"}[action], request)
     return {"ok": True, "updated_at": stamp}
 
 @app.get("/api/page-lock/logs")
 def page_lock_logs(request: Request, event_type: Optional[str] = None, page: Optional[str] = None,
                    q: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None,
                    limit: int = 2000):
-    require_master(request)
+    require_page(request, "page-security")
     limit = max(1, min(int(limit or 2000), 10000))
     if LOCAL_MODE:
         rows = [dict(r) for r in _store.get("page_lock_logs", [])]
@@ -8417,8 +8435,8 @@ def _chat_public(cfg):
 
 @app.get("/api/admin/chat-alerts", tags=["admin"])
 def get_chat_alerts(request: Request):
-    """Google Chat alert settings (webhook shown masked) and the latest alerts."""
-    require_master(request)
+    """Google Chat alert settings (webhook shown masked) and the latest alerts (roles with the Google Chat Alerts page)."""
+    require_page(request, "chat-alerts")
     cfg = _chat_config()
     out = _chat_public(cfg)
     out["log"] = _chat_log_rows()
@@ -8426,8 +8444,8 @@ def get_chat_alerts(request: Request):
 
 @app.put("/api/admin/chat-alerts", tags=["admin"])
 async def set_chat_alerts(request: Request):
-    """Set / remove the webhook and switch each alert on or off (master admin)."""
-    u = require_master(request)
+    """Set / remove the webhook and switch each alert on or off (roles with the Google Chat Alerts page)."""
+    u = require_page(request, "chat-alerts")
     body = await request.json()
     if not isinstance(body, dict):
         raise HTTPException(400, "Invalid request")
@@ -8450,7 +8468,7 @@ async def set_chat_alerts(request: Request):
 @app.post("/api/admin/chat-alerts/test", tags=["admin"])
 async def test_chat_alert(request: Request):
     """Send a test message to the webhook now and report what Google Chat answered."""
-    u = require_master(request)
+    u = require_page(request, "chat-alerts")
     cfg = _chat_config()
     if not cfg["url"]:
         raise HTTPException(400, "Set the Google Chat webhook first")
@@ -8628,13 +8646,13 @@ def _storage_usage():
 @app.get("/api/admin/storage-usage", tags=["admin"])
 def storage_usage(request: Request):
     """Database size, file storage size and Google Sheet cell count, with 30-day growth."""
-    require_master(request)
+    require_page(request, "storage-usage")
     return _storage_usage()
 
 @app.post("/api/admin/storage-usage/check-bucket", tags=["admin"])
 def storage_check_bucket(request: Request):
     """Count the files really in storage and compare with the files the app has on record."""
-    require_master(request)
+    require_page(request, "storage-usage")
     if LOCAL_MODE:
         tracked = len(_store["attachments"]) + len(_store["manifests"])
     else:
@@ -9022,14 +9040,14 @@ def _drive_public():
 
 @app.get("/api/admin/drive-backup", tags=["admin"])
 def get_drive_backup(request: Request):
-    """Google Drive backup settings, progress and the latest files (master admin)."""
-    require_master(request)
+    """Google Drive backup settings, progress and the latest files (roles with the Google Drive Backup page)."""
+    require_page(request, "drive-backup")
     return _drive_public()
 
 @app.put("/api/admin/drive-backup", tags=["admin"])
 async def set_drive_backup(request: Request):
-    """Set the backup folder (link or ID) and switch the backup on / off (master admin)."""
-    u = require_master(request)
+    """Set the backup folder (link or ID) and switch the backup on / off (roles with the Google Drive Backup page)."""
+    u = require_page(request, "drive-backup")
     body = await request.json()
     if not isinstance(body, dict):
         raise HTTPException(400, "Invalid request")
@@ -9045,7 +9063,7 @@ async def set_drive_backup(request: Request):
 @app.post("/api/admin/drive-backup/key", tags=["admin"])
 def new_drive_backup_key(request: Request):
     """Make a new backup key for Code.gs. It is shown once; the old key stops working."""
-    u = require_master(request)
+    u = require_page(request, "drive-backup")
     key = "spb_" + secrets.token_urlsafe(30)
     _setting_set("drive_backup_key_hash", hashlib.sha256(key.encode("utf-8")).hexdigest(), u.get("email", ""))
     _setting_set("drive_backup_key_set_at", nows(), u.get("email", ""))
@@ -9054,7 +9072,7 @@ def new_drive_backup_key(request: Request):
 @app.post("/api/admin/drive-backup/retry", tags=["admin"])
 def retry_drive_backup(request: Request):
     """Try every failed file again on the next run."""
-    require_master(request)
+    require_page(request, "drive-backup")
     if LOCAL_MODE:
         n = 0
         for r in _store.setdefault("drive_backup_files", {}).values():
