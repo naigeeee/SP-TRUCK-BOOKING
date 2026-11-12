@@ -960,8 +960,17 @@ def _role_pages(role):
     pages = cfg.get(role)
     return pages if isinstance(pages, list) else []
 
+def _admin_tools_barred(role):
+    """Vendor and Driver/Fleet roles can never hold the admin tool pages: a Drive backup
+    key reads every vendor's files, and the page password / Chat webhook are internal."""
+    role = str(role or "")
+    return role == "vendor" or role == DRIVER_FLEET_ROLE or is_vendor_role(role)
+
 def has_page(user, page):
-    return page in _role_pages((user or {}).get("role", ""))
+    role = (user or {}).get("role", "")
+    if page in ADMIN_TOOL_PAGES and _admin_tools_barred(role):
+        return False
+    return page in _role_pages(role)
 
 def require_page(request, page):
     """403 unless the caller's role has this page ticked on Role Visibility."""
@@ -1342,6 +1351,9 @@ def _merge_role_visibility(cfg):
         out["master_admin"] = list(out["master_admin"]) + [p for p in ADMIN_TOOL_PAGES if p not in out["master_admin"]]
     if "master_admin" not in out:
         out["master_admin"] = list(DEFAULT_ROLE_VISIBILITY["master_admin"])
+    for k in list(out):
+        if _admin_tools_barred(k) and isinstance(out.get(k), list):
+            out[k] = [p for p in out[k] if p not in ADMIN_TOOL_PAGES]
     valid = set(BASE_ROLES) | {"vendor"} | live_vendors
     out[ROLE_LABELS_KEY] = {k: v for k, v in labels.items() if k in valid}
     return out
@@ -1380,6 +1392,9 @@ async def set_role_visibility(request: Request):
             for vk in vendor_keys: expanded[vk] = list(pages)
         else:
             expanded[role] = list(pages)
+    for role in list(expanded):
+        if _admin_tools_barred(role) and isinstance(expanded.get(role), list):
+            expanded[role] = [p for p in expanded[role] if p not in ADMIN_TOOL_PAGES]
     expanded[ROLE_LABELS_KEY] = labels
     expanded.setdefault(DRIVER_FLEET_ROLE, [SCAN_PAGE])
     expanded[SCAN_APP_MARKER] = True

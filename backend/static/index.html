@@ -668,7 +668,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-rv">
 <div class="card-h"><h3><i class="fas fa-eye"></i> 17. Role Visibility (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Only Master Admins have this page (Admins do not see it); only a Master Admin can save changes or rename roles.</li><li><strong>Page Password &amp; Logs</strong>, <strong>Storage Usage</strong>, <strong>Google Chat Alerts</strong> and <strong>Google Drive Backup</strong> are ticked for Master Admin by default. Tick them for another role only if that role should manage them: whoever has the page can use everything on it (e.g. show the page password, change alert settings, make a Drive backup key).</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li><li>What you save is exactly what each role gets &mdash; nothing is ticked back automatically. If you untick <strong>Role Visibility</strong> for Master Admin, the app asks you to confirm first.</li></ol>
+<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Only Master Admins have this page (Admins do not see it); only a Master Admin can save changes or rename roles.</li><li><strong>Page Password &amp; Logs</strong>, <strong>Storage Usage</strong>, <strong>Google Chat Alerts</strong> and <strong>Google Drive Backup</strong> are ticked for Master Admin by default. Tick them for another role only if that role should manage them: whoever has the page can use everything on it (e.g. show the page password, change alert settings, make a Drive backup key). They can never be given to a <strong>vendor</strong> or <strong>Driver/Fleet</strong> role &mdash; those boxes are locked, because a Drive backup key reads every vendor's files.</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li><li>What you save is exactly what each role gets &mdash; nothing is ticked back automatically. If you untick <strong>Role Visibility</strong> for Master Admin, the app asks you to confirm first.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/17-role-visibility.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/17-role-visibility.jpg" alt="Tick the pages for each role, then Save Changes." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Tick the pages for each role, then Save Changes.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-pw">
@@ -4003,6 +4003,9 @@ async function loadRoleVisibility(){
   }catch(e){console.error(e)}
 }
 
+/* Admin tool pages are never given to vendor or Driver/Fleet roles (the server enforces it too). */
+const RV_ADMIN_TOOLS=['page-security','storage-usage','chat-alerts','drive-backup'];
+function rvAdminToolsBarred(r){return r==='vendor'||r==='driver_fleet'||String(r).indexOf('Vendor - ')===0}
 function renderRoleVisibility(){
   const el=document.getElementById('rvBody');
   const canRename=!!user&&user.role==='master_admin';
@@ -4023,8 +4026,9 @@ function renderRoleVisibility(){
   ALL_PAGES.forEach(p=>{
     html+='<tr><td style="padding:8px 12px;border-bottom:1px solid #F3F4F6;font-weight:600">'+esc(p.label)+'</td>';
     ROLE_ORDER.forEach(r=>{
-      const checked=rvPages(r).includes(p.key);
-      html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+' style="width:16px;height:16px;cursor:pointer"></td>';
+      const barred=RV_ADMIN_TOOLS.includes(p.key)&&rvAdminToolsBarred(r);
+      const checked=!barred&&rvPages(r).includes(p.key);
+      html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+(barred?' disabled title="Not available to vendor or Driver/Fleet roles"':'')+' style="width:16px;height:16px;cursor:'+(barred?'not-allowed':'pointer')+'"></td>';
     });
     html+='</tr>';
   });
