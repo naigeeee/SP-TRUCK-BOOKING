@@ -1,4 +1,6 @@
 FROM python:3.12-slim
+# Pick up Debian security fixes (e.g. zlib1g) that are newer than the base image.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
