@@ -78,6 +78,7 @@ tr:hover td{background:#F8FAFC}
 .su-grow{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;font-size:13px}.su-grow ul{margin:6px 0 0 18px;line-height:1.7}
 .su-note{margin-top:14px;font-size:12.5px;color:var(--muted);background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px}
 .ca-how{margin-top:16px;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:10px 14px}.ca-how summary{cursor:pointer;font-weight:600}.ca-how ol{margin:10px 0 6px 20px;line-height:1.7}.ca-how p{color:var(--muted);font-size:12.5px}
+.ps-cur{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg)}.ps-cur-val{font-size:16px;letter-spacing:2px;word-break:break-all}.ps-cur-val.shown{letter-spacing:.5px;color:var(--pri)}.ps-show{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}.ps-cur-note{font-size:12.5px;color:var(--muted);max-width:520px}
 .db-keybox{margin-top:12px;padding:10px 12px;border:1px dashed var(--pri);border-radius:8px;background:var(--bg)}.db-keybox code{font-size:12.5px;word-break:break-all}
 .ca-type{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--bdr);cursor:pointer}.ca-type:last-child{border-bottom:none}.ca-type input{margin-top:3px;width:16px;height:16px;flex-shrink:0}.ca-type b{display:block;font-size:13.5px}.ca-emo{font-size:15px}.ca-type small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 @media(max-width:900px){.su-two{grid-template-columns:1fr}}
@@ -492,10 +493,10 @@ body.scan-mode .layout{display:none}
 <!-- Page Password & Access Logs (master admin) -->
 <section class="pg" id="pg-page-security">
 <div class="pg-hdr"><h1><i class="fas fa-lock" style="color:var(--pri)"></i> Page Password &amp; Access Logs</h1><div class="acts"><button class="btn btn-o btn-sm" onclick="loadSecurity()"><i class="fas fa-sync-alt"></i> Refresh</button></div></div>
-<div style="font-size:13px;color:var(--muted);margin-bottom:14px"><i class="fas fa-info-circle"></i> One common password protects <strong>Driver / Fleet Accounts</strong> (not for Vendor roles), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>. Only the master admin can set, change or reset it. Every password change and every page unlock is logged below, and the log cannot be edited or deleted.</div>
+<div style="font-size:13px;color:var(--muted);margin-bottom:14px"><i class="fas fa-info-circle"></i> One common password protects <strong>Driver / Fleet Accounts</strong> (not for Vendor roles), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>. Only the master admin can set, change or reset it. Every password change, every time the current password is shown, and every page unlock is logged below, and the log cannot be edited or deleted.</div>
 <div class="card" style="margin-bottom:16px"><div class="card-h"><h3><i class="fas fa-key"></i> Page Password</h3><span id="psStatus"></span></div><div class="card-b" id="psForm"><p>Loading...</p></div></div>
 <div class="card"><div class="card-h"><h3><i class="fas fa-clipboard-list"></i> User Log</h3><div style="display:flex;gap:8px;align-items:center"><span id="plCnt" style="font-size:12px;color:var(--muted)"></span><button class="btn btn-o btn-sm" onclick="exportPageLogCSV()"><i class="fas fa-download"></i> Export CSV</button></div></div><div class="card-b">
-<div class="fb"><div class="fg2"><label>Event</label><select class="f-input" id="plEvent" onchange="loadPageLogs()"><option value="">All events</option><option value="ACCESS_GRANTED">Page opened</option><option value="ACCESS_DENIED">Wrong password</option><option value="ACCESS_BLOCKED">Blocked (too many tries)</option><option value="PASSWORD_SET">Password set</option><option value="PASSWORD_CHANGED">Password changed</option><option value="PASSWORD_RESET">Password reset</option><option value="PASSWORD_CHANGE_FAILED">Change refused</option></select></div><div class="fg2"><label>Page</label><select class="f-input" id="plPage" onchange="loadPageLogs()"><option value="">All pages</option></select></div><div class="fg2"><label>From</label><input type="date" class="f-input" id="plFrom" onchange="loadPageLogs()"></div><div class="fg2"><label>To</label><input type="date" class="f-input" id="plTo" onchange="loadPageLogs()"></div><input type="text" class="s-input" id="plQ" placeholder="Search user name or email..." oninput="clearTimeout(window.__plT);window.__plT=setTimeout(loadPageLogs,300)" style="width:240px"></div>
+<div class="fb"><div class="fg2"><label>Event</label><select class="f-input" id="plEvent" onchange="loadPageLogs()"><option value="">All events</option><option value="ACCESS_GRANTED">Page opened</option><option value="ACCESS_DENIED">Wrong password</option><option value="ACCESS_BLOCKED">Blocked (too many tries)</option><option value="PASSWORD_SET">Password set</option><option value="PASSWORD_CHANGED">Password changed</option><option value="PASSWORD_RESET">Password reset</option><option value="PASSWORD_CHANGE_FAILED">Change refused</option><option value="PASSWORD_VIEWED">Password shown</option></select></div><div class="fg2"><label>Page</label><select class="f-input" id="plPage" onchange="loadPageLogs()"><option value="">All pages</option></select></div><div class="fg2"><label>From</label><input type="date" class="f-input" id="plFrom" onchange="loadPageLogs()"></div><div class="fg2"><label>To</label><input type="date" class="f-input" id="plTo" onchange="loadPageLogs()"></div><input type="text" class="s-input" id="plQ" placeholder="Search user name or email..." oninput="clearTimeout(window.__plT);window.__plT=setTimeout(loadPageLogs,300)" style="width:240px"></div>
 <div class="tw" style="max-height:calc(100vh - 420px);min-height:200px;overflow:auto"><table><thead><tr><th>Date / Time</th><th>Event</th><th>Page</th><th>User</th><th>Email</th><th>Role</th><th>Detail</th><th>IP Address</th></tr></thead><tbody id="plTbl"><tr><td colspan="8" class="empty"><p>Loading...</p></td></tr></tbody></table></div>
 </div></div>
 </section>
@@ -667,13 +668,13 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-rv">
 <div class="card-h"><h3><i class="fas fa-eye"></i> 17. Role Visibility (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Only Master Admins have this page (Admins do not see it); only a Master Admin can save changes or rename roles.</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li><li>What you save is exactly what each role gets &mdash; nothing is ticked back automatically. If you untick <strong>Role Visibility</strong> for Master Admin, the app asks you to confirm first.</li></ol>
+<ol class="guide-steps"><li>A table of pages (rows) and roles (columns). Tick what each role may open, then click <strong>Save Changes</strong>.</li><li>Type over a role name at the top of its column to rename how it is shown everywhere.</li><li>Only Master Admins have this page (Admins do not see it); only a Master Admin can save changes or rename roles.</li><li><strong>Page Password &amp; Logs</strong>, <strong>Storage Usage</strong>, <strong>Google Chat Alerts</strong> and <strong>Google Drive Backup</strong> are listed with <strong>Master Admin only</strong>: they are always on for Master Admin and cannot be given to other roles.</li><li>Driver/Fleet normally has only the <strong>Scanning App</strong>, so its users go straight into the scanning app.</li><li>What you save is exactly what each role gets &mdash; nothing is ticked back automatically. If you untick <strong>Role Visibility</strong> for Master Admin, the app asks you to confirm first.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/17-role-visibility.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/17-role-visibility.jpg" alt="Tick the pages for each role, then Save Changes." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Tick the pages for each role, then Save Changes.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-pw">
 <div class="card-h"><h3><i class="fas fa-lock"></i> 18. Page Password & Access Logs</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>One password protects <strong>Driver / Fleet Accounts</strong> (not for vendors), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>. It is asked every time one of these pages is opened.</li><li>The Master Admin sets, changes or resets it under <strong>Administration &rarr; Page Password &amp; Logs</strong>. Until it is set, the pages open without asking.</li><li>The <strong>User Log</strong> records every password change and every page opening (with wrong tries). It cannot be edited or deleted.</li></ol>
+<ol class="guide-steps"><li>One password protects <strong>Driver / Fleet Accounts</strong> (not for vendors), <strong>Rate Management</strong>, <strong>Cost Analysis</strong>, <strong>Trip Utilisation Review</strong> and <strong>Vendor Speed Performance</strong>. It is asked every time one of these pages is opened.</li><li>The Master Admin sets, changes or resets it under <strong>Administration &rarr; Page Password &amp; Logs</strong>. Until it is set, the pages open without asking.</li><li>Forgot it? The <strong>Current password</strong> is shown at the top of that page as <strong>********</strong>; tick <strong>Show password</strong> to see it (untick to hide it again). Each time it is shown is recorded in the User Log. A password set before this was added cannot be shown &mdash; use <strong>Reset password</strong> once.</li><li>The <strong>User Log</strong> records every password change, every time the password is shown, and every page opening (with wrong tries). It cannot be edited or deleted.</li></ol>
 <div class="guide-warn"><i class="fas fa-triangle-exclamation"></i> After 5 wrong tries within 15 minutes (on any of these pages), that person is blocked from all the protected pages for 15 minutes.</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/18a-lock.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18a-lock.jpg" alt="A protected page asks for the password." loading="lazy"></a><figcaption><i class="fas fa-image"></i> A protected page asks for the password.</figcaption></figure><figure class="g-shot"><a href="/guide/18b-security.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/18b-security.jpg" alt="Set / change / reset the password and see the user log." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Set / change / reset the password and see the user log.</figcaption></figure></div>
 </div></div>
@@ -694,7 +695,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-drive">
 <div class="card-h"><h3><i class="fas fa-cloud-arrow-up"></i> 21. Google Drive Backup (Master Admin)</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>A copy of every <strong>attachment</strong> (incl. unloading photos), <strong>manifest</strong> (Excel), <strong>pickup scan manifest</strong> (once pickup scanning ends) and <strong>unloading scan manifest</strong> (once unloading ends) is saved in Google Drive every 15 minutes.</li><li>Folders: <strong>backup folder / date / request #</strong>, e.g. <em>SP Backup / 2026-10-20 / REQ-20261018-001</em>. The date is the <strong>Final Call</strong> date, or the <strong>Initial Call (TBC)</strong> date when there is no final call; when the final call is set or changed, the request folder moves to the new date.</li><li>Set it up once: open <strong>Administration &rarr; Google Drive Backup</strong>, paste the Google Drive folder link and click <strong>Save folder</strong>, then click <strong>Generate backup key</strong> and copy the key.</li><li>In the Google Sheet open <strong>Extensions &rarr; Apps Script</strong>, paste the latest <strong>Code.gs</strong>, put the key in <code>DRIVE_BACKUP_KEY</code>, run <strong>runDriveBackup</strong> once (allow Google Drive access), then run <strong>installTrigger</strong>.</li><li>The page shows how many files are in Drive, waiting or failed, the last run, and the latest files with links to each file and request folder. Failed files are tried again automatically (at least 10 minutes apart, up to 8 tries); after that they stay Failed until you click <strong>Retry failed</strong>, which tries them on the next run.</li></ol>
+<ol class="guide-steps"><li>A copy of every <strong>attachment</strong> (incl. unloading photos), <strong>manifest</strong> (Excel), <strong>pickup scan manifest</strong> (once pickup scanning ends) and <strong>unloading scan manifest</strong> (once unloading ends) is saved in Google Drive every 15 minutes.</li><li>Folders: <strong>backup folder / date / request #</strong>, e.g. <em>SP Backup / 2026-10-20 / REQ-20261018-001</em>. The date is the <strong>Final Call</strong> date, or the <strong>Initial Call (TBC)</strong> date when there is no final call; when the final call is set or changed, the request folder moves to the new date.</li><li>Set it up once: open <strong>Administration &rarr; Google Drive Backup</strong>, paste the Google Drive folder link and click <strong>Save folder</strong>, then click <strong>Generate backup key</strong> and copy the key.</li><li>In the Google Sheet open <strong>Extensions &rarr; Apps Script</strong>, paste the latest <strong>Code.gs</strong>, put the key in <code>DRIVE_BACKUP_KEY</code>, run <strong>runDriveBackup</strong> once (allow Google Drive access), then run <strong>installTrigger</strong>.</li><li>The page shows how many files are in Drive, waiting or failed, the last run, and the latest files with links to each file and request folder. Failed files are tried again automatically (at least 10 minutes apart, up to 8 tries); after that they stay Failed until you click <strong>Retry failed</strong>, which tries them on the next run.</li><li>In the <strong>Google Sheet</strong> (Masterlist tab), the Attachments, Manifest, Pickup Scan Manifest and Unloading Scan Manifest links open the <strong>Google Drive copy</strong> once the file is in Drive (people need access to the backup folder); a file not copied yet still links to the app.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> Existing files are copied too, a batch at a time. Files deleted in the app stay in Drive; a replaced manifest or refreshed scan manifest replaces the older copy (it goes to Drive&rsquo;s bin).</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/21-drive-backup.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/21-drive-backup.jpg" alt="Folder, backup key, progress and the latest files." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Folder, backup key, progress and the latest files.</figcaption></figure></div>
 </div></div>
@@ -1034,7 +1035,7 @@ async function unlockPage(pg){
 
 // ---- Page Password & Access Logs page (master admin) ------------------------
 let pageLogRows=[];
-const PL_EVENTS={ACCESS_GRANTED:['Page opened','b-gn'],ACCESS_DENIED:['Wrong password','b-rd'],ACCESS_BLOCKED:['Blocked (too many tries)','b-rd'],PASSWORD_SET:['Password set','b-bl'],PASSWORD_CHANGED:['Password changed','b-bl'],PASSWORD_RESET:['Password reset','b-yl'],PASSWORD_CHANGE_FAILED:['Change refused','b-rd']};
+const PL_EVENTS={ACCESS_GRANTED:['Page opened','b-gn'],ACCESS_DENIED:['Wrong password','b-rd'],ACCESS_BLOCKED:['Blocked (too many tries)','b-rd'],PASSWORD_SET:['Password set','b-bl'],PASSWORD_CHANGED:['Password changed','b-bl'],PASSWORD_RESET:['Password reset','b-yl'],PASSWORD_CHANGE_FAILED:['Change refused','b-rd'],PASSWORD_VIEWED:['Password shown','b-yl']};
 async function loadSecurity(){
   try{pageLock=await(await fetch('/api/page-lock')).json()}catch(e){}
   const sel=document.getElementById('plPage');
@@ -1047,7 +1048,18 @@ function renderSecurityForm(){
   document.getElementById('psStatus').innerHTML=on?'<span class="badge b-gn"><i class="fas fa-lock"></i> Protection ON</span>':'<span class="badge b-yl"><i class="fas fa-lock-open"></i> No password set - pages are open</span>';
   const pwIn=(id,ph)=>'<div class="peek-wrap"><input type="password" class="fi" id="'+id+'" placeholder="'+ph+'" autocomplete="new-password" style="padding-right:38px"><button type="button" class="peek-btn" onclick="const i=this.previousElementSibling;i.type=i.type===\'password\'?\'text\':\'password\'" title="Show / hide"><i class="fas fa-eye"></i></button></div>';
   let h='';
-  if(on)h+='<p style="font-size:13px;margin-bottom:14px;color:var(--muted)">Last set by <strong>'+esc(pageLock.updated_by||'-')+'</strong> on '+(pageLock.updated_at?fmtD(pageLock.updated_at):'-')+'.</p>';
+  if(on){
+    h+='<div class="ps-cur"><div><div class="fl" style="margin-bottom:4px">Current password</div>';
+    if(pageLock.can_show){
+      h+='<code id="psCurVal" class="ps-cur-val" aria-label="Current page password (hidden)">********</code></div>'+
+         '<label class="ps-show"><input type="checkbox" id="psShow" onchange="togglePagePassword(this)"> Show password</label>';
+    }else{
+      h+='<code class="ps-cur-val">********</code></div>'+
+         '<div class="ps-cur-note"><i class="fas fa-info-circle"></i> This password was set before it could be shown here. Use <strong>Reset password</strong> below to set it again &mdash; after that it can be shown.</div>';
+    }
+    h+='</div>';
+    h+='<p style="font-size:13px;margin-bottom:14px;color:var(--muted)">Last set by <strong>'+esc(pageLock.updated_by||'-')+'</strong> on '+(pageLock.updated_at?fmtD(pageLock.updated_at):'-')+'. Showing the password is recorded in the User Log.</p>';
+  }
   if(!on){
     h+='<div class="fr"><div class="fg"><label class="fl">New password *</label>'+pwIn('psNew','At least 6 characters')+'</div><div class="fg"><label class="fl">Confirm new password *</label>'+pwIn('psConf','Type it again')+'</div></div><button class="btn btn-p" onclick="savePagePassword(\'set\')"><i class="fas fa-lock"></i> Set password</button>';
   }else{
@@ -1056,6 +1068,18 @@ function renderSecurityForm(){
     h+='<div id="psReset" style="display:none"><div style="font-size:13px;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:10px 12px;border-radius:8px;margin-bottom:12px"><i class="fas fa-exclamation-triangle"></i> Use Reset when the current password is forgotten. Everyone currently inside a protected page will be asked for the new password.</div><div class="fr"><div class="fg"><label class="fl">New password *</label>'+pwIn('psRNew','At least 6 characters')+'</div><div class="fg"><label class="fl">Confirm new password *</label>'+pwIn('psRConf','Type it again')+'</div></div><button class="btn btn-d" onclick="savePagePassword(\'reset\')"><i class="fas fa-rotate"></i> Reset password</button></div>';
   }
   document.getElementById('psForm').innerHTML=h;
+}
+async function togglePagePassword(cb){
+  const el=document.getElementById('psCurVal');if(!el)return;
+  const mask='********';
+  if(!cb.checked){el.textContent=mask;el.classList.remove('shown');return}
+  try{
+    const r=await fetch('/api/page-lock/reveal',{method:'POST'});const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.detail||('HTTP '+r.status));
+    if(!cb.checked)return;
+    el.textContent=d.password;el.classList.add('shown');
+    loadPageLogs();
+  }catch(e){cb.checked=false;el.textContent=mask;toast(e.message,'error')}
 }
 function psTab(t,btn){document.querySelectorAll('#psTabs .tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.getElementById('psChange').style.display=t==='change'?'':'none';document.getElementById('psReset').style.display=t==='reset'?'':'none'}
 async function savePagePassword(action){
@@ -3941,6 +3965,10 @@ const ALL_PAGES=[
   {key:'library',label:'Master Library'},
   {key:'users',label:'User Roles'},
   {key:'role-visibility',label:'Role Visibility'},
+  {key:'page-security',label:'Page Password & Logs',masterOnly:true},
+  {key:'storage-usage',label:'Storage Usage',masterOnly:true},
+  {key:'chat-alerts',label:'Google Chat Alerts',masterOnly:true},
+  {key:'drive-backup',label:'Google Drive Backup',masterOnly:true},
   {key:'scan-app',label:'Scanning App'},
   {key:'user-guide',label:'User Guide for All'},
   {key:'guide-vendor',label:'User Guide for Vendors'},
@@ -3993,8 +4021,14 @@ function renderRoleVisibility(){
   });
   html+='</tr></thead><tbody>';
   ALL_PAGES.forEach(p=>{
-    html+='<tr><td style="padding:8px 12px;border-bottom:1px solid #F3F4F6;font-weight:600">'+p.label+'</td>';
+    html+='<tr><td style="padding:8px 12px;border-bottom:1px solid #F3F4F6;font-weight:600">'+esc(p.label)+(p.masterOnly?' <span class="badge b-gy" title="Only a Master Admin can open this page - it cannot be given to other roles" style="font-weight:600;margin-left:4px"><i class="fas fa-lock"></i> Master Admin only</span>':'')+'</td>';
     ROLE_ORDER.forEach(r=>{
+      if(p.masterOnly){
+        // Fixed: always on for Master Admin, never available to other roles.
+        const on=r==='master_admin';
+        html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb-fixed" data-role="'+r+'" data-page="'+p.key+'"'+(on?' checked':'')+' disabled title="'+(on?'Always on for Master Admin':'Master Admin only')+'" style="width:16px;height:16px;cursor:not-allowed"></td>';
+        return;
+      }
       const checked=rvPages(r).includes(p.key);
       html+='<td style="text-align:center;padding:8px 12px;border-bottom:1px solid #F3F4F6"><input type="checkbox" class="rv-cb" data-role="'+r+'" data-page="'+p.key+'"'+(checked?' checked':'')+' style="width:16px;height:16px;cursor:pointer"></td>';
     });

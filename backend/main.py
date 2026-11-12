@@ -5320,6 +5320,34 @@ def _pw_new(password):
     salt = secrets.token_hex(16)
     return _pw_hash(password, salt), salt
 
+def _pw_box():
+    """Fernet box for the page password copy the master admin can reveal. The key comes
+    from the platform's JWT_SECRET (always injected when deployed), so the database alone
+    never holds a readable password."""
+    from cryptography.fernet import Fernet
+    secret = os.environ.get("JWT_SECRET")
+    if not secret:
+        if not LOCAL_MODE:
+            # Never fall back to a guessable key on a real database: no copy, no reveal.
+            raise RuntimeError("JWT_SECRET is not set")
+        secret = "local-dev-only:" + os.path.abspath(__file__)
+    key = base64.urlsafe_b64encode(hashlib.sha256(("page-password:" + secret).encode("utf-8")).digest())
+    return Fernet(key)
+
+def _pw_encrypt(password):
+    try:
+        return _pw_box().encrypt(str(password).encode("utf-8")).decode("ascii")
+    except Exception:
+        return None
+
+def _pw_decrypt(token):
+    if not token:
+        return None
+    try:
+        return _pw_box().decrypt(str(token).encode("ascii")).decode("utf-8")
+    except Exception:
+        return None
+
 def _pw_ok(password, hashed, salt):
     if not hashed or not salt:
         return False
@@ -5429,7 +5457,22 @@ def page_lock_status(request: Request):
     if user.get("role") == "master_admin" and row:
         out["updated_at"] = to_gmt8(row.get("updated_at")) if row.get("updated_at") else None
         out["updated_by"] = row.get("updated_by") or ""
+        out["can_show"] = bool(on and _pw_decrypt(row.get("password_enc")) is not None)
     return out
+
+@app.post("/api/page-lock/reveal")
+def page_lock_reveal(request: Request):
+    """Master admin only: the current page password (asked for when they tick Show password).
+    Every reveal is written to the user log."""
+    user = require_master(request)
+    row = _page_lock_row()
+    if not page_lock_enabled(row):
+        raise HTTPException(404, "No page password is set")
+    pw = _pw_decrypt(row.get("password_enc"))
+    if pw is None:
+        raise HTTPException(409, "The current password was set before it could be shown here - use Reset to set it again, then it can be shown")
+    _page_log("PASSWORD_VIEWED", user, None, "Current page password shown to the master admin", request)
+    return {"password": pw}
 
 @app.post("/api/page-lock/unlock")
 async def page_lock_unlock(request: Request):
@@ -5481,16 +5524,17 @@ async def page_lock_set_password(request: Request):
     if on and _pw_ok(new_pw, row.get("password_hash"), row.get("password_salt")):
         raise HTTPException(400, "The new password must be different from the current one")
     h, salt = _pw_new(new_pw)
+    enc = _pw_encrypt(new_pw)
     stamp = nows()
     if LOCAL_MODE:
-        _store["page_lock"] = {"id": 1, "password_hash": h, "password_salt": salt,
+        _store["page_lock"] = {"id": 1, "password_hash": h, "password_salt": salt, "password_enc": enc,
                                "updated_by": user.get("email", ""), "updated_at": stamp}
     elif row:
-        db_x("UPDATE page_lock SET password_hash=%s, password_salt=%s, updated_by=%s, updated_at=%s WHERE id=1",
-             (h, salt, user.get("email", ""), stamp))
+        db_x("UPDATE page_lock SET password_hash=%s, password_salt=%s, password_enc=%s, updated_by=%s, updated_at=%s WHERE id=1",
+             (h, salt, enc, user.get("email", ""), stamp))
     else:
-        db_x("INSERT INTO page_lock (id,password_hash,password_salt,updated_by,updated_at) VALUES (1,%s,%s,%s,%s)",
-             (h, salt, user.get("email", ""), stamp))
+        db_x("INSERT INTO page_lock (id,password_hash,password_salt,password_enc,updated_by,updated_at) VALUES (1,%s,%s,%s,%s,%s)",
+             (h, salt, enc, user.get("email", ""), stamp))
     ev = {"set": "PASSWORD_SET", "change": "PASSWORD_CHANGED", "reset": "PASSWORD_RESET"}[action]
     _page_log(ev, user, None, {"set": "Page password set", "change": "Page password changed (current password confirmed)",
                                "reset": "Page password reset by master admin"}[action], request)
@@ -7785,11 +7829,12 @@ def _sync_attachments(rid):
         atts = [a for a in _store["attachments"] if a.get("truck_request_id") == rid]
     else:
         atts = db_q("SELECT id, original_filename FROM truck_request_attachments WHERE truck_request_id=%s", (rid,))
-    return [{"original_filename": a.get("original_filename", ""), "download_url": f"/api/attachments/{a.get('id')}/download"} for a in atts]
+    return [{"id": a.get("id"), "original_filename": a.get("original_filename", ""), "download_url": f"/api/attachments/{a.get('id')}/download"} for a in atts]
 
 @app.get("/api/sync/masterlist")
 def sync_masterlist():
     items = _sync_call(list_requests, per_page=1000000).get("items", [])
+    drive = _drive_current_links()
     for r in items:
         if not isinstance(r.get("attachments"), list):
             r["attachments"] = _sync_attachments(r["id"])
@@ -7809,6 +7854,16 @@ def sync_masterlist():
         r["pickup_scan_url"] = f"/api/trips/{quote(str(base), safe='')}/pickup-scan/download" if r.get("pickup_scan_closed") else ""
         r["unload_scan_status"] = "Unloading Scan Manifest" if r.get("unload_scan_closed") else "Not ended yet"
         r["unload_scan_url"] = f"/api/requests/{r['id']}/unload-scan/download" if r.get("unload_scan_closed") else ""
+        # Files already in the Google Drive backup link straight to Drive (only when Drive
+        # holds the current version); anything not copied yet keeps the app's download link.
+        if drive:
+            rid = r["id"]
+            for a in r["attachments"]:
+                if drive.get(f"att:{a.get('id')}"):
+                    a["download_url"] = drive[f"att:{a.get('id')}"]
+            for key, field in ((f"mf:{rid}", "manifest_url"), (f"pick:{rid}", "pickup_scan_url"), (f"unl:{rid}", "unload_scan_url")):
+                if r.get(field) and drive.get(key):
+                    r[field] = drive[key]
     return items
 
 @app.get("/api/sync/rates")
@@ -8926,6 +8981,18 @@ async def drive_backup_report(request: Request):
         nfi += 1
     _setting_set("drive_backup_last_report", nows(), "google-apps-script")
     return {"ok": True, "folders": nf, "files": nfi}
+
+def _drive_current_links():
+    """{item_key: Google Drive link} for files whose current version is in Drive."""
+    try:
+        files, _ = _drive_state()
+        if not files:
+            return {}
+        cur = {k: ver for k, _rid, _kind, ver, _n, _s in _drive_expected()}
+    except Exception:
+        return {}
+    return {k: f"https://drive.google.com/file/d/{r['drive_file_id']}/view" for k, r in files.items()
+            if r.get("status") == "done" and r.get("drive_file_id") and k in cur and r.get("version") == cur[k]}
 
 def _drive_recent(limit=150):
     files, folders = _drive_state()

@@ -2726,6 +2726,23 @@
         }
       }
     },
+    "/api/page-lock/reveal": {
+      "post": {
+        "summary": "Page Lock Reveal",
+        "description": "Master admin only: the current page password (asked for when they tick Show password).\nEvery reveal is written to the user log.",
+        "operationId": "page_lock_reveal_api_page_lock_reveal_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/page-lock/unlock": {
       "post": {
         "summary": "Page Lock Unlock",
