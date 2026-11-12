@@ -1,6 +1,10 @@
 FROM python:3.12-slim
 # Pick up Debian security fixes (e.g. zlib1g) that are newer than the base image.
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+# The dated echo makes this step's text unique, so the builder cannot reuse a cached
+# result from before the fixes were published - bump the date to force a fresh run.
+RUN echo "security refresh 2026-11-12" \
+    && apt-get update && apt-get upgrade -y && apt-get install -y --only-upgrade zlib1g \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
