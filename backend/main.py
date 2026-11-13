@@ -1,5 +1,5 @@
 """
-SP PH Truck Booking Centralised Operation Request Database
+XB Special Projects Truck Booking Centralised Operation Request Database
 """
 
 import os
@@ -30,7 +30,7 @@ import pymysql
 
 import storage as obj_storage
 
-APP_NAME = "SP PH Truck Booking Centralised Operations"
+APP_NAME = "XB Special Projects Truck Booking Centralised Operations"
 
 app = FastAPI(title=APP_NAME, docs_url="/api/docs")
 
@@ -3030,7 +3030,7 @@ def _bulk_template_xlsx(lists) -> bytes:
         cell.fill = ex_fill
     note = Comment("EXAMPLE ROW (yellow): delete this whole row before you upload, then add your "
                    "own requests from row 2. If you keep it, it is skipped - it is never created.",
-                   "SP PH Truck Booking", width=320, height=110)
+                   "XB Special Projects Truck Booking", width=320, height=110)
     ws.cell(row=2, column=1).comment = note
     hs = wb.create_sheet("How to fill in")
     tips = [
@@ -8490,7 +8490,7 @@ async def test_chat_alert(request: Request):
     if not _chat_url_ok(cfg["url"]):
         raise HTTPException(400, "The saved webhook is not a Google Chat webhook URL")
     on = [lbl for k, lbl, _ in CHAT_ALERT_TYPES if cfg["enabled"].get(k)]
-    text = (f"{CHAT_ALERT_EMOJI['test']} *Test alert — SP PH Truck Booking*\nGoogle Chat alerts are connected.\n"
+    text = (f"{CHAT_ALERT_EMOJI['test']} *Test alert — XB Special Projects Truck Booking*\nGoogle Chat alerts are connected.\n"
             f"*Sent by:* {u.get('name') or u.get('email') or '-'}\n*Sent at:* {_fmt_dt(nows())}\n"
             f"*Alerts switched on:* {', '.join(on) if on else 'none'}")
     status, detail = await run_in_threadpool(_chat_deliver, "test", text, "", "", cfg["url"])

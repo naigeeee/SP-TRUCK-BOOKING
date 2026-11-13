@@ -1,5 +1,5 @@
 // ============================================================
-// SP PH Truck Booking — Google Sheets Auto-Sync
+// XB Special Projects Truck Booking — Google Sheets Auto-Sync
 // ============================================================
 // SETUP:
 // 1. Open Google Sheets → Extensions → Apps Script

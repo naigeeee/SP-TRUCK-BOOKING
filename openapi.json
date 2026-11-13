@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "SP PH Truck Booking Centralised Operations",
+    "title": "XB Special Projects Truck Booking Centralised Operations",
     "version": "0.1.0"
   },
   "paths": {
