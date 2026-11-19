@@ -117,7 +117,7 @@ var FIELDS = {
     ["Helper Name", "helper_name"],
     ["Status", "status"],
     ["Capacity", "capacity", "num"],
-    ["Is Active", "is_active"],
+    ["Is Active", "is_active", "yesno"],
     ["Current Requests", "active_requests"],
     ["History Count", "history_count", "int"],
     ["Created At", "created_at", "datetime"]
@@ -134,7 +134,7 @@ var FIELDS = {
     ["Fuel Surcharge %", "fuel_surcharge_pct", "pct"],
     ["Effective Date", "effective_date", "date"],
     ["Expiry Date", "expiry_date", "date"],
-    ["Is Active", "is_active"],
+    ["Is Active", "is_active", "yesno"],
     ["Created At", "created_at", "datetime"]
   ],
   "Vendor Speed Performance": [
@@ -251,13 +251,13 @@ var FIELDS = {
     ["Revised Utilisation %", "revised_utilisation", "pct"],
     ["Revised Tier", "revised_tier"]
   ],
-  "Ports":        [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Address", "location"], ["Latitude", "latitude", "num"], ["Longitude", "longitude", "num"], ["Contact PIC Name", "contact_pic_name"], ["Contact PIC Number", "contact_pic_number"], ["Receiving From", "receiving_from"], ["Receiving To", "receiving_to"], ["Updated By", "updated_by"], ["Updated At", "updated_at", "datetime"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
-  "Accounts":     [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
-  "Departments":  [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
-  "Packaging":    [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
-  "Statuses":     [["ID", "id", "int"], ["Name", "name"], ["Color", "color"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
-  "Truck Types":  [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Max KG", "max_capacity_kg", "num"], ["Max CBM", "max_capacity_cbm", "num"], ["Max Capacity (units)", "max_capacity_units", "num"], ["Capacities", "capacities"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
-  "Vendors":      [["ID", "id", "int"], ["Name", "name"], ["Contact Person", "contact_person"], ["Phone", "phone"], ["Email", "email"], ["Address", "address"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
+  "Ports":        [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Address", "location"], ["Latitude", "latitude", "num"], ["Longitude", "longitude", "num"], ["Contact PIC Name", "contact_pic_name"], ["Contact PIC Number", "contact_pic_number"], ["Receiving From", "receiving_from"], ["Receiving To", "receiving_to"], ["Updated By", "updated_by"], ["Updated At", "updated_at", "datetime"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
+  "Accounts":     [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
+  "Departments":  [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
+  "Packaging":    [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
+  "Statuses":     [["ID", "id", "int"], ["Name", "name"], ["Color", "color"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
+  "Truck Types":  [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Max KG", "max_capacity_kg", "num"], ["Max CBM", "max_capacity_cbm", "num"], ["Max Capacity (units)", "max_capacity_units", "num"], ["Capacities", "capacities"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
+  "Vendors":      [["ID", "id", "int"], ["Name", "name"], ["Contact Person", "contact_person"], ["Phone", "phone"], ["Email", "email"], ["Address", "address"], ["Is Active", "is_active", "yesno"], ["Created At", "created_at", "datetime"]],
   "Capacity Conversion": [
     ["Packaging Type", "packaging_type"],
     ["Code", "code"],
@@ -271,7 +271,7 @@ var FIELDS = {
 // Cell number format per column type ("@" = plain text; null = Sheets' automatic
 // number format, which shows 6 as 6 and 4.5 as 4.5).
 var FORMATS = {
-  "text": "@", "link": "@", "files": "@",
+  "text": "@", "link": "@", "files": "@", "yesno": "@",
   "int": "0", "num": null, "money": "#,##0.00", "pct": "0.0",
   "date": "yyyy-mm-dd", "datetime": "yyyy-mm-dd hh:mm"
 };
@@ -366,6 +366,10 @@ function cellValue(f, row) {
   }
   if (header === "Capacities" && Array.isArray(val)) {
     return val.map(function(c) { return (c.packaging_type_name || "") + ": " + (c.max_quantity || 0); }).join("; ");
+  }
+  if (type === "yesno") {
+    var t = String(val).trim().toLowerCase();
+    return (val === true || val === 1 || t === "1" || t === "true" || t === "yes") ? "Yes" : "No";
   }
   if (typeof val === "boolean") return val ? "Yes" : "No";
   if (Array.isArray(val)) return val.map(function(x) { return typeof x === "object" ? JSON.stringify(x) : String(x); }).join(", ");

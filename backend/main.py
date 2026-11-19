@@ -1416,6 +1416,20 @@ async def set_role_visibility(request: Request):
 # Master data: Ports, Accounts, Departments, Packaging, Statuses, Truck Types
 # ---------------------------------------------------------------------------
 
+def _as_active(v, default=True):
+    """Truthy 'Active' flag from JSON (true/false, 1/0, "yes"/"no"); missing -> default."""
+    if v is None or v == "": return default
+    if isinstance(v, str): return v.strip().lower() in ("1", "true", "yes", "y", "on", "active")
+    return bool(v)
+
+def _account_is_active(acc_id):
+    """True / False for an account id, None when it does not exist."""
+    if LOCAL_MODE:
+        a = next((x for x in _store["accounts"] if x["id"] == acc_id), None)
+        return None if a is None else _as_active(a.get("is_active"))
+    a = db_1("SELECT is_active FROM accounts WHERE id=%s", (acc_id,))
+    return None if a is None else _as_active(a.get("is_active"))
+
 # Optional port contact / receiving-hours fields (V43). Receiving hours are "HH:MM" (24h).
 PORT_EXTRA_FIELDS = ["contact_pic_name", "contact_pic_number", "receiving_from", "receiving_to"]
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -1447,6 +1461,10 @@ for _tbl, _fields, _label in [
     def _make_list(t=_tbl):
         def _fn(request: Request):
             if LOCAL_MODE: return [row2d(x) for x in _store[t]]
+            if t == "accounts":   # Active and Inactive accounts (Master Library groups them; New Request shows only active)
+                rows = db_q("SELECT * FROM accounts ORDER BY name")
+                for x in rows: x["is_active"] = _as_active(x.get("is_active"))
+                return rows
             return db_q(f"SELECT * FROM {t} WHERE is_active=1 ORDER BY name")
         return _fn
     def _make_create(t=_tbl, flds=_fields):
@@ -1462,6 +1480,8 @@ for _tbl, _fields, _label in [
                 else:
                     vals[f] = v if v not in (None, "", "None") else ""
             if not all(vals.get(f) for f in flds[:2]): raise HTTPException(400, "Name and code required")
+            if t == "accounts":
+                vals["is_active"] = _as_active(body.get("is_active"))
             if t == "ports":
                 vals.update(_clean_port_extras(body))
                 vals["updated_by"] = user.get("name") or user.get("email") or ""
@@ -1471,18 +1491,24 @@ for _tbl, _fields, _label in [
                 for x in _store[t]:
                     if x.get("code") == code: raise HTTPException(400, "Code exists")
                 i = nid(t)
-                rec = {"id": i, **vals, "is_active": True, "created_at": nows()}
+                rec = {"id": i, **vals, "is_active": vals.get("is_active", True), "created_at": nows()}
                 _store[t].append(rec)
                 return rec
             code = vals.get("code", "")
+            if t == "accounts":
+                # Inactive accounts are real records (old requests use them), so never replace one.
+                ex = db_1("SELECT id, is_active FROM accounts WHERE code=%s", (code,))
+                if ex: raise HTTPException(400, "Code exists" + ("" if _as_active(ex.get("is_active")) else " (on an inactive account)"))
             existing = db_1(f"SELECT id FROM {t} WHERE code=%s AND is_active=1", (code,))
             if existing: raise HTTPException(400, "Code exists")
-            db_x(f"DELETE FROM {t} WHERE code=%s AND is_active=0", (code,))
+            if t != "accounts": db_x(f"DELETE FROM {t} WHERE code=%s AND is_active=0", (code,))
             keys = list(vals.keys())
             cols = ", ".join(keys)
             phs = ", ".join(["%s"] * len(keys))
             i = db_i(f"INSERT INTO {t} ({cols}) VALUES ({phs})", tuple(vals[f] for f in keys))
-            return db_1(f"SELECT * FROM {t} WHERE id=%s", (i,))
+            rec = db_1(f"SELECT * FROM {t} WHERE id=%s", (i,))
+            if t == "accounts" and rec: rec["is_active"] = _as_active(rec.get("is_active"))
+            return rec
         return _fn
     def _make_delete(t=_tbl):
         def _fn(tid: int, request: Request):
@@ -1492,7 +1518,7 @@ for _tbl, _fields, _label in [
                 if t == "truck_types":
                     _store["truck_type_capacities"] = [c for c in _store["truck_type_capacities"] if c["truck_type_id"] != tid]
                 return {"ok": True}
-            existing = db_1(f"SELECT id FROM {t} WHERE id=%s AND is_active=1", (tid,))
+            existing = db_1(f"SELECT id FROM {t} WHERE id=%s" + ("" if t == "accounts" else " AND is_active=1"), (tid,))
             if not existing: raise HTTPException(404, "Not found")
             try:
                 db_x(f"DELETE FROM {t} WHERE id=%s", (tid,))
@@ -1541,18 +1567,28 @@ async def update_port(port_id: int, request: Request):
 async def update_account(account_id: int, request: Request):
     require_admin(request)
     body = await request.json()
+    upd = {}
+    for f in ("name", "code"):
+        if f in body:
+            upd[f] = str(body[f] or "").strip()
+            if not upd[f]: raise HTTPException(400, "Name and code required")
+    if "is_active" in body: upd["is_active"] = _as_active(body.get("is_active"))
     if LOCAL_MODE:
         for x in _store["accounts"]:
             if x["id"] == account_id:
-                for f in ("name", "code"):
-                    if f in body: x[f] = body[f]
+                if "code" in upd and any(o["id"] != account_id and o.get("code") == upd["code"] for o in _store["accounts"]):
+                    raise HTTPException(400, "Code exists")
+                x.update(upd)
                 return row2d(x)
         raise HTTPException(404, "Not found")
-    sets, params = [], []
-    for f in ("name", "code"):
-        if f in body: sets.append(f"{f}=%s"); params.append(body[f])
-    if sets: params.append(account_id); db_x(f"UPDATE accounts SET {','.join(sets)} WHERE id=%s", tuple(params))
-    return db_1("SELECT * FROM accounts WHERE id=%s", (account_id,))
+    if not db_1("SELECT id FROM accounts WHERE id=%s", (account_id,)): raise HTTPException(404, "Not found")
+    if "code" in upd and db_1("SELECT id FROM accounts WHERE code=%s AND id<>%s", (upd["code"], account_id)):
+        raise HTTPException(400, "Code exists")
+    if upd:
+        db_x(f"UPDATE accounts SET {','.join(k + '=%s' for k in upd)} WHERE id=%s", tuple(upd.values()) + (account_id,))
+    rec = db_1("SELECT * FROM accounts WHERE id=%s", (account_id,))
+    rec["is_active"] = _as_active(rec.get("is_active"))
+    return rec
 
 @app.put("/api/departments/{dept_id}")
 async def update_dept(dept_id: int, request: Request):
@@ -2751,11 +2787,16 @@ def _bulk_ctx():
                 out[k] = x.get("id")
         return out
     if LOCAL_MODE:
+        accs = _store["accounts"]
         return {"departments": lc_map(_store["departments"]), "ports": lc_map(_store["ports"]),
-                "accounts": lc_map(_store["accounts"]), "packaging": lc_map(_store["packaging_types"])}
+                "accounts": lc_map([a for a in accs if _as_active(a.get("is_active"))]),
+                "accounts_inactive": lc_map([a for a in accs if not _as_active(a.get("is_active"))]),
+                "packaging": lc_map(_store["packaging_types"])}
+    accs = db_q("SELECT id, name, is_active FROM accounts")
     return {"departments": lc_map(db_q("SELECT id, name FROM departments")),
             "ports": lc_map(db_q("SELECT id, name FROM ports")),
-            "accounts": lc_map(db_q("SELECT id, name FROM accounts")),
+            "accounts": lc_map([a for a in accs if _as_active(a.get("is_active"))]),
+            "accounts_inactive": lc_map([a for a in accs if not _as_active(a.get("is_active"))]),
             "packaging": lc_map(db_q("SELECT id, name FROM packaging_types"))}
 
 _BULK_MONTHS = {m: i for i, m in enumerate(
@@ -2847,7 +2888,10 @@ def _bulk_validate_row(data, ctx):
     else:
         acc = ctx["accounts"].get(txt("account").lower())
         if acc is None:
-            issues.append(f'Account "{txt("account")}" not found in Master Library')
+            if txt("account").lower() in (ctx.get("accounts_inactive") or {}):
+                issues.append(f'Account "{txt("account")}" is inactive - pick an active account')
+            else:
+                issues.append(f'Account "{txt("account")}" not found in Master Library')
     org = None
     if not txt("origin_port"):
         issues.append("Origin Port is required")
@@ -2963,10 +3007,11 @@ def _bulk_lists():
                 out.append(n)
         return out
     if LOCAL_MODE:
-        return {"departments": names(_store["departments"]), "accounts": names(_store["accounts"]),
+        return {"departments": names(_store["departments"]),
+                "accounts": names([a for a in _store["accounts"] if _as_active(a.get("is_active"))]),
                 "packaging": names(_store["packaging_types"]), "ports": names(_store["ports"])}
     return {"departments": names(db_q("SELECT name FROM departments ORDER BY id")),
-            "accounts": names(db_q("SELECT name FROM accounts ORDER BY id")),
+            "accounts": names(db_q("SELECT name FROM accounts WHERE is_active=1 ORDER BY id")),
             "packaging": names(db_q("SELECT name FROM packaging_types ORDER BY id")),
             "ports": names(db_q("SELECT name FROM ports ORDER BY id"))}
 
@@ -3446,6 +3491,10 @@ async def create_request(request: Request):
             raise HTTPException(400, "Initial Call datetime (TBC) is required")
         if body.get("origin_port_id") == body.get("destination_port_id"):
             raise HTTPException(400, "Origin port cannot be the same as destination port")
+        try: acc_ok = _account_is_active(int(body.get("account_id")))
+        except (TypeError, ValueError): acc_ok = None
+        if acc_ok is None: raise HTTPException(400, "Account not found in Master Library")
+        if acc_ok is False: raise HTTPException(400, "This account is inactive - pick an active account (Master Library > Accounts)")
         return _insert_request(user, body)
 
     except HTTPException:
@@ -8017,7 +8066,7 @@ def sync_ports():
 @app.get("/api/sync/accounts")
 def sync_accounts():
     if LOCAL_MODE: return [row2d(x) for x in _store["accounts"]]
-    return db_q("SELECT * FROM accounts WHERE is_active=1 ORDER BY name")
+    return db_q("SELECT * FROM accounts ORDER BY is_active DESC, name")
 
 @app.get("/api/sync/departments")
 def sync_departments():

@@ -19,7 +19,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .sidebar-header{padding:20px;border-bottom:1px solid rgba(255,255,255,.1)}
 .sidebar-header h2{color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
 .sidebar-header .sub{font-size:11px;color:var(--side-t);margin-top:4px}
-table.lib-ports .csv-only{display:none}table.lib-ports th:last-child,table.lib-ports td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 6px -6px rgba(0,0,0,.18);white-space:nowrap}table.lib-ports thead th:last-child{z-index:1;background:var(--bg)}
+table.lib-ports .csv-only,table.lib-accts .csv-only{display:none}.sw{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;font-size:13.5px;font-weight:600}.sw input{position:absolute;opacity:0;width:1px;height:1px}.sw .sw-t{width:42px;height:24px;border-radius:12px;background:#CBD5E1;position:relative;transition:background .15s;flex-shrink:0}.sw .sw-t:after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}.sw input:checked+.sw-t{background:#16A34A}.sw input:checked+.sw-t:after{left:21px}.sw input:focus-visible+.sw-t{outline:2px solid var(--pri);outline-offset:2px}tr.lib-grp td{background:var(--bg);font-weight:700;font-size:13px;padding:10px 16px}tr.lib-grp .g-on{color:#16A34A}tr.lib-grp .g-off{color:#DC2626}tr.lib-grp small{font-weight:500;color:var(--muted);margin-left:6px}table.lib-ports th:last-child,table.lib-ports td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 6px -6px rgba(0,0,0,.18);white-space:nowrap}table.lib-ports thead th:last-child{z-index:1;background:var(--bg)}
 .sidebar-header .brand{display:flex;align-items:center;gap:12px}.sidebar-header .brand-logo{flex-shrink:0;background:#fff;border-radius:10px;padding:4px 5px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}.sidebar-header .brand-logo img{display:block;width:70px;height:auto}.sidebar-header .brand-txt{min-width:0}.sidebar-header .brand-txt h2{font-size:15px;line-height:1.25}
 @media(max-width:768px){.sidebar-header{padding-top:62px}}
 .sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
@@ -580,7 +580,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-new">
 <div class="card-h"><h3><i class="fas fa-plus-circle"></i> 3. Creating a truck request</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Open <strong>New Request</strong>. The Booking Date is filled in for you.</li><li>Fill the fields marked <strong>*</strong>: Department, Origin Port, Account, Destination Port (different from the origin), Packaging Type, Quantity and <strong>Initial Call datetime (TBC)</strong>. MAWBs, customs time, weight / volume and instructions are optional.</li><li>Click <strong>Submit Request</strong>. The request appears on the Masterlist and on Pending Allocation as <strong>Pending</strong>.</li><li><strong>Many requests at once:</strong> click <strong>Download Excel template</strong>. Fill one row per request &mdash; <strong>Department, Origin Port, Account, Destination Port and Packaging Type</strong> are drop-down lists from the Master Library, so just pick from them. <strong>Row 2 (yellow) is only an example &mdash; delete that row before uploading</strong> (if it is left in, it is skipped and never created). Choose the file, check the preview and click <strong>Create &hellip; requests</strong>. Rows with problems are explained and skipped &mdash; the others are still created.</li></ol>
+<ol class="guide-steps"><li>Open <strong>New Request</strong>. The Booking Date is filled in for you.</li><li>Fill the fields marked <strong>*</strong>: Department, Origin Port, Account (only <strong>active</strong> accounts are listed), Destination Port (different from the origin), Packaging Type, Quantity and <strong>Initial Call datetime (TBC)</strong>. MAWBs, customs time, weight / volume and instructions are optional.</li><li>Click <strong>Submit Request</strong>. The request appears on the Masterlist and on Pending Allocation as <strong>Pending</strong>.</li><li><strong>Many requests at once:</strong> click <strong>Download Excel template</strong>. Fill one row per request &mdash; <strong>Department, Origin Port, Account, Destination Port and Packaging Type</strong> are drop-down lists from the Master Library, so just pick from them (only <strong>active</strong> accounts are listed; a row with an inactive account is skipped and explained). <strong>Row 2 (yellow) is only an example &mdash; delete that row before uploading</strong> (if it is left in, it is skipped and never created). Choose the file, check the preview and click <strong>Create &hellip; requests</strong>. Rows with problems are explained and skipped &mdash; the others are still created.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/03-new-request.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/03-new-request.jpg" alt="Origin and Destination side by side, Account below Origin, the two MAWBs side by side. Fields marked * are required  including Initial Call datetime (" loading="lazy"></a><figcaption><i class="fas fa-image"></i> Origin and Destination side by side, Account below Origin, the two MAWBs side by side. Fields marked * are required &mdash; including <strong>Initial Call datetime (TBC)</strong>.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-ml">
@@ -659,7 +659,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-lib">
 <div class="card-h"><h3><i class="fas fa-book"></i> 15. Master Library</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>The lists used in every dropdown: <strong>Ports</strong> (click the map to set a port's location; optional <strong>Contact PIC Name</strong>, <strong>Contact PIC Number</strong> and <strong>Receiving Hours</strong> From / To in HH:MM, e.g. 08:00 &ndash; 17:00), <strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong>, <strong>Truck Types</strong> and <strong>Vendors</strong>.</li><li><strong>Truck Types</strong> need a <strong>Max Capacity</strong> for the utilisation %.</li><li><strong>Ports</strong> and <strong>Accounts</strong> have <strong>Export CSV</strong> (same columns as the table on screen; the Ports export also includes the port <strong>Code</strong>). The Ports table also shows who last changed each port and when (<strong>Updated By</strong> / <strong>Updated At</strong>); the Code column is hidden on screen but stays in the Add / Edit form and in Export CSV.</li><li><strong>Capacity Conversion</strong>: choose the base unit (e.g. Pallet) and how much of it one unit of each other packaging is worth (e.g. Carton 0.02 = 50 cartons per pallet). Click <strong>Save</strong>.</li></ol>
+<ol class="guide-steps"><li>The lists used in every dropdown: <strong>Ports</strong> (click the map to set a port's location; optional <strong>Contact PIC Name</strong>, <strong>Contact PIC Number</strong> and <strong>Receiving Hours</strong> From / To in HH:MM, e.g. 08:00 &ndash; 17:00), <strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong>, <strong>Truck Types</strong> and <strong>Vendors</strong>.</li><li><strong>Truck Types</strong> need a <strong>Max Capacity</strong> for the utilisation %.</li><li><strong>Accounts</strong> have an <strong>Active</strong> switch (on by default for a new account). Turn it off to make the account <strong>inactive</strong>: the Accounts table lists it under <strong>Inactive</strong> (red) instead of <strong>Active</strong> (green), and it no longer appears in <strong>New Request</strong> or in the bulk <strong>Excel template</strong>. Requests that already use it keep it, and filters still list it. Turn the switch back on to use it again.</li><li><strong>Ports</strong> and <strong>Accounts</strong> have <strong>Export CSV</strong> (same columns as the table on screen; the Ports export also includes the port <strong>Code</strong>, the Accounts export a <strong>Status</strong> column: Active / Inactive). The Ports table also shows who last changed each port and when (<strong>Updated By</strong> / <strong>Updated At</strong>); the Code column is hidden on screen but stays in the Add / Edit form and in Export CSV.</li><li><strong>Capacity Conversion</strong>: choose the base unit (e.g. Pallet) and how much of it one unit of each other packaging is worth (e.g. Carton 0.02 = 50 cartons per pallet). Click <strong>Save</strong>.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/15-library.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/15-library.jpg" alt="Capacity Conversion." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Capacity Conversion.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-users">
@@ -710,7 +710,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-faq">
 <div class="card-h"><h3><i class="fas fa-life-ring"></i> 23. Problems and fixes</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li><strong>A page is missing</strong> &mdash; your role does not have it; ask a Master Admin.</li><li><strong>&ldquo;No pages available&rdquo;</strong> &mdash; your account is still New User; ask an admin to set your role.</li><li><strong>A page asks for a password</strong> &mdash; ask the Master Admin (or whoever manages Page Password &amp; Logs) for the page password.</li><li><strong>Manifest upload refused</strong> &mdash; it must be an Excel (.xlsx / .xlsm) or CSV (.csv) file of 10&nbsp;MB or less, with a bag / carton / gunny / sack ID column.</li><li><strong>Attachment refused</strong> &mdash; up to 8 files and 25&nbsp;MB per request.</li><li><strong>Files not in Google Drive</strong> &mdash; open Google Drive Backup (Master Admin by default): check the folder and key are set, the status is <strong>Running</strong>, and the reason shown on any failed file.</li><li><strong>No Google Chat alerts</strong> &mdash; open Google Chat Alerts (Master Admin by default): check the webhook is <strong>Connected</strong>, the alert is ticked, and the Alert log for the reason.</li><li><strong>No utilisation %</strong> &mdash; the truck type has no Max Capacity, or a packaging type has no factor (Master Library).</li><li><strong>Cost Analysis is empty</strong> &mdash; check the Final Call dates (a request with no Final Call is matched on its Initial Call date); only Delivered and approved Foul Trip requests count.</li><li><strong>Anything else</strong> &mdash; note the exact message on screen and the page, and send it to the administrators.</li></ol>
+<ol class="guide-steps"><li><strong>A page is missing</strong> &mdash; your role does not have it; ask a Master Admin.</li><li><strong>&ldquo;No pages available&rdquo;</strong> &mdash; your account is still New User; ask an admin to set your role.</li><li><strong>A page asks for a password</strong> &mdash; ask the Master Admin (or whoever manages Page Password &amp; Logs) for the page password.</li><li><strong>Manifest upload refused</strong> &mdash; it must be an Excel (.xlsx / .xlsm) or CSV (.csv) file of 10&nbsp;MB or less, with a bag / carton / gunny / sack ID column.</li><li><strong>Attachment refused</strong> &mdash; up to 8 files and 25&nbsp;MB per request.</li><li><strong>Files not in Google Drive</strong> &mdash; open Google Drive Backup (Master Admin by default): check the folder and key are set, the status is <strong>Running</strong>, and the reason shown on any failed file.</li><li><strong>No Google Chat alerts</strong> &mdash; open Google Chat Alerts (Master Admin by default): check the webhook is <strong>Connected</strong>, the alert is ticked, and the Alert log for the reason.</li><li><strong>An account is missing from New Request or the Excel template</strong> &mdash; it is set to <strong>Inactive</strong> in Master Library &rarr; Accounts; an admin can turn its <strong>Active</strong> switch back on.</li><li><strong>No utilisation %</strong> &mdash; the truck type has no Max Capacity, or a packaging type has no factor (Master Library).</li><li><strong>Cost Analysis is empty</strong> &mdash; check the Final Call dates (a request with no Final Call is matched on its Initial Call date); only Delivered and approved Foul Trip requests count.</li><li><strong>Anything else</strong> &mdash; note the exact message on screen and the page, and send it to the administrators.</li></ol>
 </div></div>
 </div>
 </section>
@@ -1402,7 +1402,7 @@ function reqRowHtml(i){
   return '<div class="req-row" data-i="'+i+'" style="border:1px solid var(--bdr);border-radius:8px;padding:14px 16px;margin-bottom:14px;background:var(--bg)">'
   +'<div class="fr"><div class="fg"><label class="fl">Booking Date</label><input type="date" class="fi rBooking" id="rBooking" readonly value="'+todayLocal()+'"></div><div class="fg"><label class="fl">Department *</label><select class="fs rDept" id="rDept" required>'+selOpts(depts,'Select Department')+'</select></div></div>'
   +'<div class="fr"><div class="fg"><label class="fl">Origin Port *</label><select class="fs rOrigin" required>'+selOpts(ports,'Select Origin')+'</select></div><div class="fg"><label class="fl">Destination Port *</label><select class="fs rDest" required>'+selOpts(ports,'Select Destination')+'</select></div></div>'
-  +'<div class="fr"><div class="fg"><label class="fl">Account *</label><select class="fs rAcct" required>'+selOpts(accts,'Select Account')+'</select></div><div class="fg"><label class="fl">Packaging Type *</label><select class="fs rPkg" required>'+selOpts(pkgs,'Select Packaging')+'</select></div></div>'
+  +'<div class="fr"><div class="fg"><label class="fl">Account *</label><select class="fs rAcct" required>'+selOpts(activeAccts(),'Select Account')+'</select></div><div class="fg"><label class="fl">Packaging Type *</label><select class="fs rPkg" required>'+selOpts(pkgs,'Select Packaging')+'</select></div></div>'
   +'<div class="fr"><div class="fg"><label class="fl">International MAWB</label><input type="text" class="fi rImawb" maxlength="100" placeholder="e.g. 988-12345678"></div><div class="fg"><label class="fl">Domestic MAWB</label><input type="text" class="fi rDmawb" maxlength="100" placeholder="e.g. DOM-00123"></div></div>'
   +'<div class="fr3"><div class="fg"><label class="fl">Quantity *</label><input type="number" class="fi rQty" value="1" min="1" required></div><div class="fg"><label class="fl">Initial Call datetime (TBC) *</label><input type="datetime-local" class="fi rCall" required></div><div class="fg"><label class="fl">Customs Cleared Date/Time</label><input type="datetime-local" class="fi rCustoms"></div></div>'
   +'<div class="fr"><div class="fg"><label class="fl">Weight (KG)</label><input type="number" step="0.01" class="fi rWt" value="0"></div><div class="fg"><label class="fl">Volume (CBM)</label><input type="number" step="0.01" class="fi rVol" value="0"></div><div class="fg"><label class="fl">Special Instructions</label><input type="text" class="fi rNotes" placeholder="Any special handling requirements..."></div></div>'
@@ -1416,7 +1416,7 @@ function initReqRows(){
 function todayLocal(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fillRowSelects(){
   document.querySelectorAll('.req-row').forEach(row=>{
-    [['.rDept',depts,'Select Department'],['.rOrigin',ports,'Select Origin'],['.rAcct',accts,'Select Account'],['.rDest',ports,'Select Destination'],['.rPkg',pkgs,'Select Packaging']].forEach(([sel,items,ph])=>{
+    [['.rDept',depts,'Select Department'],['.rOrigin',ports,'Select Origin'],['.rAcct',activeAccts(),'Select Account'],['.rDest',ports,'Select Destination'],['.rPkg',pkgs,'Select Packaging']].forEach(([sel,items,ph])=>{
       const s=row.querySelector(sel);if(!s)return;
       const v=s.value;s.innerHTML=selOpts(items,ph);if(v)s.value=v;
     });
@@ -3594,15 +3594,27 @@ async function libTab(tbl,btn){
       html+='<div class="lib-map-section"><div id="portMapContainer" class="port-map-wrap"></div></div>';
     }
     if(data.length){
-      html+='<div style="overflow-x:auto"><table'+(tbl==='ports'?' class="lib-ports"':'')+'><thead><tr>';
+      html+='<div style="overflow-x:auto"><table'+(tbl==='ports'?' class="lib-ports"':tbl==='accounts'?' class="lib-accts"':'')+'><thead><tr>';
       if(tbl==='vendors'){html+='<th>Name</th><th>Contact Person</th><th>Phone</th><th>Email</th><th>Address</th>';}
       else if(tbl==='ports'){html+='<th>Name</th><th class="csv-only">Code</th><th>Address</th><th>Lat</th><th>Lng</th><th>Contact PIC Name</th><th>Contact PIC Number</th><th>Receiving Hours</th><th>Updated By</th><th>Updated At</th>';}
+      else if(tbl==='accounts'){html+='<th>Name</th><th>Code</th><th class="csv-only">Status</th>';}
       else{html+='<th>Name</th><th>Code</th>';}
       if(tbl==='truck_statuses')html+='<th>Color</th>';
       if(tbl==='truck_types')html+='<th>Max KG</th><th>Max CBM</th><th>Max Capacity (units)</th>';
       html+='<th>Actions</th></tr></thead><tbody id="libTbl">';
-      data.forEach(r=>{
-        if(tbl==='vendors'){
+      let rowsOut=data;
+      if(tbl==='accounts'){
+        const on=data.filter(r=>acctActive(r)),off=data.filter(r=>!acctActive(r));
+        rowsOut=[{_grp:'on',n:on.length},...on,{_grp:'off',n:off.length},...off];
+      }
+      rowsOut.forEach(r=>{
+        if(r._grp){
+          html+='<tr class="lib-grp"><td colspan="3">'+(r._grp==='on'?'<i class="fas fa-circle-check g-on"></i> Active':'<i class="fas fa-circle-xmark g-off"></i> Inactive')+'<small>('+r.n+')</small>'+(r.n?'':'<small>'+(r._grp==='on'?'No active accounts':'No inactive accounts')+'</small>')+'</td></tr>';
+          return;
+        }
+        if(tbl==='accounts'){
+          html+='<tr><td><strong>'+esc(r.name)+'</strong></td><td>'+esc(r.code)+'</td><td class="csv-only">'+(acctActive(r)?'Active':'Inactive')+'</td>';
+        }else if(tbl==='vendors'){
           html+='<tr><td><strong>'+r.name+'</strong></td><td>'+(r.contact_person||'-')+'</td><td>'+(r.phone||'-')+'</td><td>'+(r.email||'-')+'</td><td>'+(r.address||'-')+'</td>';
         }else if(tbl==='ports'){
           html+='<tr><td><strong>'+esc(r.name)+'</strong></td><td class="csv-only">'+esc(r.code||'')+'</td><td>'+esc(r.location||'-')+'</td><td>'+(r.latitude!=null?Number(r.latitude).toFixed(4):'-')+'</td><td>'+(r.longitude!=null?Number(r.longitude).toFixed(4):'-')+'</td><td>'+esc(r.contact_pic_name||'-')+'</td><td style="white-space:nowrap">'+esc(r.contact_pic_number||'-')+'</td><td style="white-space:nowrap">'+portHoursText(r)+'</td><td>'+esc(r.updated_by||'-')+'</td><td style="white-space:nowrap">'+(r.updated_at?esc(fmtD(r.updated_at)):'-')+'</td>';
@@ -3684,6 +3696,14 @@ async function saveCapConv(){
   }catch(e){toast(e.message||'Save failed','error')}
 }
 
+// Accounts: Active flag. Inactive accounts stay on old requests and in filters, but are
+// left out of New Request and the bulk Excel template.
+function acctActive(a){const v=a&&a.is_active;return v===undefined||v===null||v===true||v===1||v==='1'||v==='true'}
+function activeAccts(){return accts.filter(acctActive)}
+function acctActiveField(on){
+  return '<div class="fg"><label class="fl">Status</label><label class="sw"><input type="checkbox" id="libActive"'+(on?' checked':'')+' onchange="this.closest(\'.sw\').querySelector(\'.sw-l\').textContent=this.checked?\'Active\':\'Inactive\'"><span class="sw-t"></span><span class="sw-l">'+(on?'Active':'Inactive')+'</span></label>'+
+    '<small style="display:block;font-size:12px;color:var(--muted);margin-top:6px">Turn off to make the account inactive: it then no longer appears in New Request or in the bulk Excel template. Existing requests keep it.</small></div>';
+}
 // Ports: optional contact PIC and receiving hours (HH:MM, 24-hour)
 function portHoursText(r){
   const f=r.receiving_from||'',t=r.receiving_to||'';
@@ -3760,6 +3780,7 @@ async function showAddLib(tbl){
   }else{
     html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName"></div><div class="fg"><label class="fl">Code *</label><input class="fi" id="libCode"></div>';
     if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to set coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>'+portExtraForm({});
+    if(tbl==='accounts')html+=acctActiveField(true);
     if(tbl==='packaging_types')html+='<div class="fg"><label class="fl">Description</label><textarea class="ft" id="libDesc"></textarea></div>';
     if(tbl==='truck_statuses')html+='<div class="fg"><label class="fl">Color</label><input type="color" class="fi" id="libColor" value="#6B7280" style="height:40px;padding:4px"></div>';
     if(tbl==='truck_types'){
@@ -3814,6 +3835,7 @@ async function showEditLib(tbl,r){
   }else{
     html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName" value="'+(r.name||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Code *</label><input class="fi" id="libCode" value="'+(r.code||'').replace(/"/g,'&quot;')+'"></div>';
     if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc" value="'+(r.location||'').replace(/"/g,'&quot;')+'"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" value="'+(r.latitude!=null?r.latitude:'')+'" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" value="'+(r.longitude!=null?r.longitude:'')+'" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to update coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>'+portExtraForm(r);
+    if(tbl==='accounts')html+=acctActiveField(acctActive(r));
     if(tbl==='packaging_types')html+='<div class="fg"><label class="fl">Description</label><textarea class="ft" id="libDesc">'+(r.description||'')+'</textarea></div>';
     if(tbl==='truck_statuses')html+='<div class="fg"><label class="fl">Color</label><input type="color" class="fi" id="libColor" value="'+(r.color||'#6B7280')+'" style="height:40px;padding:4px"></div>';
     if(tbl==='truck_types'){
@@ -3838,6 +3860,7 @@ async function saveLib(tbl){
   }else{
     body={name:document.getElementById('libName').value,code:document.getElementById('libCode').value};
     if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null;const ex=portExtraValues();if(!ex)return;Object.assign(body,ex)}
+    if(tbl==='accounts'){const a=document.getElementById('libActive');body.is_active=!!(a&&a.checked)}
     if(tbl==='packaging_types')body.description=document.getElementById('libDesc').value;
     if(tbl==='truck_statuses')body.color=document.getElementById('libColor').value;
     if(tbl==='truck_types'){body.max_capacity_kg=+document.getElementById('libKg').value||0;body.max_capacity_cbm=+document.getElementById('libCbm').value||0;const mu=document.getElementById('libMaxUnits');body.max_capacity_units=(mu&&mu.value!=='')?parseFloat(mu.value):null}
@@ -3852,6 +3875,7 @@ async function updateLib(tbl,id){
   }else{
     body={name:document.getElementById('libName').value,code:document.getElementById('libCode').value};
     if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null;const ex=portExtraValues();if(!ex)return;Object.assign(body,ex)}
+    if(tbl==='accounts'){const a=document.getElementById('libActive');body.is_active=!!(a&&a.checked)}
     if(tbl==='packaging_types')body.description=document.getElementById('libDesc').value;
     if(tbl==='truck_statuses')body.color=document.getElementById('libColor').value;
     if(tbl==='truck_types'){body.max_capacity_kg=+document.getElementById('libKg').value||0;body.max_capacity_cbm=+document.getElementById('libCbm').value||0;const mu=document.getElementById('libMaxUnits');body.max_capacity_units=(mu&&mu.value!=='')?parseFloat(mu.value):null}
