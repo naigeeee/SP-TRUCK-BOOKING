@@ -22,6 +22,10 @@
 // ============================================================
 
 var BACKEND_URL = "https://sp-truck-booking--dev.ninjavan.apps.substrait.build";
+// Drop any trailing "/": "…build/" + "/api/…" makes "//api/…", which the app redirects,
+// and Apps Script turns a redirected POST into a GET - so the sheet-size and Drive
+// backup reports would silently never arrive.
+BACKEND_URL = String(BACKEND_URL).trim().replace(/\/+$/, "");
 
 // Google Drive backup: paste the key from the app (Administration -> Google Drive
 // Backup -> Generate backup key). Leave it empty to switch the backup off here.
