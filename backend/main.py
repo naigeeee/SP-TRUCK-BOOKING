@@ -1502,7 +1502,8 @@ for _tbl, _fields, _label in [
             existing = db_1(f"SELECT id FROM {t} WHERE code=%s AND is_active=1", (code,))
             if existing: raise HTTPException(400, "Code exists")
             if t != "accounts": db_x(f"DELETE FROM {t} WHERE code=%s AND is_active=0", (code,))
-            keys = list(vals.keys())
+            # Column names come only from this fixed list (never from the request body).
+            keys = [k for k in (*flds, "is_active", "updated_by", "updated_at") if k in vals]
             cols = ", ".join(keys)
             phs = ", ".join(["%s"] * len(keys))
             i = db_i(f"INSERT INTO {t} ({cols}) VALUES ({phs})", tuple(vals[f] for f in keys))
@@ -1557,10 +1558,10 @@ async def update_port(port_id: int, request: Request):
     if not db_1("SELECT id FROM ports WHERE id=%s", (port_id,)): raise HTTPException(404, "Not found")
     if "code" in upd and db_1("SELECT id FROM ports WHERE code=%s AND id<>%s AND is_active=1", (upd["code"], port_id)):
         raise HTTPException(400, "Code exists")
-    sets, params = [], []
-    for f, v in upd.items():
-        sets.append(f"{f}=%s"); params.append(v)
-    params.append(port_id); db_x(f"UPDATE ports SET {','.join(sets)} WHERE id=%s", tuple(params))
+    cols = [k for k in ("name", "code", "location", "latitude", "longitude", *PORT_EXTRA_FIELDS,
+                        "updated_by", "updated_at") if k in upd]   # fixed column names only
+    db_x("UPDATE ports SET " + ", ".join(k + "=%s" for k in cols) + " WHERE id=%s",
+         tuple(upd[k] for k in cols) + (port_id,))
     return db_1("SELECT * FROM ports WHERE id=%s", (port_id,))
 
 @app.put("/api/accounts/{account_id}")
@@ -1584,8 +1585,10 @@ async def update_account(account_id: int, request: Request):
     if not db_1("SELECT id FROM accounts WHERE id=%s", (account_id,)): raise HTTPException(404, "Not found")
     if "code" in upd and db_1("SELECT id FROM accounts WHERE code=%s AND id<>%s", (upd["code"], account_id)):
         raise HTTPException(400, "Code exists")
-    if upd:
-        db_x(f"UPDATE accounts SET {','.join(k + '=%s' for k in upd)} WHERE id=%s", tuple(upd.values()) + (account_id,))
+    cols = [k for k in ("name", "code", "is_active") if k in upd]   # fixed column names only
+    if cols:
+        db_x("UPDATE accounts SET " + ", ".join(k + "=%s" for k in cols) + " WHERE id=%s",
+             tuple(upd[k] for k in cols) + (account_id,))
     rec = db_1("SELECT * FROM accounts WHERE id=%s", (account_id,))
     rec["is_active"] = _as_active(rec.get("is_active"))
     return rec
