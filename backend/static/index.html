@@ -19,6 +19,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .sidebar-header{padding:20px;border-bottom:1px solid rgba(255,255,255,.1)}
 .sidebar-header h2{color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
 .sidebar-header .sub{font-size:11px;color:var(--side-t);margin-top:4px}
+table.lib-ports .csv-only{display:none}table.lib-ports th:last-child,table.lib-ports td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 6px -6px rgba(0,0,0,.18);white-space:nowrap}table.lib-ports thead th:last-child{z-index:1;background:var(--bg)}
 .sidebar-header .brand{display:flex;align-items:center;gap:12px}.sidebar-header .brand-logo{flex-shrink:0;background:#fff;border-radius:10px;padding:4px 5px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}.sidebar-header .brand-logo img{display:block;width:70px;height:auto}.sidebar-header .brand-txt{min-width:0}.sidebar-header .brand-txt h2{font-size:15px;line-height:1.25}
 @media(max-width:768px){.sidebar-header{padding-top:62px}}
 .sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
@@ -658,7 +659,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-lib">
 <div class="card-h"><h3><i class="fas fa-book"></i> 15. Master Library</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>The lists used in every dropdown: <strong>Ports</strong> (click the map to set a port's location), <strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong>, <strong>Truck Types</strong> and <strong>Vendors</strong>.</li><li><strong>Truck Types</strong> need a <strong>Max Capacity</strong> for the utilisation %.</li><li><strong>Ports</strong> and <strong>Accounts</strong> have <strong>Export CSV</strong> (same columns as the table on screen).</li><li><strong>Capacity Conversion</strong>: choose the base unit (e.g. Pallet) and how much of it one unit of each other packaging is worth (e.g. Carton 0.02 = 50 cartons per pallet). Click <strong>Save</strong>.</li></ol>
+<ol class="guide-steps"><li>The lists used in every dropdown: <strong>Ports</strong> (click the map to set a port's location; optional <strong>Contact PIC Name</strong>, <strong>Contact PIC Number</strong> and <strong>Receiving Hours</strong> From / To in HH:MM, e.g. 08:00 &ndash; 17:00), <strong>Accounts</strong>, <strong>Departments</strong>, <strong>Packaging</strong>, <strong>Statuses</strong>, <strong>Truck Types</strong> and <strong>Vendors</strong>.</li><li><strong>Truck Types</strong> need a <strong>Max Capacity</strong> for the utilisation %.</li><li><strong>Ports</strong> and <strong>Accounts</strong> have <strong>Export CSV</strong> (same columns as the table on screen; the Ports export also includes the port <strong>Code</strong>). The Ports table also shows who last changed each port and when (<strong>Updated By</strong> / <strong>Updated At</strong>); the Code column is hidden on screen but stays in the Add / Edit form and in Export CSV.</li><li><strong>Capacity Conversion</strong>: choose the base unit (e.g. Pallet) and how much of it one unit of each other packaging is worth (e.g. Carton 0.02 = 50 cartons per pallet). Click <strong>Save</strong>.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/15-library.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/15-library.jpg" alt="Capacity Conversion." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Capacity Conversion.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-users">
@@ -3593,9 +3594,9 @@ async function libTab(tbl,btn){
       html+='<div class="lib-map-section"><div id="portMapContainer" class="port-map-wrap"></div></div>';
     }
     if(data.length){
-      html+='<table><thead><tr>';
+      html+='<div style="overflow-x:auto"><table'+(tbl==='ports'?' class="lib-ports"':'')+'><thead><tr>';
       if(tbl==='vendors'){html+='<th>Name</th><th>Contact Person</th><th>Phone</th><th>Email</th><th>Address</th>';}
-      else if(tbl==='ports'){html+='<th>Name</th><th>Code</th><th>Address</th><th>Lat</th><th>Lng</th>';}
+      else if(tbl==='ports'){html+='<th>Name</th><th class="csv-only">Code</th><th>Address</th><th>Lat</th><th>Lng</th><th>Contact PIC Name</th><th>Contact PIC Number</th><th>Receiving Hours</th><th>Updated By</th><th>Updated At</th>';}
       else{html+='<th>Name</th><th>Code</th>';}
       if(tbl==='truck_statuses')html+='<th>Color</th>';
       if(tbl==='truck_types')html+='<th>Max KG</th><th>Max CBM</th><th>Max Capacity (units)</th>';
@@ -3604,7 +3605,7 @@ async function libTab(tbl,btn){
         if(tbl==='vendors'){
           html+='<tr><td><strong>'+r.name+'</strong></td><td>'+(r.contact_person||'-')+'</td><td>'+(r.phone||'-')+'</td><td>'+(r.email||'-')+'</td><td>'+(r.address||'-')+'</td>';
         }else if(tbl==='ports'){
-          html+='<tr><td><strong>'+r.name+'</strong></td><td>'+r.code+'</td><td>'+(r.location||'-')+'</td><td>'+(r.latitude!=null?r.latitude.toFixed(4):'-')+'</td><td>'+(r.longitude!=null?r.longitude.toFixed(4):'-')+'</td>';
+          html+='<tr><td><strong>'+esc(r.name)+'</strong></td><td class="csv-only">'+esc(r.code||'')+'</td><td>'+esc(r.location||'-')+'</td><td>'+(r.latitude!=null?Number(r.latitude).toFixed(4):'-')+'</td><td>'+(r.longitude!=null?Number(r.longitude).toFixed(4):'-')+'</td><td>'+esc(r.contact_pic_name||'-')+'</td><td style="white-space:nowrap">'+esc(r.contact_pic_number||'-')+'</td><td style="white-space:nowrap">'+portHoursText(r)+'</td><td>'+esc(r.updated_by||'-')+'</td><td style="white-space:nowrap">'+(r.updated_at?esc(fmtD(r.updated_at)):'-')+'</td>';
         }else{
           html+='<tr><td><strong>'+r.name+'</strong></td><td>'+r.code+'</td>';
         }
@@ -3614,7 +3615,7 @@ async function libTab(tbl,btn){
         }
         html+='<td>'+(isAdmin?'<button class="btn btn-sm btn-o" onclick="showEditLib(\''+tbl+'\','+JSON.stringify(r).replace(/"/g,'&quot;')+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-d" onclick="delLib(\''+tbl+'\','+r.id+')"><i class="fas fa-trash"></i></button>':'')+'</td></tr>';
       });
-      html+='</tbody></table>';
+      html+='</tbody></table></div>';
     }else{html+='<div class="empty"><i class="fas fa-book"></i><p>No '+lbl.toLowerCase()+'s yet</p></div>'}
     el.innerHTML=html;
     if(tbl==='ports')initPortMap(data);
@@ -3683,6 +3684,31 @@ async function saveCapConv(){
   }catch(e){toast(e.message||'Save failed','error')}
 }
 
+// Ports: optional contact PIC and receiving hours (HH:MM, 24-hour)
+function portHoursText(r){
+  const f=r.receiving_from||'',t=r.receiving_to||'';
+  if(!f&&!t)return '-';
+  return esc(f||'?')+' &ndash; '+esc(t||'?');
+}
+function portExtraForm(r){
+  const v=k=>esc(r[k]||'');
+  return '<div class="fr"><div class="fg"><label class="fl">Contact PIC Name</label><input class="fi" id="libPicName" maxlength="255" value="'+v('contact_pic_name')+'"></div>'+
+    '<div class="fg"><label class="fl">Contact PIC Number</label><input class="fi" id="libPicNum" maxlength="64" inputmode="tel" value="'+v('contact_pic_number')+'"></div></div>'+
+    '<div class="fr"><div class="fg"><label class="fl">Receiving Hours From (HH:MM)</label><input class="fi" id="libRecvFrom" maxlength="5" placeholder="e.g. 08:00" inputmode="numeric" value="'+v('receiving_from')+'"></div>'+
+    '<div class="fg"><label class="fl">Receiving Hours To (HH:MM)</label><input class="fi" id="libRecvTo" maxlength="5" placeholder="e.g. 17:00" inputmode="numeric" value="'+v('receiving_to')+'"></div></div>';
+}
+function portExtraValues(){
+  const g=id=>(document.getElementById(id)||{}).value||'';
+  const out={contact_pic_name:g('libPicName').trim(),contact_pic_number:g('libPicNum').trim(),receiving_from:g('libRecvFrom').trim(),receiving_to:g('libRecvTo').trim()};
+  for(const [k,lbl] of [['receiving_from','Receiving Hours From'],['receiving_to','Receiving Hours To']]){
+    let t=out[k];
+    if(/^\d:[0-5]\d$/.test(t))t='0'+t;
+    if(/^\d{4}$/.test(t))t=t.slice(0,2)+':'+t.slice(2);
+    if(t&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)){toast(lbl+' must be a time in HH:MM format (e.g. 08:00)','error');return null}
+    out[k]=t;
+  }
+  return out;
+}
 function initPortMap(ports){
   const c=document.getElementById('portMapContainer');
   if(!c)return;
@@ -3693,7 +3719,7 @@ function initPortMap(ports){
   const portsWithCoords=ports.filter(p=>p.latitude!=null&&p.longitude!=null);
   if(portsWithCoords.length){
     portsWithCoords.forEach(p=>{
-      const m=L.marker([p.latitude,p.longitude]).addTo(portMap).bindPopup('<strong>'+p.name+'</strong><br>'+p.code+(p.location?'<br>'+p.location:''));
+      const m=L.marker([p.latitude,p.longitude]).addTo(portMap).bindPopup('<strong>'+esc(p.name)+'</strong>'+(p.location?'<br>'+esc(p.location):''));
       portMarkers.push(m);
     });
     const fg=L.featureGroup(portMarkers);
@@ -3733,7 +3759,7 @@ async function showAddLib(tbl){
     html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName"></div><div class="fg"><label class="fl">Contact Person</label><input class="fi" id="libContact"></div><div class="fg"><label class="fl">Phone</label><input class="fi" id="libPhone"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="libEmail" type="email"></div><div class="fg"><label class="fl">Address</label><textarea class="ft" id="libAddr"></textarea></div>';
   }else{
     html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName"></div><div class="fg"><label class="fl">Code *</label><input class="fi" id="libCode"></div>';
-    if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to set coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>';
+    if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to set coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>'+portExtraForm({});
     if(tbl==='packaging_types')html+='<div class="fg"><label class="fl">Description</label><textarea class="ft" id="libDesc"></textarea></div>';
     if(tbl==='truck_statuses')html+='<div class="fg"><label class="fl">Color</label><input type="color" class="fi" id="libColor" value="#6B7280" style="height:40px;padding:4px"></div>';
     if(tbl==='truck_types'){
@@ -3787,7 +3813,7 @@ async function showEditLib(tbl,r){
     html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName" value="'+(r.name||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Contact Person</label><input class="fi" id="libContact" value="'+(r.contact_person||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Phone</label><input class="fi" id="libPhone" value="'+(r.phone||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Email</label><input class="fi" id="libEmail" type="email" value="'+(r.email||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Address</label><textarea class="ft" id="libAddr">'+(r.address||'')+'</textarea></div>';
   }else{
     html='<div class="fg"><label class="fl">Name *</label><input class="fi" id="libName" value="'+(r.name||'').replace(/"/g,'&quot;')+'"></div><div class="fg"><label class="fl">Code *</label><input class="fi" id="libCode" value="'+(r.code||'').replace(/"/g,'&quot;')+'"></div>';
-    if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc" value="'+(r.location||'').replace(/"/g,'&quot;')+'"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" value="'+(r.latitude!=null?r.latitude:'')+'" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" value="'+(r.longitude!=null?r.longitude:'')+'" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to update coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>';
+    if(tbl==='ports')html+='<div class="fg"><label class="fl">Address</label><input class="fi" id="libLoc" value="'+(r.location||'').replace(/"/g,'&quot;')+'"></div><div class="fr"><div class="fg"><label class="fl">Latitude</label><input type="number" step="any" class="fi" id="libLat" value="'+(r.latitude!=null?r.latitude:'')+'" placeholder="e.g. 14.5995"></div><div class="fg"><label class="fl">Longitude</label><input type="number" step="any" class="fi" id="libLng" value="'+(r.longitude!=null?r.longitude:'')+'" placeholder="e.g. 120.9842"></div></div><div class="fg"><label class="fl">Click map to update coordinates</label><div id="portModalMap" class="port-map-wrap-sm"></div></div>'+portExtraForm(r);
     if(tbl==='packaging_types')html+='<div class="fg"><label class="fl">Description</label><textarea class="ft" id="libDesc">'+(r.description||'')+'</textarea></div>';
     if(tbl==='truck_statuses')html+='<div class="fg"><label class="fl">Color</label><input type="color" class="fi" id="libColor" value="'+(r.color||'#6B7280')+'" style="height:40px;padding:4px"></div>';
     if(tbl==='truck_types'){
@@ -3811,7 +3837,7 @@ async function saveLib(tbl){
     body={name:document.getElementById('libName').value,contact_person:document.getElementById('libContact').value,phone:document.getElementById('libPhone').value,email:document.getElementById('libEmail').value,address:document.getElementById('libAddr').value};
   }else{
     body={name:document.getElementById('libName').value,code:document.getElementById('libCode').value};
-    if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null}
+    if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null;const ex=portExtraValues();if(!ex)return;Object.assign(body,ex)}
     if(tbl==='packaging_types')body.description=document.getElementById('libDesc').value;
     if(tbl==='truck_statuses')body.color=document.getElementById('libColor').value;
     if(tbl==='truck_types'){body.max_capacity_kg=+document.getElementById('libKg').value||0;body.max_capacity_cbm=+document.getElementById('libCbm').value||0;const mu=document.getElementById('libMaxUnits');body.max_capacity_units=(mu&&mu.value!=='')?parseFloat(mu.value):null}
@@ -3825,7 +3851,7 @@ async function updateLib(tbl,id){
     body={name:document.getElementById('libName').value,contact_person:document.getElementById('libContact').value,phone:document.getElementById('libPhone').value,email:document.getElementById('libEmail').value,address:document.getElementById('libAddr').value};
   }else{
     body={name:document.getElementById('libName').value,code:document.getElementById('libCode').value};
-    if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null}
+    if(tbl==='ports'){body.location=document.getElementById('libLoc').value;const la=document.getElementById('libLat');const lo=document.getElementById('libLng');body.latitude=la&&la.value?parseFloat(la.value):null;body.longitude=lo&&lo.value?parseFloat(lo.value):null;const ex=portExtraValues();if(!ex)return;Object.assign(body,ex)}
     if(tbl==='packaging_types')body.description=document.getElementById('libDesc').value;
     if(tbl==='truck_statuses')body.color=document.getElementById('libColor').value;
     if(tbl==='truck_types'){body.max_capacity_kg=+document.getElementById('libKg').value||0;body.max_capacity_cbm=+document.getElementById('libCbm').value||0;const mu=document.getElementById('libMaxUnits');body.max_capacity_units=(mu&&mu.value!=='')?parseFloat(mu.value):null}

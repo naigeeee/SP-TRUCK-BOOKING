@@ -1416,8 +1416,29 @@ async def set_role_visibility(request: Request):
 # Master data: Ports, Accounts, Departments, Packaging, Statuses, Truck Types
 # ---------------------------------------------------------------------------
 
+# Optional port contact / receiving-hours fields (V43). Receiving hours are "HH:MM" (24h).
+PORT_EXTRA_FIELDS = ["contact_pic_name", "contact_pic_number", "receiving_from", "receiving_to"]
+_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+def _clean_port_extras(body, partial=False):
+    """Validated optional port fields from a request body. With partial=True only the
+    keys present in the body are returned (for edits)."""
+    out = {}
+    labels = {"receiving_from": "Receiving Hours From", "receiving_to": "Receiving Hours To"}
+    for f in PORT_EXTRA_FIELDS:
+        if partial and f not in body: continue
+        v = body.get(f)
+        v = "" if v is None else str(v).strip()
+        if f in labels and v:
+            if re.match(r"^\d:[0-5]\d$", v): v = "0" + v
+            if not _HHMM_RE.match(v): raise HTTPException(400, labels[f] + " must be a time in HH:MM format (e.g. 08:00)")
+        if f == "contact_pic_name" and len(v) > 255: raise HTTPException(400, "Contact PIC Name is too long")
+        if f == "contact_pic_number" and len(v) > 64: raise HTTPException(400, "Contact PIC Number is too long")
+        out[f] = v
+    return out
+
 for _tbl, _fields, _label in [
-    ("ports", ["name", "code", "location", "latitude", "longitude"], "ports"),
+    ("ports", ["name", "code", "location", "latitude", "longitude"] + PORT_EXTRA_FIELDS, "ports"),
     ("accounts", ["name", "code"], "accounts"),
     ("departments", ["name", "code"], "departments"),
     ("packaging_types", ["name", "code", "description"], "packaging-types"),
@@ -1441,6 +1462,10 @@ for _tbl, _fields, _label in [
                 else:
                     vals[f] = v if v not in (None, "", "None") else ""
             if not all(vals.get(f) for f in flds[:2]): raise HTTPException(400, "Name and code required")
+            if t == "ports":
+                vals.update(_clean_port_extras(body))
+                vals["updated_by"] = user.get("name") or user.get("email") or ""
+                vals["updated_at"] = nows()
             if LOCAL_MODE:
                 code = vals.get("code", "")
                 for x in _store[t]:
@@ -1453,9 +1478,10 @@ for _tbl, _fields, _label in [
             existing = db_1(f"SELECT id FROM {t} WHERE code=%s AND is_active=1", (code,))
             if existing: raise HTTPException(400, "Code exists")
             db_x(f"DELETE FROM {t} WHERE code=%s AND is_active=0", (code,))
-            cols = ", ".join(flds)
-            phs = ", ".join(["%s"] * len(flds))
-            i = db_i(f"INSERT INTO {t} ({cols}) VALUES ({phs})", tuple(vals[f] for f in flds))
+            keys = list(vals.keys())
+            cols = ", ".join(keys)
+            phs = ", ".join(["%s"] * len(keys))
+            i = db_i(f"INSERT INTO {t} ({cols}) VALUES ({phs})", tuple(vals[f] for f in keys))
             return db_1(f"SELECT * FROM {t} WHERE id=%s", (i,))
         return _fn
     def _make_delete(t=_tbl):
@@ -1484,19 +1510,31 @@ for _tbl, _fields, _label in [
 # Explicit PUT routes for master library items
 @app.put("/api/ports/{port_id}")
 async def update_port(port_id: int, request: Request):
-    require_admin(request)
+    user = require_admin(request)
     body = await request.json()
+    upd = {f: body[f] for f in ("name", "code", "location", "latitude", "longitude") if f in body}
+    for f in ("name", "code"):
+        if f in upd:
+            upd[f] = str(upd[f] or "").strip()
+            if not upd[f]: raise HTTPException(400, "Name and code required")
+    upd.update(_clean_port_extras(body, partial=True))
+    upd["updated_by"] = user.get("name") or user.get("email") or ""
+    upd["updated_at"] = nows()
     if LOCAL_MODE:
         for x in _store["ports"]:
             if x["id"] == port_id:
-                for f in ("name", "code", "location", "latitude", "longitude"):
-                    if f in body: x[f] = body[f]
+                if "code" in upd and any(o["id"] != port_id and o.get("code") == upd["code"] for o in _store["ports"]):
+                    raise HTTPException(400, "Code exists")
+                x.update(upd)
                 return row2d(x)
         raise HTTPException(404, "Not found")
+    if not db_1("SELECT id FROM ports WHERE id=%s", (port_id,)): raise HTTPException(404, "Not found")
+    if "code" in upd and db_1("SELECT id FROM ports WHERE code=%s AND id<>%s AND is_active=1", (upd["code"], port_id)):
+        raise HTTPException(400, "Code exists")
     sets, params = [], []
-    for f in ("name", "code", "location", "latitude", "longitude"):
-        if f in body: sets.append(f"{f}=%s"); params.append(body[f])
-    if sets: params.append(port_id); db_x(f"UPDATE ports SET {','.join(sets)} WHERE id=%s", tuple(params))
+    for f, v in upd.items():
+        sets.append(f"{f}=%s"); params.append(v)
+    params.append(port_id); db_x(f"UPDATE ports SET {','.join(sets)} WHERE id=%s", tuple(params))
     return db_1("SELECT * FROM ports WHERE id=%s", (port_id,))
 
 @app.put("/api/accounts/{account_id}")

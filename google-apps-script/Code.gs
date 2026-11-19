@@ -251,7 +251,7 @@ var FIELDS = {
     ["Revised Utilisation %", "revised_utilisation", "pct"],
     ["Revised Tier", "revised_tier"]
   ],
-  "Ports":        [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Address", "location"], ["Latitude", "latitude", "num"], ["Longitude", "longitude", "num"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
+  "Ports":        [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Address", "location"], ["Latitude", "latitude", "num"], ["Longitude", "longitude", "num"], ["Contact PIC Name", "contact_pic_name"], ["Contact PIC Number", "contact_pic_number"], ["Receiving From", "receiving_from"], ["Receiving To", "receiving_to"], ["Updated By", "updated_by"], ["Updated At", "updated_at", "datetime"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
   "Accounts":     [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
   "Departments":  [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
   "Packaging":    [["ID", "id", "int"], ["Name", "name"], ["Code", "code"], ["Is Active", "is_active"], ["Created At", "created_at", "datetime"]],
