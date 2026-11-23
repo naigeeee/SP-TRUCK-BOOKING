@@ -4236,40 +4236,81 @@ def list_pending(request: Request):
         LEFT JOIN packaging_types pt ON tr.packaging_type_id=pt.id
         LEFT JOIN truck_types tt ON tr.truck_type_id=tt.id
         WHERE pa.is_accepted IS NULL AND tr.status_id=1 ORDER BY pa.created_at DESC""")
+    # Everything below is loaded in a few bulk queries and assembled in memory: the old
+    # per-request / per-truck queries (thousands, each on a new connection) took longer
+    # than the 30-second proxy limit once production had a realistic number of trucks.
+    pkg_names = {p["id"]: p["name"] for p in db_q("SELECT id, name FROM packaging_types")}
+    open_pending = db_q("""SELECT id, request_number, requestor_name, call_datetime, quantity, weight_kg, volume_cbm,
+        packaging_type_id, origin_port_id FROM truck_requests WHERE status_id=1 AND call_datetime IS NOT NULL""")
+    trucks = db_q("""SELECT t.id,t.plate_number,t.truck_type_id,t.vendor_id,t.status,v.name as vendor_name,tt.name as truck_type_name,t.driver_name,t.driver_phone
+        FROM trucks t LEFT JOIN vendors v ON t.vendor_id=v.id LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
+        WHERE t.status IN ('available','assigned') AND t.is_active=1 AND t.is_available=1
+        AND t.id NOT IN (SELECT assigned_truck_id FROM truck_requests WHERE status_id=3 AND assigned_truck_id IS NOT NULL)""")
+    caps_by_tt = {}
+    for c in db_q("SELECT truck_type_id, packaging_type_id, max_quantity FROM truck_type_capacities"):
+        caps_by_tt.setdefault(c["truck_type_id"], []).append({"packaging_type_id": c["packaging_type_id"], "max_quantity": c["max_quantity"]})
+    pkg_by_truck, origins_by_truck, drops_by_truck = {}, {}, {}
+    for r in db_q("""SELECT assigned_truck_id, packaging_type_id, SUM(quantity) as total FROM truck_requests
+            WHERE assigned_truck_id IS NOT NULL AND status_id NOT IN (4,5,7) GROUP BY assigned_truck_id, packaging_type_id"""):
+        pkg_by_truck.setdefault(r["assigned_truck_id"], {})[r["packaging_type_id"]] = r["total"]
+    for r in db_q("""SELECT DISTINCT assigned_truck_id, origin_port_id FROM truck_requests
+            WHERE assigned_truck_id IS NOT NULL AND status_id NOT IN (4,5,7)"""):
+        if r.get("origin_port_id"):
+            origins_by_truck.setdefault(r["assigned_truck_id"], []).append(r["origin_port_id"])
+    for r in db_q("""SELECT tr.assigned_truck_id, tr.id as request_id, tr.request_number, tr.drop_sequence, pd.name as destination_port_name
+            FROM truck_requests tr LEFT JOIN ports pd ON tr.destination_port_id=pd.id
+            WHERE tr.assigned_truck_id IS NOT NULL AND tr.status_id NOT IN (4,5,7) AND tr.drop_sequence IS NOT NULL
+            ORDER BY tr.drop_sequence"""):
+        tid = r.pop("assigned_truck_id")
+        drops_by_truck.setdefault(tid, []).append(r)
+    rates = {}
+    for r in db_q("""SELECT vendor_id, truck_type_id, origin_port_id, rate_per_trip, default_rate FROM vendor_rates
+            WHERE is_active=1 ORDER BY id"""):
+        rates.setdefault((r["vendor_id"], r["truck_type_id"], r["origin_port_id"]), r)   # first match, like LIMIT 1
+
+    def _dt(v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, datetime):
+            return v
+        try:
+            return datetime.strptime(str(v).replace("T", " ")[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            try:
+                return datetime.strptime(str(v).replace("T", " ")[:16], "%Y-%m-%d %H:%M")
+            except ValueError:
+                return None
+
     for item in rows:
-        same = db_q("""SELECT id, request_number, requestor_name, call_datetime, quantity, weight_kg, volume_cbm, packaging_type_id
-            FROM truck_requests WHERE id!=%s AND origin_port_id=%s AND status_id=1
-            AND call_datetime IS NOT NULL AND %s IS NOT NULL
-            AND ABS(TIMESTAMPDIFF(HOUR, call_datetime, %s))<=4""", (item["truck_request_id"], item["origin_port_id"], item.get("call_datetime"), item.get("call_datetime")))
-        for s in same:
-            s["packaging_type_name"] = next((p["name"] for p in db_q("SELECT name FROM packaging_types WHERE id=%s", (s["packaging_type_id"],))), "")
-        item["consolidation_suggestions"] = [{"request_id": s["id"], "request_number": s["request_number"], "requestor_name": s["requestor_name"], "call_datetime": str(s["call_datetime"]), "packaging_type_name": s.get("packaging_type_name", ""), "quantity": s.get("quantity", 0), "weight_kg": s.get("weight_kg", 0), "volume_cbm": s.get("volume_cbm", 0), "reason": f"Same origin, similar initial call time"} for s in same]
-        avail_trucks = db_q("""SELECT t.id,t.plate_number,t.truck_type_id,t.status,v.name as vendor_name,tt.name as truck_type_name,t.driver_name,t.driver_phone
-            FROM trucks t LEFT JOIN vendors v ON t.vendor_id=v.id LEFT JOIN truck_types tt ON t.truck_type_id=tt.id
-            WHERE t.status IN ('available','assigned') AND t.is_active=1 AND t.is_available=1
-            AND t.id NOT IN (SELECT assigned_truck_id FROM truck_requests WHERE status_id=3 AND assigned_truck_id IS NOT NULL)""")
-        for at in avail_trucks:
-            at_ttcaps = db_q("SELECT packaging_type_id, max_quantity FROM truck_type_capacities WHERE truck_type_id=%s", (at["truck_type_id"],))
-            pkg_rows = db_q("SELECT packaging_type_id, SUM(quantity) as total FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7) GROUP BY packaging_type_id", (at["id"],))
-            pkg_counts = {r["packaging_type_id"]: r["total"] for r in pkg_rows}
+        ref = _dt(item.get("call_datetime"))
+        same = []
+        if ref is not None:
+            for o in open_pending:
+                od = _dt(o.get("call_datetime"))
+                # Same rule as before: TIMESTAMPDIFF(HOUR) counts whole hours, so within 4 h means < 5 h apart.
+                if (o["id"] != item["truck_request_id"] and o.get("origin_port_id") == item["origin_port_id"]
+                        and od is not None and int(abs((od - ref).total_seconds()) // 3600) <= 4):
+                    same.append(o)
+        item["consolidation_suggestions"] = [{"request_id": s["id"], "request_number": s["request_number"], "requestor_name": s["requestor_name"], "call_datetime": str(s["call_datetime"]), "packaging_type_name": pkg_names.get(s["packaging_type_id"], ""), "quantity": s.get("quantity", 0), "weight_kg": s.get("weight_kg", 0), "volume_cbm": s.get("volume_cbm", 0), "reason": f"Same origin, similar initial call time"} for s in same]
+        avail_trucks = []
+        for t in trucks:
+            at = {k: t[k] for k in ("id", "plate_number", "truck_type_id", "status", "vendor_name", "truck_type_name", "driver_name", "driver_phone")}
+            at_ttcaps = caps_by_tt.get(t["truck_type_id"], [])
+            pkg_counts = pkg_by_truck.get(t["id"], {})
             majority_pkg = max(pkg_counts, key=pkg_counts.get) if pkg_counts else item.get("packaging_type_id")
             cur_qty = pkg_counts.get(majority_pkg, 0)
             cap = next((c["max_quantity"] for c in at_ttcaps if c["packaging_type_id"] == majority_pkg), 0)
             at["current_qty"] = cur_qty
             at["max_qty"] = cap
             at["remaining_qty"] = (cap - cur_qty) if cap > 0 else 999
-            at["majority_pkg_name"] = next((p["name"] for p in db_q("SELECT name FROM packaging_types WHERE id=%s", (majority_pkg,))), "")
+            at["majority_pkg_name"] = pkg_names.get(majority_pkg, "")
             at["pkg_capacities"] = {str(c["packaging_type_id"]): {"max": c["max_quantity"], "current": pkg_counts.get(c["packaging_type_id"], 0)} for c in at_ttcaps}
-            origins = db_q("SELECT DISTINCT origin_port_id FROM truck_requests WHERE assigned_truck_id=%s AND status_id NOT IN (4,5,7)", (at["id"],))
-            at["assigned_origins"] = [o["origin_port_id"] for o in origins if o.get("origin_port_id")]
-            rate_row = db_1("""SELECT rate_per_trip, default_rate FROM vendor_rates
-                WHERE vendor_id=(SELECT vendor_id FROM trucks WHERE id=%s) AND truck_type_id=%s AND origin_port_id=%s AND is_active=1 LIMIT 1""",
-                (at["id"], at["truck_type_id"], item["origin_port_id"]))
+            at["assigned_origins"] = list(origins_by_truck.get(t["id"], []))
+            rate_row = rates.get((t.get("vendor_id"), t["truck_type_id"], item["origin_port_id"]))
             at["rate_per_trip"] = rate_row.get("rate_per_trip", 0) if rate_row else 0
             at["default_rate"] = rate_row.get("default_rate", 0) if rate_row else 0
-            at["current_drops"] = db_q("""SELECT tr.id as request_id, tr.request_number, tr.drop_sequence, pd.name as destination_port_name
-                FROM truck_requests tr LEFT JOIN ports pd ON tr.destination_port_id=pd.id
-                WHERE tr.assigned_truck_id=%s AND tr.status_id NOT IN (4,5,7) AND tr.drop_sequence IS NOT NULL ORDER BY tr.drop_sequence""", (at["id"],))
+            at["current_drops"] = [dict(d) for d in drops_by_truck.get(t["id"], [])]
+            avail_trucks.append(at)
         avail_trucks.sort(key=lambda x: x["rate_per_trip"] if x.get("rate_per_trip", 0) > 0 else 999999)
         item["available_trucks"] = avail_trucks
     return _strip_rate_figures(rows)
