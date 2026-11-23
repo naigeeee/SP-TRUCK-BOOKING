@@ -3523,8 +3523,88 @@ async def update_request(rid: int, request: Request):
     prev = _status_row(rid) or {}
     before = prev.get("status_id")
     res = await _update_request_core(rid, request)
+    plan = getattr(request.state, "tt_sync", None)
+    if plan:
+        # Same truck type for every open request on the trip, and re-priced for it.
+        _sync_trip_truck_type(rid, plan[0], plan[1], user.get("email", ""))
+        res = (row2d(next((x for x in _store["truck_requests"] if x["id"] == rid), None)) if LOCAL_MODE
+               else db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,)))
     _alert_status_change(user, rid, prev)
     return res
+
+TRIP_OPEN_STATUSES = (2, 3, 6)   # Allocated, In Transit, On Hold
+
+def _plan_truck_type_change(rid, body):
+    """Truck type rules on Edit. Returns (trip base, new truck type) when the change has to be
+    copied to the other requests on the same trip, else None. Raises when not allowed:
+    once a driver / fleet account is assigned to the trip the truck type is locked until
+    the driver is removed (Vendor Truck Assignment)."""
+    if "truck_type_id" not in body or body.get("status_id") in (1, "1"):
+        return None
+    cur = (next((x for x in _store["truck_requests"] if x["id"] == rid), None) if LOCAL_MODE
+           else db_1("SELECT id, trip_id, status_id, truck_type_id, driver_account_id FROM truck_requests WHERE id=%s", (rid,)))
+    if not cur:
+        return None
+    new_tt = body.get("truck_type_id")
+    try:
+        new_tt = int(new_tt) if new_tt not in (None, "") else None
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Invalid truck type")
+    body["truck_type_id"] = new_tt
+    if new_tt == cur.get("truck_type_id"):
+        return None
+    if cur.get("status_id") not in TRIP_OPEN_STATUSES:
+        return None   # Pending (no trip yet) or a closed request: just this request
+    base = trip_base(cur.get("trip_id"))
+    peers = [r for r in _rows_for_base(base) if r.get("status_id") in TRIP_OPEN_STATUSES] if base else []
+    if cur.get("driver_account_id") or any(p.get("driver_account_id") for p in peers):
+        raise HTTPException(400, "The truck type cannot be changed after a driver / fleet account is assigned to the trip"
+                                 " - remove the driver first (Vendor Truck Assignment), then change it")
+    if cur.get("status_id") == 3:
+        raise HTTPException(400, "The truck type cannot be changed while the trip is In Transit")
+    if new_tt is None:
+        raise HTTPException(400, "A request on a trip needs a truck type")
+    return (base, new_tt) if base else None
+
+def _sync_trip_truck_type(rid, base, new_tt, email):
+    """Give every open request on the trip the new truck type, then re-price the trip."""
+    if LOCAL_MODE:
+        rows = [x for x in _store["truck_requests"] if x.get("trip_id") and trip_base(x["trip_id"]) == base
+                and x.get("status_id") in TRIP_OPEN_STATUSES]
+    else:
+        rows = [r for r in db_q("""SELECT id, trip_id, status_id, truck_type_id, vendor_id, assigned_truck_id,
+            drop_sequence, origin_port_id, destination_port_id, booking_date FROM truck_requests
+            WHERE trip_id=%s OR trip_id LIKE %s""", (base, f"{base}-%"))
+            if trip_base(r.get("trip_id")) == base and r.get("status_id") in TRIP_OPEN_STATUSES]
+    if not rows:
+        return
+    stamp = nows()
+    for r in rows:
+        if r["id"] == rid or r.get("truck_type_id") == new_tt:
+            continue
+        if LOCAL_MODE:
+            r["truck_type_id"] = new_tt; r["updated_at"] = stamp
+            if email: r["updated_by"] = email
+        else:
+            db_x("UPDATE truck_requests SET truck_type_id=%s, updated_at=%s, updated_by=%s WHERE id=%s",
+                 (new_tt, stamp, email or None, r["id"]))
+        r["truck_type_id"] = new_tt
+    for r in rows:
+        r["truck_type_id"] = new_tt
+    primary = min(rows, key=lambda r: (r.get("drop_sequence") or 99, r.get("id"))).get("destination_port_id")
+    trucks = set()
+    for r in rows:
+        if r.get("assigned_truck_id"):
+            trucks.add(r["assigned_truck_id"]); continue
+        if not r.get("vendor_id"):
+            continue
+        cost = _trip_estimated_cost(r, r.get("drop_sequence"), primary) or 0
+        if LOCAL_MODE:
+            r["estimated_cost"] = cost
+        else:
+            db_x("UPDATE truck_requests SET estimated_cost=%s WHERE id=%s", (cost, r["id"]))
+    for t in trucks:
+        recalculate_trip_rates(t)
 
 def _alert_status_change(user, rid, prev):
     """Google Chat: someone moved this request to Foul Trip or Cancelled. A vendor user is
@@ -3574,6 +3654,7 @@ async def _update_request_core(rid: int, request: Request):
     for k in ("truck_type_id", "assigned_truck_id"):
         if k in body and body[k] in (0, "0", ""):
             body[k] = None
+    request.state.tt_sync = _plan_truck_type_change(rid, body)
     if "quantity" in body:
         # Edit shows the Revised Qty in the Qty box. Saving it unchanged keeps the
         # current source (manifest / unloading); a different number is a manual
