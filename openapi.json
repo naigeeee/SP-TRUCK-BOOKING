@@ -3707,6 +3707,44 @@
         }
       }
     },
+    "/api/trips/{base}/cancel-allocation": {
+      "post": {
+        "summary": "Cancel Trip Allocation",
+        "description": "Admin / Master Admin: take a trip back from its vendor before a driver is assigned.\nEvery Allocated request on the trip goes back to Pending (no trip, vendor, truck type,\ndrop number, Final Call or estimated cost) and reappears on Pending Allocation to Vendors.",
+        "operationId": "cancel_trip_allocation_api_trips__base__cancel_allocation_post",
+        "parameters": [
+          {
+            "name": "base",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Base"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/requests/{rid}/unassign-driver": {
       "post": {
         "summary": "Unassign Driver",

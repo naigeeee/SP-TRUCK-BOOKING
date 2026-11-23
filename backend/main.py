@@ -7279,6 +7279,48 @@ def _restore_drop_order(ordered_ids):
             db_x("UPDATE truck_requests SET drop_sequence=%s, trip_id=%s WHERE id=%s",
                  (i + 1, _relettered(cur.get("trip_id"), i + 1), rid))
 
+@app.post("/api/trips/{base}/cancel-allocation")
+def cancel_trip_allocation(base: str, request: Request):
+    """Admin / Master Admin: take a trip back from its vendor before a driver is assigned.
+    Every Allocated request on the trip goes back to Pending (no trip, vendor, truck type,
+    drop number, Final Call or estimated cost) and reappears on Pending Allocation to Vendors."""
+    user = require_admin(request)
+    email = user.get("email", "")
+    rows = _rows_for_base(base)
+    if not rows:
+        raise HTTPException(404, "Trip not found")
+    if any(r.get("driver_account_id") or r.get("assigned_truck_id") for r in rows if r.get("status_id") in (2, 3, 6)):
+        raise HTTPException(400, "A driver / truck is already assigned to this trip - remove the driver first")
+    if any(r.get("status_id") in (3, 6) for r in rows):
+        raise HTTPException(400, "Only a trip whose requests are all Allocated can be cancelled")
+    rids = [r["id"] for r in rows if r.get("status_id") == 2]
+    if not rids:
+        raise HTTPException(400, "This trip has no Allocated requests to cancel")
+    stamp = nows()
+    reset = {"status_id": 1, "assigned_truck_id": None, "drop_sequence": None, "trip_id": None,
+             "estimated_cost": 0, "actual_cost": 0, "truck_type_id": None, "vendor_id": None,
+             "final_call_datetime": None}
+    if LOCAL_MODE:
+        for x in _store["truck_requests"]:
+            if x["id"] in rids:
+                x.update(reset); x["updated_by"] = email; x["updated_at"] = stamp
+        for rid in rids:
+            if not any(pa["truck_request_id"] == rid and pa.get("is_accepted") is None for pa in _store["pending_allocations"]):
+                _store["pending_allocations"].append({"id": nid("pending_allocations"), "truck_request_id": rid,
+                    "suggested_truck_id": None, "suggestion_reason": "Trip cancelled - back to pending",
+                    "is_accepted": None, "allocated_by": None, "allocated_at": None, "created_at": stamp})
+    else:
+        # The ID list is one parameter (PyMySQL expands it to (1,2,3)); no SQL text is built.
+        db_x("""UPDATE truck_requests SET status_id=1, assigned_truck_id=NULL, drop_sequence=NULL, trip_id=NULL,
+            estimated_cost=0, actual_cost=0, truck_type_id=NULL, vendor_id=NULL, final_call_datetime=NULL,
+            updated_by=%s, updated_at=%s WHERE id IN %s AND status_id=2""", (email, stamp, [int(i) for i in rids]))
+        for rid in rids:
+            if not db_1("SELECT id FROM pending_allocations WHERE truck_request_id=%s AND is_accepted IS NULL", (rid,)):
+                db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,%s)",
+                     (rid, "Trip cancelled - back to pending"))
+    return {"ok": True, "trip_id": base, "reverted": len(rids),
+            "request_numbers": [r.get("request_number") for r in rows if r["id"] in rids]}
+
 @app.post("/api/requests/{rid}/unassign-driver")
 async def unassign_driver(rid: int, request: Request):
     vid, u = vendor_scope(request)

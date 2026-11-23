@@ -606,7 +606,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-vt">
 <div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 7. Vendor Truck Assignment</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Shows every trip that still needs a driver, with all its drops and MAWBs, and its Final Call &mdash; or its <strong>Initial Call datetime (TBC)</strong> when no Final Call is set yet.</li><li>Filter by <strong>Department</strong>, <strong>Truck Vendor</strong>, <strong>Truck Type</strong> and <strong>Origin</strong> (vendors see Truck Type and Origin).</li><li><strong>Vendors</strong> pick a Driver / Fleet account for each trip and click <strong>Assign Driver</strong> (see the User Guide for Vendors). Admins see the list in view-only mode.</li><li>The trip then shows the driver and truck plate on the Masterlist. It stays <strong>Allocated</strong> until the driver taps <strong>Depart</strong> in the scanning app.</li></ol>
+<ol class="guide-steps"><li>Shows every trip that still needs a driver, with all its drops and MAWBs, and its Final Call &mdash; or its <strong>Initial Call datetime (TBC)</strong> when no Final Call is set yet.</li><li>Filter by <strong>Department</strong>, <strong>Truck Vendor</strong>, <strong>Truck Type</strong> and <strong>Origin</strong> (vendors see Truck Type and Origin).</li><li><strong>Vendors</strong> pick a Driver / Fleet account for each trip and click <strong>Assign Driver</strong> (see the User Guide for Vendors). Admins see the list in view-only mode, with one action: <strong>Cancel Trip</strong> (Admin / Master Admin, only before a driver is assigned). After you confirm in the pop-up, every request on that trip goes from <strong>Allocated</strong> back to <strong>Pending</strong> (its trip ID, vendor, truck type, drop order, Final Call and estimated cost are removed) and appears again on <strong>Pending Allocation to Vendors</strong> to be allocated again.</li><li>The trip then shows the driver and truck plate on the Masterlist. It stays <strong>Allocated</strong> until the driver taps <strong>Depart</strong> in the scanning app.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/07-vendor-trucks.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/07-vendor-trucks.jpg" alt="The filters (outlined) and a trip waiting for a driver, with its drops in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The filters (outlined) and a trip waiting for a driver, with its drops in order.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-da">
@@ -2613,7 +2613,7 @@ async function loadVT(){
       if(isVendor){notice.style.display='none'}
       else{
         notice.style.display='block';
-        notice.innerHTML='<div class="card" style="border:1px solid var(--bdr);background:var(--bg)"><div class="card-b" style="padding:12px 16px;font-size:13px;color:var(--mut)"><i class="fas fa-eye" style="color:var(--info)"></i> View only &mdash; trucks are assigned by the vendor.</div></div>';
+        notice.innerHTML='<div class="card" style="border:1px solid var(--bdr);background:var(--bg)"><div class="card-b" style="padding:12px 16px;font-size:13px;color:var(--mut)"><i class="fas fa-eye" style="color:var(--info)"></i> View only &mdash; trucks are assigned by the vendor.'+(isAdmin?' Admins can <strong>Cancel Trip</strong> to send its requests back to <strong>Pending</strong> for re-allocation.':'')+'</div></div>';
       }
     }
     renderVT();
@@ -2670,7 +2670,8 @@ function renderVT(){
       html+='<div class="card" style="margin-bottom:12px;border-left:3px solid var(--pri)"><div class="card-b" style="padding:14px 16px">';
       html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">';
       html+='<div><strong style="color:var(--pri);font-size:15px">'+(g.trip_id||'-')+'</strong> '+stBadge(g.status_id===3?'In Transit':'Allocated',g.status_id===3?'#8B5CF6':'#3B82F6')+' <span style="color:var(--mut);font-size:12px">| '+(g.requests?g.requests.length:0)+' request(s)</span></div>';
-      html+='<div style="font-size:13px;color:var(--mut)">'+(g.final_call_datetime?'<i class="fas fa-phone"></i> Final call: <strong>'+fmtD(g.final_call_datetime)+'</strong>':(g.call_datetime?'<i class="fas fa-clock"></i> Initial Call Datetime (TBC): <strong>'+fmtD(g.call_datetime)+'</strong> <span class="badge" style="background:#FEF3C7;color:#92400E">no Final Call yet</span>':''))+'</div></div>';
+      const canCancel=!isVendor&&isAdmin&&!g.assigned_driver&&!g.assigned_truck&&g.status_id!==3;
+      html+='<div style="font-size:13px;color:var(--mut);display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(canCancel?'<button class="btn btn-sm btn-d vt-cancel" onclick="cancelTripAsk('+i+')" title="Send every request on this trip back to Pending"><i class="fas fa-ban"></i> Cancel Trip</button>':'')+'<span>'+(g.final_call_datetime?'<i class="fas fa-phone"></i> Final call: <strong>'+fmtD(g.final_call_datetime)+'</strong>':(g.call_datetime?'<i class="fas fa-clock"></i> Initial Call Datetime (TBC): <strong>'+fmtD(g.call_datetime)+'</strong> <span class="badge" style="background:#FEF3C7;color:#92400E">no Final Call yet</span>':''))+'</span></div></div>';
       const ad=g.assigned_driver;
       const who=ad?(ad.driver_name||ad.username)+(ad.plate_number?' ('+ad.plate_number+')':''):(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>');
       html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Total Drops</label><p style="font-size:13px">'+((g.requests||[]).length||0)+'</p></div><div><label class="fl">'+(ad?'Assigned Driver':'Assigned Truck')+'</label><p style="font-size:13px">'+(ad?esc(who):who)+'</p></div></div>';
@@ -2694,6 +2695,28 @@ function renderVT(){
       });
     });
     body.innerHTML=html;
+}
+function cancelTripAsk(i){
+  const g=vtData[i];if(!g)return;
+  const reqs=(g.requests||[]).map(r=>esc(r.request_number||'')).filter(Boolean);
+  document.getElementById('mTitle').textContent='Cancel trip '+(g.trip_id||'');
+  document.getElementById('mBody').innerHTML='<p style="font-size:14px;margin-bottom:10px">Cancel trip <strong>'+esc(g.trip_id||'')+'</strong>'+(g.vendor_name?' allocated to <strong>'+esc(g.vendor_name)+'</strong>':'')+'?</p>'+
+    '<p style="font-size:13px;color:var(--muted);margin-bottom:8px">'+reqs.length+' request(s) will go from <strong>Allocated</strong> back to <strong>Pending</strong>:</p>'+
+    '<ul style="font-size:13px;margin:0 0 12px 18px">'+reqs.map(n=>'<li>'+n+'</li>').join('')+'</ul>'+
+    '<div style="padding:10px 12px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;font-size:12.5px;color:#991B1B"><i class="fas fa-exclamation-triangle"></i> The trip ID, vendor, truck type, drop order, Final Call and estimated cost are removed. The requests can then be allocated again on <strong>Pending Allocation to Vendors</strong>.</div>';
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Keep trip</button><button class="btn btn-d" id="vtCancelGo" onclick="cancelTripGo('+i+')"><i class="fas fa-ban"></i> Yes, cancel trip</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+async function cancelTripGo(i){
+  const g=vtData[i];if(!g)return;
+  const b=document.getElementById('vtCancelGo');if(b){b.disabled=true}
+  try{
+    const res=await fetch('/api/trips/'+encodeURIComponent(g.trip_id)+'/cancel-allocation',{method:'POST'});
+    if(!res.ok)throw new Error(await apiErr(res));
+    const out=await res.json();
+    closeM();toast('Trip '+(g.trip_id||'')+' cancelled - '+out.reverted+' request(s) back to Pending');
+    loadVT();
+  }catch(e){toast(e.message||'Cancel failed','error');if(b)b.disabled=false}
 }
 async function assignVT(i){
   const g=vtData[i];
