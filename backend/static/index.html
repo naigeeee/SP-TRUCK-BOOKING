@@ -19,7 +19,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .sidebar-header{padding:20px;border-bottom:1px solid rgba(255,255,255,.1)}
 .sidebar-header h2{color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
 .sidebar-header .sub{font-size:11px;color:var(--side-t);margin-top:4px}
-table.lib-ports .csv-only,table.lib-accts .csv-only{display:none}.sw{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;font-size:13.5px;font-weight:600}.sw input{position:absolute;opacity:0;width:1px;height:1px}.sw .sw-t{width:42px;height:24px;border-radius:12px;background:#CBD5E1;position:relative;transition:background .15s;flex-shrink:0}.sw .sw-t:after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}.sw input:checked+.sw-t{background:#16A34A}.sw input:checked+.sw-t:after{left:21px}.sw input:focus-visible+.sw-t{outline:2px solid var(--pri);outline-offset:2px}tr.lib-grp td{background:var(--bg);font-weight:700;font-size:13px;padding:10px 16px}tr.lib-grp .g-on{color:#16A34A}tr.lib-grp .g-off{color:#DC2626}tr.lib-grp small{font-weight:500;color:var(--muted);margin-left:6px}table.lib-ports th:last-child,table.lib-ports td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 6px -6px rgba(0,0,0,.18);white-space:nowrap}table.lib-ports thead th:last-child{z-index:1;background:var(--bg)}
+table.lib-ports .csv-only,table.lib-accts .csv-only{display:none}.sw{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;font-size:13.5px;font-weight:600}.sw input{position:absolute;opacity:0;width:1px;height:1px}.sw .sw-t{width:42px;height:24px;border-radius:12px;background:#CBD5E1;position:relative;transition:background .15s;flex-shrink:0}.sw .sw-t:after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}.sw input:checked+.sw-t{background:#16A34A}.sw input:checked+.sw-t:after{left:21px}.sw input:focus-visible+.sw-t{outline:2px solid var(--pri);outline-offset:2px}tr.u-grp td{background:var(--bg);font-weight:700;font-size:13px;padding:10px 16px}tr.u-grp small{font-weight:500;color:var(--muted);margin-left:4px}tr.lib-grp td{background:var(--bg);font-weight:700;font-size:13px;padding:10px 16px}tr.lib-grp .g-on{color:#16A34A}tr.lib-grp .g-off{color:#DC2626}tr.lib-grp small{font-weight:500;color:var(--muted);margin-left:6px}table.lib-ports th:last-child,table.lib-ports td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 6px -6px rgba(0,0,0,.18);white-space:nowrap}table.lib-ports thead th:last-child{z-index:1;background:var(--bg)}
 .sidebar-header .brand{display:flex;align-items:center;gap:12px}.sidebar-header .brand-logo{flex-shrink:0;background:#fff;border-radius:10px;padding:4px 5px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}.sidebar-header .brand-logo img{display:block;width:70px;height:auto}.sidebar-header .brand-txt{min-width:0}.sidebar-header .brand-txt h2{font-size:15px;line-height:1.25}
 @media(max-width:768px){.sidebar-header{padding-top:62px}}
 .sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
@@ -484,7 +484,7 @@ body.scan-mode .layout{display:none}
 <!-- User Roles -->
 <section class="pg" id="pg-users">
 <div class="pg-hdr"><h1><i class="fas fa-users-cog" style="color:var(--pri)"></i> User Role Management</h1></div>
-<div class="card"><div class="card-b"><div class="tw"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody id="uTbl"></tbody></table></div></div></div>
+<div class="card"><div class="card-b"><div class="fb" style="flex-wrap:wrap;gap:8px;margin-bottom:12px"><input type="search" class="s-input" id="uSrch" placeholder="Search name, email or role..." oninput="renderUsers()" style="width:280px;max-width:100%" aria-label="Search users by name, email or role"><span id="uCount" style="font-size:12.5px;color:var(--muted)"></span></div><div class="tw"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody id="uTbl"></tbody></table></div></div></div>
 </section>
 
 <!-- Role Visibility -->
@@ -665,7 +665,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-users">
 <div class="card-h"><h3><i class="fas fa-users-cog"></i> 16. User Roles</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Everyone who has signed in is listed. Change a person's access with the <strong>Role</strong> dropdown (takes effect when they reload the page). An Admin can change or remove anyone except Admins and Master Admins; a Master Admin can change or remove anyone except other Master Admins (their rows show &ldquo;-&rdquo;).</li><li>Roles: Viewer, Normal User, Admin, Master Admin, Driver/Fleet, a Vendor role, or New User (no access). Only a Master Admin can give the Master Admin role.</li><li>Click a name to rename it, or <i class="fas fa-user-minus"></i> to remove the user.</li></ol>
+<ol class="guide-steps"><li>Everyone who has signed in is listed, <strong>grouped by role</strong>. <strong>New User (no access)</strong> is always at the top, so people waiting for access are easy to spot; the other roles follow (Master Admin, Admin, Normal User, Viewer, Driver/Fleet, then the Vendor roles). Each group shows how many people it has.</li><li>Use the <strong>search box</strong> to find someone by <strong>name</strong>, <strong>email</strong> or <strong>role</strong> (e.g. &ldquo;new user&rdquo; or &ldquo;vendor&rdquo;); only the matching people and their groups stay on screen.</li><li>Change a person's access with the <strong>Role</strong> dropdown (takes effect when they reload the page). An Admin can change or remove anyone except Admins and Master Admins; a Master Admin can change or remove anyone except other Master Admins (their rows show &ldquo;-&rdquo;).</li><li>Roles: Viewer, Normal User, Admin, Master Admin, Driver/Fleet, a Vendor role, or New User (no access). Only a Master Admin can give the Master Admin role.</li><li>Click a name to rename it, or <i class="fas fa-user-minus"></i> to remove the user.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/16-users.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/16-users.jpg" alt="Change a role from the dropdown." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Change a role from the dropdown.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-rv">
@@ -3951,15 +3951,34 @@ function roleBadge(r){
 async function loadUsers(){
   try{
     try{roleList=await(await fetch('/api/roles')).json()}catch(e){roleList=null}
-    const data=await(await fetch('/api/users')).json();
-    const tb=document.getElementById('uTbl');
+    usersData=await(await fetch('/api/users')).json();
+    renderUsers();
+  }catch(e){console.error(e)}
+}
+// User Roles: grouped by role (New User - no access - first), with a search box.
+let usersData=[];
+function userNameOf(id){const u=(usersData||[]).find(x=>x.id===id);return u?String(u.name||''):''}
+const USER_ROLE_ORDER=['new_user','master_admin','admin','normal_user','viewer','driver_fleet'];
+function userRoleRank(r){const i=USER_ROLE_ORDER.indexOf(r);if(i>=0)return [i,''];return [String(r||'').indexOf('Vendor - ')===0?USER_ROLE_ORDER.length:USER_ROLE_ORDER.length+1,roleMeta(r).label.toLowerCase()]}
+function renderUsers(){
+  try{
+    const tb=document.getElementById('uTbl');if(!tb)return;
+    const q=((document.getElementById('uSrch')||{}).value||'').trim().toLowerCase();
+    const all=Array.isArray(usersData)?usersData:[];
+    const data=all.filter(u=>!q||[u.name,u.email,roleMeta(u.role).label,u.role].some(v=>String(v||'').toLowerCase().includes(q)));
+    const cnt=document.getElementById('uCount');
+    if(cnt)cnt.textContent=q?(data.length+' of '+all.length+' user(s)'):(all.length+' user(s)');
     const isMaster=user.role==='master_admin';
     const isAdmin=['master_admin','admin'].includes(user.role);
     const optsHtml=(sel,roles)=>roles.map(r=>{const m=roleMeta(r);return '<option value="'+r+'"'+(sel===r?' selected':'')+'>'+esc(m.label)+'</option>'}).join('');
     const masterRoles=Array.isArray(roleList)&&roleList.length?roleList.map(x=>x.value):['viewer','normal_user','admin','master_admin','driver_fleet','new_user'];
     const adminRoles=masterRoles.filter(r=>r!=='master_admin');
-    tb.innerHTML=data.map(u=>{
-      const nameDisplay=isAdmin?'<a href="#" onclick="editUserName('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\');return false" style="color:var(--pri);text-decoration:none;cursor:pointer" title="Edit name"><strong>'+u.name+'</strong> <i class="fas fa-pen" style="font-size:10px;opacity:0.5"></i></a>':'<strong>'+u.name+'</strong>';
+    const groups=new Map();
+    data.forEach(u=>{if(!groups.has(u.role))groups.set(u.role,[]);groups.get(u.role).push(u)});
+    const keys=[...groups.keys()].sort((a,b)=>{const x=userRoleRank(a),y=userRoleRank(b);return x[0]-y[0]||x[1].localeCompare(y[1])});
+    if(!data.length){tb.innerHTML='<tr><td colspan="4"><div class="empty" style="padding:24px"><i class="fas fa-'+(q?'search':'users')+'"></i><p>'+(q?'No users match &ldquo;'+esc(q)+'&rdquo;':'No users yet')+'</p></div></td></tr>';return}
+    const rowHtml=u=>{
+      const nameDisplay=isAdmin?'<a href="#" onclick="editUserName('+u.id+',userNameOf('+u.id+'));return false" style="color:var(--pri);text-decoration:none;cursor:pointer" title="Edit name"><strong>'+esc(u.name)+'</strong> <i class="fas fa-pen" style="font-size:10px;opacity:0.5"></i></a>':'<strong>'+esc(u.name)+'</strong>';
       const rb=roleBadge(u.role);
       let actions='';
       if(u.email===user.email){
@@ -3980,9 +3999,15 @@ async function loadUsers(){
         }else{
           roleSelect='<span style="font-size:12px;color:var(--muted)">-</span>';
         }
-        actions=roleSelect+(canRemove?' <button class="btn btn-sm btn-d" onclick="removeUser('+u.id+',\''+u.name.replace(/'/g,"\\'")+'\')" title="Remove user"><i class="fas fa-user-minus"></i></button>':'');
+        actions=roleSelect+(canRemove?' <button class="btn btn-sm btn-d" onclick="removeUser('+u.id+',userNameOf('+u.id+'))" title="Remove user"><i class="fas fa-user-minus"></i></button>':'');
       }
-      return '<tr><td>'+nameDisplay+'</td><td>'+u.email+'</td><td>'+rb+'</td><td>'+actions+'</td></tr>';
+      return '<tr><td>'+nameDisplay+'</td><td>'+esc(u.email)+'</td><td>'+rb+'</td><td>'+actions+'</td></tr>';
+    };
+    tb.innerHTML=keys.map(k=>{
+      const us=groups.get(k).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+      const isNew=k==='new_user';
+      const head='<tr class="u-grp"><td colspan="4"><i class="fas fa-'+(isNew?'user-clock':'user-tag')+'" style="color:'+(isNew?'#D97706':'var(--pri)')+'"></i> '+esc(roleMeta(k).label)+(isNew&&!/no access/i.test(roleMeta(k).label)?' <span style="font-weight:500;color:#B45309">(no access)</span>':'')+' <small>('+us.length+')</small></td></tr>';
+      return head+us.map(rowHtml).join('');
     }).join('');
   }catch(e){console.error(e)}
 }
