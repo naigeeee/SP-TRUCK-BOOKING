@@ -2423,7 +2423,8 @@ def trip_utilisation(request: Request, final_from: Optional[str] = None, final_t
 # Truck Requests
 # ---------------------------------------------------------------------------
 
-REVISED_SRC_LABEL = {"manual": "quantity entered", "manifest": "manifest IDs", "unload": "unloading scan"}
+REVISED_SRC_LABEL = {"manual": "quantity entered", "manifest": "manifest IDs", "unload": "unloading scan",
+                     "unload_count": "unloading bag count (entered by the driver)"}
 
 def _revised_qty_and_source(r):
     """Revised Qty and where it comes from. The latest of these sets it:
@@ -2442,6 +2443,9 @@ def _revised_qty_and_source(r):
     mcnt = int((m or {}).get("id_count") or 0) if m else None
     if src == "manual":
         return q, "manual"
+    if src == "unload_count":
+        # No manifest and no scans: the bag count the driver typed when ending unloading.
+        return q, "unload_count"
     if src == "unload" and closed:
         return ucnt, "unload"
     if src == "manifest" and m:
@@ -2598,7 +2602,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             reqs = [r for r in reqs if r.get("manifest")]
         if search:
             s = search.lower()
-            reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "")).lower()]
+            reqs = [r for r in reqs if s in (r.get("request_number", "") + r.get("requestor_name", "") + r.get("requestor_email", "") + r.get("vendor_name", "") + r.get("plate_number", "") + (r.get("trip_id") or "") + " " + (r.get("fid") or "")).lower()]
         if sort_by == "trip_id":
             reqs.sort(key=lambda x: x.get("trip_id") or "", reverse=(sort_dir == "desc"))
         elif sort_by in ("quantity", "revised_qty"):
@@ -2639,18 +2643,18 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     if mawb: wh.append("(tr.international_mawb LIKE %s OR tr.domestic_mawb LIKE %s)"); pa.extend([f"%{mawb}%", f"%{mawb}%"])
     if plate: wh.append("tk.plate_number LIKE %s"); pa.append(f"%{plate}%")
     if trip: wh.append("tr.trip_id LIKE %s"); pa.append(f"%{trip}%")
-    if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s])
+    if search: wh.append("(tr.request_number LIKE %s OR tr.requestor_name LIKE %s OR v.name LIKE %s OR tk.plate_number LIKE %s OR tr.fid LIKE %s)"); s = f"%{search}%"; pa.extend([s, s, s, s, s])
     if manifest == "missing":
         wh.append("NOT EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)")
     elif manifest == "uploaded":
         wh.append("EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)")
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "unloading_remarks",               "foul_trip_reason", "international_mawb", "domestic_mawb", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at",               "revised_qty", "unload_scan_count", "driver_username", "driver_name", "driver_phone"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "unloading_remarks",               "foul_trip_reason", "international_mawb", "domestic_mawb", "fid", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at",               "revised_qty", "unload_scan_count", "driver_username", "driver_name", "driver_phone"):
         sort_by = "created_at"
     _MFSQL = "EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
     _MFCNT = "(SELECT COALESCE(MAX(mf.id_count),0) FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
     _UCNT = "(SELECT COUNT(*) FROM scan_unload_items si WHERE si.request_id=tr.id)"
-    _REVQTY = (f"(CASE WHEN tr.revised_qty_src='manual' THEN COALESCE(tr.quantity,0) "
+    _REVQTY = (f"(CASE WHEN tr.revised_qty_src IN ('manual','unload_count') THEN COALESCE(tr.quantity,0) "
                f"WHEN tr.revised_qty_src='unload' AND tr.unload_scan_closed_at IS NOT NULL THEN {_UCNT} "
                f"WHEN tr.revised_qty_src='manifest' AND {_MFSQL} THEN {_MFCNT} "
                f"WHEN tr.unload_scan_closed_at IS NOT NULL THEN {_UCNT} WHEN {_MFSQL} THEN {_MFCNT} "
@@ -2759,6 +2763,7 @@ BULK_HEADER_MAP = {
     "quantity": "quantity", "qty": "quantity",
     "internationalmawb": "international_mawb", "imawb": "international_mawb",
     "domesticmawb": "domestic_mawb", "dmawb": "domestic_mawb",
+    "fid": "fid",
     "initialcalldatetimetbc": "call_datetime", "initialcalldatetime": "call_datetime", "calltbc": "call_datetime",
     "customscleareddatetime": "customs_cleared_datetime", "customs": "customs_cleared_datetime", "customscleared": "customs_cleared_datetime",
     "weightkg": "weight_kg", "weight": "weight_kg",
@@ -2769,7 +2774,7 @@ BULK_REQUIRED = ("department", "origin_port", "account", "destination_port", "pa
 BULK_LABELS = {
     "department": "Department", "origin_port": "Origin Port", "account": "Account",
     "destination_port": "Destination Port", "packaging": "Packaging Type", "quantity": "Quantity",
-    "international_mawb": "International MAWB", "domestic_mawb": "Domestic MAWB",
+    "international_mawb": "International MAWB", "domestic_mawb": "Domestic MAWB", "fid": "FID",
     "call_datetime": "Initial Call datetime (TBC)", "customs_cleared_datetime": "Customs Cleared Date/Time",
     "weight_kg": "Weight (KG)", "volume_cbm": "Volume (CBM)", "special_instructions": "Special Instructions",
 }
@@ -2960,12 +2965,15 @@ def _bulk_validate_row(data, ctx):
         issues.append("International MAWB is too long (max 100 characters)")
     if len(dmawb) > 100:
         issues.append("Domestic MAWB is too long (max 100 characters)")
+    fid = txt("fid")
+    if len(fid) > FID_MAX:
+        issues.append(f"FID is too long (max {FID_MAX} characters)")
     if _bulk_is_example(data):
         issues.append("This is the template's example row - it is never created")
     resolved = {
         "account_id": acc, "department_id": dep, "origin_port_id": org, "destination_port_id": dst,
         "packaging_type_id": pkg, "quantity": qty, "international_mawb": imawb or None,
-        "domestic_mawb": dmawb or None, "call_datetime": call_dt, "customs_cleared_datetime": cust_dt,
+        "domestic_mawb": dmawb or None, "fid": fid or None, "call_datetime": call_dt, "customs_cleared_datetime": cust_dt,
         "weight_kg": wt, "volume_cbm": vol, "special_instructions": txt("special_instructions"),
     }
     return issues, resolved
@@ -3000,7 +3008,8 @@ def _bulk_parse_csv(content: bytes):
 
 def _bulk_lists():
     """Master Library names offered in the bulk template (the same tables the upload
-    is checked against), de-duplicated and in Master Library order."""
+    is checked against), de-duplicated and sorted A-Z so the drop-down is easy to scan
+    (Excel for Microsoft 365 also narrows the list as you type)."""
     def names(rows):
         out, seen = [], set()
         for x in rows:
@@ -3008,7 +3017,7 @@ def _bulk_lists():
             if n and n.lower() not in seen:
                 seen.add(n.lower())
                 out.append(n)
-        return out
+        return sorted(out, key=lambda v: v.lower())
     if LOCAL_MODE:
         return {"departments": names(_store["departments"]),
                 "accounts": names([a for a in _store["accounts"] if _as_active(a.get("is_active"))]),
@@ -3096,7 +3105,7 @@ def _bulk_template_xlsx(lists) -> bytes:
     for key in ("call_datetime", "customs_cleared_datetime"):
         for r in range(2, last + 1):
             ws[f"{col_of[key]}{r}"].number_format = "yyyy-mm-dd hh:mm"
-    for key in ("international_mawb", "domestic_mawb"):
+    for key in ("international_mawb", "domestic_mawb", "fid"):
         for r in range(2, last + 1):
             ws[f"{col_of[key]}{r}"].number_format = "@"
     # one example row, from the real Master Library
@@ -3105,7 +3114,7 @@ def _bulk_template_xlsx(lists) -> bytes:
     ex = {"department": depts[0] if depts else "", "origin_port": pts[0] if pts else "",
           "account": accts[0] if accts else "", "destination_port": pts[1] if len(pts) > 1 else (pts[0] if pts else ""),
           "packaging": pkgs[0] if pkgs else "", "quantity": 10, "international_mawb": "988-12345678",
-          "domestic_mawb": "DOM-00123", "call_datetime": now.replace(hour=9, minute=0) + timedelta(days=1),
+          "domestic_mawb": "DOM-00123", "fid": "FID-0001", "call_datetime": now.replace(hour=9, minute=0) + timedelta(days=1),
           "customs_cleared_datetime": now.replace(hour=10, minute=0) + timedelta(days=1),
           "weight_kg": 150.5, "volume_cbm": 1.25, "special_instructions": BULK_EXAMPLE_NOTE}
     from openpyxl.comments import Comment
@@ -3125,7 +3134,9 @@ def _bulk_template_xlsx(lists) -> bytes:
         "1. Row 2 (yellow) is only an EXAMPLE: delete that row first (right-click the row number 2 > Delete), then fill one request per row from row 2.",
         "   A row whose Special Instructions still says 'EXAMPLE ROW - delete this row before uploading' is skipped and never created.",
         "2. Red headers are required: Department, Origin Port, Account, Destination Port, Packaging Type, Quantity, Initial Call datetime (TBC).",
-        "3. Department, Origin Port, Account, Destination Port and Packaging Type have drop-down lists from the Master Library - click the cell and pick from the list.",
+        "3. Department, Origin Port, Account, Destination Port and Packaging Type have drop-down lists from the Master Library (A-Z) - click the cell and pick from the list,"
+        " or start typing: Excel for Microsoft 365 (and Excel on the web / Google Sheets) then shows only the names that match (e.g. CARGO -> CARGOHAUS CRK, CARGOHAUS MNL).",
+        "   FID is optional. A manifest file can be added per row on the New Request page after you upload this file.",
         "4. Dates and times: type e.g. 2026-10-15 09:00 (or 15/10/2026 9:00).",
         "5. Save the file as Excel (.xlsx) and upload it on the New Request page. Every row is checked before anything is created.",
         "",
@@ -3212,7 +3223,7 @@ def bulk_template(request: Request, format: str = "xlsx"):
     ex_pkg = pkgs[0] if pkgs else "Pallet"
     ex_org = pts[0] if pts else "Manila Port"
     ex_dst = pts[1] if len(pts) > 1 else ("Cebu Port" if ex_org != "Cebu Port" else "Davao Port")
-    ex = [ex_dept, ex_org, ex_acct, ex_dst, ex_pkg, "10", "988-12345678", "DOM-00123",
+    ex = [ex_dept, ex_org, ex_acct, ex_dst, ex_pkg, "10", "988-12345678", "DOM-00123", "FID-0001",
           "2026-10-15 09:00", "2026-10-15 10:00", "150.5", "1.25", "Handle with care"]
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -3273,7 +3284,8 @@ async def bulk_create(request: Request):
         try:
             inserted = _insert_request(user, resolved)
             created += 1
-            results.append({"row": row_no, "ok": True, "request_number": (inserted or {}).get("request_number", "")})
+            results.append({"row": row_no, "ok": True, "request_number": (inserted or {}).get("request_number", ""),
+                            "id": (inserted or {}).get("id")})
         except Exception as e:
             failed += 1
             results.append({"row": row_no, "ok": False, "issues": [str(e)[:200] or "Could not create this request"]})
@@ -3439,6 +3451,15 @@ def _request_view_extras(r):
             r[k] = to_gmt8(r[k])
     return r
 
+FID_MAX = 100
+
+def _clean_fid(v):
+    """FID (optional free text, max 100 characters)."""
+    t = str(v or "").strip()
+    if len(t) > FID_MAX:
+        raise HTTPException(400, f"FID is too long (max {FID_MAX} characters)")
+    return t or None
+
 def _insert_request(user, body):
     """Insert one validated truck request — shared by single create and CSV bulk."""
     rn = gen_req_no()
@@ -3456,6 +3477,7 @@ def _insert_request(user, body):
             "special_instructions": body.get("special_instructions", ""), "status_id": body.get("status_id", 1),
             "international_mawb": body.get("international_mawb") or "",
             "domestic_mawb": body.get("domestic_mawb") or "",
+            "fid": body.get("fid") or None,
             "assigned_truck_id": None, "estimated_cost": body.get("estimated_cost", 0), "actual_cost": 0,
             "vendor_id": None, "final_call_datetime": None, "trip_id": None, "drop_sequence": None,
             "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
@@ -3470,15 +3492,15 @@ def _insert_request(user, body):
     rid = db_i("""INSERT INTO truck_requests (request_number,requestor_email,requestor_name,account_id,department_id,
         origin_port_id,destination_port_id,pickup_datetime,delivery_datetime,call_datetime,customs_cleared_datetime,booking_date,
         truck_type_id,packaging_type_id,quantity,initial_quantity,weight_kg,volume_cbm,special_instructions,status_id,estimated_cost,
-        international_mawb,domestic_mawb)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        international_mawb,domestic_mawb,fid)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
         (rn, user["email"], user["name"], body["account_id"], body["department_id"],
          body["origin_port_id"], body["destination_port_id"], body.get("pickup_datetime"), body.get("delivery_datetime"),
          body.get("call_datetime"), body.get("customs_cleared_datetime"), booking_date,
          body.get("truck_type_id"), body.get("packaging_type_id"), body.get("quantity", 0), body.get("quantity", 0),
          body.get("weight_kg", 0),
          body.get("volume_cbm", 0), body.get("special_instructions", ""), body.get("status_id", 1), body.get("estimated_cost", 0),
-         body.get("international_mawb") or None, body.get("domestic_mawb") or None))
+         body.get("international_mawb") or None, body.get("domestic_mawb") or None, body.get("fid") or None))
     db_i("INSERT INTO pending_allocations (truck_request_id,suggestion_reason) VALUES (%s,'New request')", (rid,))
     return db_1("SELECT * FROM truck_requests WHERE id=%s", (rid,))
 
@@ -3498,6 +3520,7 @@ async def create_request(request: Request):
         except (TypeError, ValueError): acc_ok = None
         if acc_ok is None: raise HTTPException(400, "Account not found in Master Library")
         if acc_ok is False: raise HTTPException(400, "This account is inactive - pick an active account (Master Library > Accounts)")
+        body["fid"] = _clean_fid(body.get("fid"))
         return _insert_request(user, body)
 
     except HTTPException:
@@ -3627,7 +3650,7 @@ async def _update_request_core(rid: int, request: Request):
         body["cost_updated_at"] = nows()
     if is_vendor_role(user.get("role", "")):
         for k in ("account_id", "department_id", "origin_port_id", "destination_port_id",
-                  "international_mawb", "domestic_mawb", "call_datetime",
+                  "international_mawb", "domestic_mawb", "fid", "call_datetime",
                   "customs_cleared_datetime", "final_call_datetime"):
             body.pop(k, None)
         if body.get("status_id") is not None:
@@ -3655,6 +3678,8 @@ async def _update_request_core(rid: int, request: Request):
         if k in body and body[k] in (0, "0", ""):
             body[k] = None
     request.state.tt_sync = _plan_truck_type_change(rid, body)
+    if "fid" in body:
+        body["fid"] = _clean_fid(body.get("fid"))
     if "quantity" in body:
         # Edit shows the Revised Qty in the Qty box. Saving it unchanged keeps the
         # current source (manifest / unloading); a different number is a manual
@@ -3674,7 +3699,7 @@ async def _update_request_core(rid: int, request: Request):
     fields = ("account_id", "department_id", "origin_port_id", "destination_port_id", "pickup_datetime",
               "delivery_datetime", "call_datetime", "customs_cleared_datetime", "booking_date",
               "final_call_datetime", "truck_type_id", "packaging_type_id", "quantity", "weight_kg", "volume_cbm",
-              "special_instructions", "international_mawb", "domestic_mawb", "status_id",
+              "special_instructions", "international_mawb", "domestic_mawb", "fid", "status_id",
               "assigned_truck_id", "estimated_cost", "actual_cost",
               "trip_date", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime",
               "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "foul_trip_reason",
@@ -5548,7 +5573,8 @@ MILESTONE_LABEL = dict(MILESTONES)
 SCAN_WRITABLE = set(MILESTONE_FIELDS) | {"late_reason", "driver_account_id", "pickup_scan_key",
                                          "pickup_scan_closed_at", "unload_scan_key",
                                          "unload_scan_closed_at", "status_id", "unloading_remarks",
-                                         "revised_qty_src"}
+                                         "revised_qty_src", "pickup_manual_count", "unload_manual_count",
+                                         "quantity"}
 UNLOADING_REMARKS_MAX = 1000
 _SCAN_FROM = """FROM truck_requests tr
     LEFT JOIN accounts a ON tr.account_id=a.id
@@ -6199,6 +6225,44 @@ def _pickup_owner(bag, trip_rows):
     owner = next((r for r in trip_rows if r.get("id") == rid), None)
     return owner, True
 
+MANUAL_COUNT_MAX = 100000
+
+def _has_manifest(rid):
+    if LOCAL_MODE:
+        return any(m.get("truck_request_id") == rid for m in _store["manifests"])
+    return bool(db_1("SELECT id FROM request_manifests WHERE truck_request_id=%s", (rid,)))
+
+def _pickup_manual_ids(rows, scans=None):
+    """Requests on the trip whose pickup bag count the driver may type in: no manifest
+    uploaded and no bag scanned for them. A scanned bag that is tied to no request could
+    belong to any request without a manifest, so it blocks them all."""
+    if scans is None:
+        scans = _pickup_scans(_scan_base(rows))
+    loose = any(not s.get("request_id") for s in scans)
+    out = []
+    for r in rows:
+        if _has_manifest(r.get("id")):
+            continue
+        if loose or any(s.get("request_id") == r.get("id") for s in scans):
+            continue
+        out.append(r.get("id"))
+    return out
+
+def _unload_manual_ok(row, trip_rows):
+    """The unloading bag count can be typed in when the request has no manifest, no bag was
+    picked up for it by scan and no bag has been unload-scanned at it."""
+    return (not _has_manifest(row.get("id")) and not _unload_scans(row.get("id"))
+            and not _unload_reference(row, trip_rows))
+
+def _clean_count(v, label):
+    try:
+        n = int(str(v).strip())
+    except (TypeError, ValueError):
+        raise HTTPException(400, f"{label} must be a whole number")
+    if n < 0 or n > MANUAL_COUNT_MAX:
+        raise HTTPException(400, f"{label} must be between 0 and {MANUAL_COUNT_MAX}")
+    return n
+
 def _scan_summary(kind, rows, key, trip_rows=None):
     base = _scan_base(rows)
     closed_field = "pickup_scan_closed_at" if kind == "pickup" else "unload_scan_closed_at"
@@ -6223,13 +6287,19 @@ def _scan_summary(kind, rows, key, trip_rows=None):
     original = sum(1 for x in scanned if x["scan_kind"] != "override")
     override = sum(1 for x in scanned if x["scan_kind"] == "override")
     remaining = len(exp_set - scanned_keys)
+    extra = {}
     if kind == "pickup":
         started = any(r.get("arrived_pickup_datetime") for r in rows)
         mode = "manifest" if exp_set else "free"
+        manual_ids = set(_pickup_manual_ids(rows, scans))
+        extra["manual_count_ids"] = sorted(manual_ids)
     else:
         started = bool(rows[0].get("arrived_dest_datetime"))
         mode = "pickup"
-    return {"kind": kind, "trip_id": base, "key": key,
+        extra["manual_ok"] = _unload_manual_ok(rows[0], trip_rows)
+        extra["pickup_manual_count"] = rows[0].get("pickup_manual_count")
+        extra["unload_manual_count"] = rows[0].get("unload_manual_count")
+    return {**extra, "kind": kind, "trip_id": base, "key": key,
             "mode": mode,
             "expected_count": (len(exp_set) if (exp_set or kind == "unload") else None),
             "scanned_count": len(scans),
@@ -6243,6 +6313,7 @@ def _scan_summary(kind, rows, key, trip_rows=None):
                           "drop_sequence": _drop_no(r, trip_rows or rows),
                           "account_name": r.get("account_name") or "",
                           "destination_port_name": r.get("destination_port_name") or "",
+                          "pickup_manual_count": r.get("pickup_manual_count"),
                           "status_id": r.get("status_id")} for r in rows]}
 
 SCAN_CSV_HEADER = ["Bag ID", "Trip ID", "International MAWB", "Domestic MAWB", "Account",
@@ -6993,10 +7064,32 @@ async def scan_pickup_end(key: str, request: Request):
         raise HTTPException(403, "Ending the pickup scan needs the driver's override code (or the driver signed in on this phone)")
     if any(r.get("pickup_scan_closed_at") for r in rows):
         return _scan_summary("pickup", rows, key)
+    # Bag counts typed by the driver for requests with no manifest and no bag scanned.
+    counts = body.get("manual_counts") or {}
+    if not isinstance(counts, dict):
+        raise HTTPException(400, "manual_counts must be an object")
+    allowed = set(_pickup_manual_ids(rows))
+    by_id = {r.get("id"): r for r in rows}
+    clean = {}
+    for k, v in counts.items():
+        if v is None or str(v).strip() == "":
+            continue
+        try:
+            rid = int(k)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Unknown request in manual_counts")
+        if rid not in by_id:
+            raise HTTPException(400, "That request is not on this trip")
+        if rid not in allowed:
+            raise HTTPException(400, f"{by_id[rid].get('request_number') or rid} has a manifest or scanned bags - its bag count comes from the scans")
+        clean[rid] = _clean_count(v, f"Bag count for {by_id[rid].get('request_number') or rid}")
     now = nows()
     for r in rows:
-        _write_fields(r, {"pickup_scan_closed_at": now})
-    return _scan_summary("pickup", rows, key)
+        vals = {"pickup_scan_closed_at": now}
+        if r.get("id") in clean:
+            vals["pickup_manual_count"] = clean[r.get("id")]
+        _write_fields(r, vals)
+    return _scan_summary("pickup", _rows_by_pickup_key(key) or rows, key)
 
 @app.get("/api/scan/unload/{key}")
 def scan_unload_get(key: str, ov: Optional[str] = None):
@@ -7075,6 +7168,12 @@ async def scan_unload_post(key: str, request: Request):
 
 @app.post("/api/scan/unload/{key}/end")
 async def scan_unload_end(key: str, request: Request):
+    try:
+        body = await request.json() or {}
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
@@ -7082,8 +7181,17 @@ async def scan_unload_end(key: str, request: Request):
         return _scan_summary("unload", rows, key)
     if not rows[0].get("arrived_dest_datetime"):
         raise HTTPException(409, "The driver must tap Arrived at destination for this drop first")
+    mc = body.get("manual_count")
+    vals = {"unload_scan_closed_at": nows(), "revised_qty_src": "unload"}
+    if mc is not None and str(mc).strip() != "":
+        trip_rows = _rows_for_base(_scan_base(rows)) or rows
+        if not _unload_manual_ok(rows[0], trip_rows):
+            raise HTTPException(400, "This drop has a manifest or scanned bags - its bag count comes from the scans")
+        n = _clean_count(mc, "Unloading bag count")
+        # The typed unloading count becomes the Revised Qty.
+        vals.update({"unload_manual_count": n, "quantity": n, "revised_qty_src": "unload_count"})
     # Anyone on the unloading screen may end it: the scan link is the permission.
-    _write_fields(rows[0], {"unload_scan_closed_at": nows(), "revised_qty_src": "unload"})
+    _write_fields(rows[0], vals)
     return _scan_summary("unload", _rows_by_unload_key(key), key)
 
 OVERRIDE_MAX_FAILS = 8          # wrong codes allowed per scan session...
@@ -8162,6 +8270,15 @@ def sync_masterlist():
         r["pickup_scan_url"] = f"/api/trips/{quote(str(base), safe='')}/pickup-scan/download" if r.get("pickup_scan_closed") else ""
         r["unload_scan_status"] = "Unloading Scan Manifest" if r.get("unload_scan_closed") else "Not ended yet"
         r["unload_scan_url"] = f"/api/requests/{r['id']}/unload-scan/download" if r.get("unload_scan_closed") else ""
+        # Bag counts typed by the driver (no manifest, no scans): no file - the count instead.
+        pmc, umc = r.get("pickup_manual_count"), r.get("unload_manual_count")
+        if pmc is not None:
+            r["pickup_scan_status"], r["pickup_scan_url"] = f"Bag count entered: {pmc}", ""
+        if umc is not None:
+            diff = (pmc - umc) if pmc is not None else None
+            r["unload_scan_status"] = f"Bag count entered: {umc}" + (
+                f" (discrepancy: {abs(diff)} {'short' if diff > 0 else 'extra'})" if diff else "")
+            r["unload_scan_url"] = ""
         # Files already in the Google Drive backup link straight to Drive (only when Drive
         # holds the current version); anything not copied yet keeps the app's download link.
         if drive:

@@ -70,6 +70,7 @@ var FIELDS = {
     ["Destination Port", "destination_port_name"],
     ["International MAWB", "international_mawb"],
     ["Domestic MAWB", "domestic_mawb"],
+    ["FID", "fid"],
     ["Truck Type", "truck_type_name"],
     ["Truck Plate #", "plate_number"],
     ["Packaging", "packaging_type_name"],
