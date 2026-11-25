@@ -6556,7 +6556,28 @@ async def scan_login(request: Request):
     else:
         db_x("INSERT INTO driver_sessions (token,driver_account_id,expires_at) VALUES (%s,%s,%s)",
              (tok, d["id"], exp))
-    return {"token": tok, "driver": _driver_public(d)}
+    return {"token": tok, "driver": _driver_public(d), "role_upgraded": _upgrade_new_user_to_driver(request)}
+
+def _upgrade_new_user_to_driver(request: Request):
+    """A signed-in New User (no access) who signs in to the scanning app with a valid
+    driver / fleet account becomes Driver/Fleet straight away - no Master Admin needed.
+    Only New User is ever changed; a failed sign-in never reaches here."""
+    if not request.headers.get("X-Forwarded-Email"):
+        return False
+    try:
+        u = _get_user_row(request)
+        if not u or u.get("role") != "new_user":
+            return False
+        if LOCAL_MODE:
+            for x in _store["users"]:
+                if x["id"] == u["id"] and x.get("role") == "new_user":
+                    x["role"] = DRIVER_FLEET_ROLE; x["updated_at"] = nows()
+            return True
+        db_x("UPDATE users SET role=%s WHERE id=%s AND role='new_user'", (DRIVER_FLEET_ROLE, u["id"]))
+        return True
+    except Exception as e:
+        print(f"NEW USER -> DRIVER/FLEET UPGRADE FAILED: {e}")
+        return False
 
 @app.post("/api/scan/logout")
 async def scan_logout(request: Request):
