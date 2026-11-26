@@ -8672,15 +8672,21 @@ def _chat_deliver(atype, text, trip, reqno, url):
     _chat_log(atype, trip, reqno, status, detail)
     return status, detail
 
-def _chat_run(atype, build):
+def _chat_run(atype, build, meta=None):
     try:
         cfg = _chat_config()
-        if not cfg["enabled"].get(atype, True):
+        chat_on = cfg["enabled"].get(atype, True)
+        web_roles = _web_roles_for(atype)
+        if not chat_on and not web_roles:
             return
         built = build()
         if not built:
             return
         text, trip, reqno = built
+        if web_roles:
+            _web_store(atype, text, trip, reqno, web_roles, meta)
+        if not chat_on:
+            return
         if not cfg["url"]:
             _chat_log(atype, trip, reqno, "skipped", "No Google Chat webhook is set")
             return
@@ -8691,12 +8697,215 @@ def _chat_run(atype, build):
     except Exception as e:
         _chat_log(atype, "", "", "failed", f"Alert could not be prepared ({type(e).__name__}: {e})")
 
-def chat_alert(atype, build):
-    """Queue one alert. `build()` returns (text, trip_id, request_number) or None."""
+def chat_alert(atype, build, meta=None):
+    """Queue one alert (Google Chat and / or in-website). `build()` returns
+    (text, trip_id, request_number) or None; `meta` says which trip / request it is about."""
     try:
-        _threading.Thread(target=_chat_run, args=(atype, build), daemon=True).start()
+        _threading.Thread(target=_chat_run, args=(atype, build, meta), daemon=True).start()
     except Exception:
         pass
+
+# --- In-website alerts ---------------------------------------------------------
+# The same alerts can also pop up inside the website for users who have it open.
+# Who gets each alert is set per alert and per role on the Google Chat Alerts page
+# (a grid). Vendor users only get alerts about their own vendor's trips. Each alert is
+# saved once (web_alerts) with the roles it was meant for; open pages poll
+# /api/alerts/feed. What each user has read is kept as "read up to alert id".
+WEB_ALERT_ROLES = ("viewer", "normal_user", "admin", "master_admin", "vendor")
+WEB_ALERT_DEFAULT = ("admin", "master_admin")
+WEB_ALERT_KEEP_DAYS = 7         # alerts are kept for 7 days, then deleted
+WEB_ALERT_WINDOW_DAYS = 7       # the bell shows alerts from the last 7 days
+WEB_ALERT_LIST = 30             # latest alerts listed under the bell
+WEB_ALERT_TEXT_MAX = 20000
+
+def _web_config():
+    try:
+        raw = json.loads(_setting_get("web_alerts") or "{}")
+    except Exception:
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    roles = raw.get("roles") if isinstance(raw.get("roles"), dict) else {}
+    out = {}
+    for k, _, _ in CHAT_ALERT_TYPES:
+        v = roles.get(k, list(WEB_ALERT_DEFAULT))
+        out[k] = [r for r in WEB_ALERT_ROLES if isinstance(v, list) and r in v]
+    return {"enabled": bool(raw.get("enabled", True)), "roles": out}
+
+def _web_roles_for(atype):
+    try:
+        cfg = _web_config()
+    except Exception:
+        return []
+    return cfg["roles"].get(atype, []) if cfg["enabled"] else []
+
+def _web_role_key(role):
+    """The grid column a user's role falls under ("vendor" for every vendor role)."""
+    role = str(role or "")
+    if is_vendor_role(role) or role == "vendor":
+        return "vendor"
+    return role if role in WEB_ALERT_ROLES else None
+
+def _web_split(text):
+    lines = str(text or "").split("\n")
+    title = (lines[0] if lines else "").replace("*", "").strip()[:255]
+    body = "\n".join(lines[1:]).strip()[:WEB_ALERT_TEXT_MAX]
+    return title, body
+
+def _web_meta(meta):
+    """(request_id, vendor_id) the alert is about."""
+    meta = meta or {}
+    rid, vid = meta.get("rid"), meta.get("vendor_id")
+    try:
+        if rid:
+            rows = _alert_rows([rid])
+            if rows:
+                vid = rows[0].get("vendor_id") or vid
+        elif meta.get("base"):
+            rows = _ordered(_rows_for_base(meta["base"]))
+            if rows:
+                rid = rows[0].get("id")
+                vid = next((r.get("vendor_id") for r in rows if r.get("vendor_id")), None) or vid
+    except Exception:
+        pass
+    return rid, vid
+
+def _web_store(atype, text, trip, reqno, roles, meta=None, target_email=None):
+    try:
+        title, body = _web_split(text)
+        rid, vid = _web_meta(meta) if not target_email else (None, None)
+        rec = {"alert_type": atype, "trip_id": str(trip or "")[:64], "request_number": str(reqno or "")[:64],
+               "request_id": rid, "vendor_id": vid, "roles": ",".join(roles or []),
+               "target_email": target_email, "title": title, "body": body, "created_at": nows()}
+        if LOCAL_MODE:
+            lst = _store.setdefault("web_alerts", [])
+            rec["id"] = (lst[-1]["id"] + 1) if lst else 1
+            lst.append(rec)
+            del lst[:-1000]
+            return rec["id"]
+        new_id = db_i("""INSERT INTO web_alerts (alert_type, trip_id, request_number, request_id, vendor_id,
+            roles, target_email, title, body, created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (rec["alert_type"], rec["trip_id"], rec["request_number"], rid, vid, rec["roles"],
+             target_email, title, body, rec["created_at"]))
+        _web_cleanup()
+        return new_id
+    except Exception:
+        return None
+
+_web_clean_at = [0.0]
+
+def _web_cleanup(force=False):
+    """Delete alerts older than WEB_ALERT_KEEP_DAYS (at most once an hour per server)."""
+    if not force and time.time() - _web_clean_at[0] < 3600:
+        return
+    _web_clean_at[0] = time.time()
+    cutoff = (datetime.now(_GMT8) - timedelta(days=WEB_ALERT_KEEP_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        if LOCAL_MODE:
+            _store["web_alerts"] = [r for r in _store.get("web_alerts", []) if str(r.get("created_at")) >= cutoff]
+        else:
+            db_x("DELETE FROM web_alerts WHERE created_at < %s", (cutoff,))
+    except Exception:
+        pass
+
+def _web_visible(row, user, vid_cache):
+    email = (user or {}).get("email") or ""
+    if row.get("target_email"):
+        return row["target_email"] == email
+    key = _web_role_key(user.get("role"))
+    if not key or key not in str(row.get("roles") or "").split(","):
+        return False
+    if key == "vendor":
+        if "v" not in vid_cache:
+            vid_cache["v"] = vendor_id_for_role(user.get("role"))
+        return vid_cache["v"] is not None and row.get("vendor_id") == vid_cache["v"]
+    return True
+
+def _web_recent(after_id=0):
+    since = (datetime.now(_GMT8) - timedelta(days=WEB_ALERT_WINDOW_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    if LOCAL_MODE:
+        return [dict(r) for r in reversed(_store.get("web_alerts", []))
+                if str(r.get("created_at")) >= since and r["id"] > after_id][:500]
+    return db_q("""SELECT * FROM web_alerts WHERE created_at >= %s AND id > %s
+        ORDER BY id DESC LIMIT 500""", (since, int(after_id)))
+
+def _web_last_read(email):
+    if LOCAL_MODE:
+        return int((_store.get("web_alert_reads") or {}).get(email, 0))
+    row = db_1("SELECT last_read_id FROM web_alert_reads WHERE user_email=%s", (email,))
+    return int(row["last_read_id"]) if row else 0
+
+def _web_set_read(email, up_to):
+    if LOCAL_MODE:
+        reads = _store.setdefault("web_alert_reads", {})
+        reads[email] = max(int(reads.get(email, 0)), int(up_to))
+        return
+    db_x("""INSERT INTO web_alert_reads (user_email, last_read_id, updated_at) VALUES (%s,%s,%s)
+        ON DUPLICATE KEY UPDATE last_read_id=GREATEST(last_read_id, VALUES(last_read_id)),
+        updated_at=VALUES(updated_at)""", (email, int(up_to), nows()))
+
+def _web_user(request):
+    u = get_user(request)
+    if u.get("role") in ("new_user", DRIVER_FLEET_ROLE):
+        raise HTTPException(403, "Your role does not get in-website alerts")
+    return u
+
+@app.get("/api/alerts/feed", tags=["alerts"])
+def web_alert_feed(request: Request, after: int = 0):
+    """In-website alerts for the signed-in user (by role; vendor roles only their own
+    vendor's trips): the latest list, the unread count, and any alert newer than `after`."""
+    u = _web_user(request)
+    _web_cleanup()
+    cfg = _web_config()
+    key = _web_role_key(u.get("role"))
+    gets_any = cfg["enabled"] and bool(key) and any(key in v for v in cfg["roles"].values())
+    cache = {}
+    rows = [r for r in _web_recent() if _web_visible(r, u, cache)]
+    last_read = _web_last_read(u.get("email") or "")
+    out_rows = []
+    for r in rows[:WEB_ALERT_LIST]:
+        out_rows.append({"id": r["id"], "alert_type": r.get("alert_type"),
+                         "alert_label": CHAT_ALERT_LABEL.get(r.get("alert_type"), r.get("alert_type")),
+                         "emoji": CHAT_ALERT_EMOJI.get(r.get("alert_type"), ""),
+                         "title": r.get("title") or "", "body": r.get("body") or "",
+                         "trip_id": r.get("trip_id") or "", "request_number": r.get("request_number") or "",
+                         "request_id": r.get("request_id"), "created_at": to_gmt8(r.get("created_at")),
+                         "unread": r["id"] > last_read})
+    return {"enabled": bool(gets_any or rows), "items": out_rows,
+            "unread": sum(1 for r in rows if r["id"] > last_read),
+            "latest_id": rows[0]["id"] if rows else 0,
+            "new": [x for x in out_rows if x["id"] > int(after or 0)],
+            "last_read_id": last_read}
+
+@app.post("/api/alerts/read", tags=["alerts"])
+async def web_alert_read(request: Request):
+    """Mark the user's in-website alerts as read up to an alert id (all of them when omitted)."""
+    u = _web_user(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    up_to = (body or {}).get("up_to") if isinstance(body, dict) else None
+    if up_to is None:
+        rows = _web_recent()
+        up_to = rows[0]["id"] if rows else 0
+    try:
+        up_to = int(up_to)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "up_to must be an alert id")
+    _web_set_read(u.get("email") or "", max(0, up_to))
+    return {"ok": True, "last_read_id": _web_last_read(u.get("email") or "")}
+
+@app.post("/api/admin/web-alerts/test", tags=["admin"])
+def test_web_alert(request: Request):
+    """Send a test in-website alert to yourself (roles with the Google Chat Alerts page)."""
+    u = require_page(request, "chat-alerts")
+    text = (f"{CHAT_ALERT_EMOJI['test']} *Test alert — in-website*\n"
+            f"In-website alerts are working on this browser.\n*Sent by:* {u.get('name') or u.get('email')}")
+    new_id = _web_store("test", text, "", "", [], target_email=u.get("email") or "")
+    if not new_id:
+        raise HTTPException(500, "The test alert could not be saved")
+    return {"ok": True, "id": new_id}
 
 # --- What goes into the alerts ----------------------------------------------
 
@@ -8904,7 +9113,7 @@ def _alert_request_text(atype, rid, before=None, by_user=None):
     return "\n".join(lines), r.get("trip_id") or "", r.get("request_number") or ""
 
 def alert_trip(atype, base, extra_head=None):
-    chat_alert(atype, lambda: _alert_trip_text(atype, base, extra_head))
+    chat_alert(atype, lambda: _alert_trip_text(atype, base, extra_head), {"base": base})
 
 def _alert_before(row):
     """Driver / truck / vendor of a request as they are now (before a change)."""
@@ -8912,7 +9121,8 @@ def _alert_before(row):
     return {k: row.get(k) for k in ("driver_account_id", "assigned_truck_id", "vendor_id")}
 
 def alert_request(atype, rid, before=None, by_user=None):
-    chat_alert(atype, lambda: _alert_request_text(atype, rid, before, by_user))
+    chat_alert(atype, lambda: _alert_request_text(atype, rid, before, by_user),
+               {"rid": rid, "vendor_id": (before or {}).get("vendor_id")})
 
 def _chat_log_rows(limit=200):
     if LOCAL_MODE:
@@ -8927,11 +9137,19 @@ def _chat_log_rows(limit=200):
         r["created_at"] = to_gmt8(r.get("created_at"))
     return rows
 
+def _web_role_label(r):
+    labels = clean_role_labels((_load_role_visibility_cfg() or {}).get(ROLE_LABELS_KEY))
+    if r == "vendor":
+        return "Vendor users (own vendor only)"
+    return labels.get(r) or ROLE_LABELS_BASE.get(r, r)
+
 def _chat_public(cfg):
     return {"configured": bool(cfg["url"]), "source": cfg["source"],
             "webhook_masked": _chat_mask(cfg["url"]),
             "env_set": bool(os.environ.get(CHAT_WEBHOOK_ENV, "").strip()),
             "enabled": cfg["enabled"],
+            "web": _web_config(),
+            "web_roles": [{"key": r, "label": _web_role_label(r)} for r in WEB_ALERT_ROLES],
             "types": [{"key": k, "label": lbl, "when": w, "emoji": CHAT_ALERT_EMOJI.get(k, "")} for k, lbl, w in CHAT_ALERT_TYPES]}
 
 @app.get("/api/admin/chat-alerts", tags=["admin"])
@@ -8964,6 +9182,17 @@ async def set_chat_alerts(request: Request):
             if k in body["enabled"]:
                 cur[k] = bool(body["enabled"][k])
         _setting_set("chat_alerts_enabled", json.dumps(cur), email)
+    if isinstance(body.get("web"), dict):
+        w = body["web"]
+        cur = _web_config()
+        if "enabled" in w:
+            cur["enabled"] = bool(w["enabled"])
+        if isinstance(w.get("roles"), dict):
+            for k in cur["roles"]:
+                v = w["roles"].get(k)
+                if isinstance(v, list):
+                    cur["roles"][k] = [r for r in WEB_ALERT_ROLES if r in v]
+        _setting_set("web_alerts", json.dumps(cur), email)
     return _chat_public(_chat_config())
 
 @app.post("/api/admin/chat-alerts/test", tags=["admin"])
@@ -8999,6 +9228,7 @@ _STORAGE_TABLES = [
     ("driver_accounts", "Driver / fleet accounts", 400),
     ("vendor_rates", "Vendor rates", 600),
     ("chat_alert_log", "Google Chat alert log", 300),
+    ("web_alerts", "In-website alerts", 1200),
     ("page_lock_logs", "Page access log", 300),
     ("sheet_usage_log", "Google Sheet size reports", 600),
     ("drive_backup_files", "Google Drive backup records", 300),
@@ -9007,7 +9237,7 @@ _LOCAL_TABLE = {"truck_requests": "truck_requests", "truck_request_history": "tr
                 "scan_pickup_items": "scan_pickup", "scan_unload_items": "scan_unload",
                 "request_manifests": "manifests", "truck_request_attachments": "attachments",
                 "trucks": "trucks", "driver_accounts": "driver_accounts", "vendor_rates": "vendor_rates",
-                "chat_alert_log": "chat_alert_log", "page_lock_logs": "page_lock_logs",
+                "chat_alert_log": "chat_alert_log", "web_alerts": "web_alerts", "page_lock_logs": "page_lock_logs",
                 "sheet_usage_log": "sheet_usage_log", "drive_backup_files": "drive_backup_files"}
 
 def _ago(days):

@@ -4723,6 +4723,88 @@
         }
       }
     },
+    "/api/alerts/feed": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "Web Alert Feed",
+        "description": "In-website alerts for the signed-in user (by role; vendor roles only their own\nvendor's trips): the latest list, the unread count, and any alert newer than `after`.",
+        "operationId": "web_alert_feed_api_alerts_feed_get",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts/read": {
+      "post": {
+        "tags": [
+          "alerts"
+        ],
+        "summary": "Web Alert Read",
+        "description": "Mark the user's in-website alerts as read up to an alert id (all of them when omitted).",
+        "operationId": "web_alert_read_api_alerts_read_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/web-alerts/test": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Test Web Alert",
+        "description": "Send a test in-website alert to yourself (roles with the Google Chat Alerts page).",
+        "operationId": "test_web_alert_api_admin_web_alerts_test_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/chat-alerts": {
       "get": {
         "tags": [
