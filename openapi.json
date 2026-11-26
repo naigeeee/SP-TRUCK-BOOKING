@@ -3707,6 +3707,44 @@
         }
       }
     },
+    "/api/trips/{base}/final-call": {
+      "put": {
+        "summary": "Set Trip Final Call",
+        "description": "Set or change the Final Call of a trip still waiting for a driver (Vendor Truck\nAssignment). Internal users whose role has that page only - never vendors.",
+        "operationId": "set_trip_final_call_api_trips__base__final_call_put",
+        "parameters": [
+          {
+            "name": "base",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Base"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/trips/{base}/cancel-allocation": {
       "post": {
         "summary": "Cancel Trip Allocation",

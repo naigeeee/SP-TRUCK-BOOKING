@@ -4649,6 +4649,8 @@ def _trip_payload(key, rs, truck, available_trucks, drivers=None, assigned_drive
         "final_call_datetime": first.get("final_call_datetime"),
         # No Final Call yet (it is optional at allocation): show the earliest Initial Call (TBC).
         "call_datetime": min((x.get("call_datetime") for x in rs if x.get("call_datetime")), key=str, default=None),
+        # ...and the latest one, so the page can show the range across the drops.
+        "call_datetime_max": max((x.get("call_datetime") for x in rs if x.get("call_datetime")), key=str, default=None),
         "department_ids": sorted({x.get("department_id") for x in rs if x.get("department_id")}),
         "assigned_truck": truck,
         "assigned_driver": assigned_driver,
@@ -7675,6 +7677,54 @@ def _restore_drop_order(ordered_ids):
             cur = db_1("SELECT trip_id FROM truck_requests WHERE id=%s", (rid,)) or {}
             db_x("UPDATE truck_requests SET drop_sequence=%s, trip_id=%s WHERE id=%s",
                  (i + 1, _relettered(cur.get("trip_id"), i + 1), rid))
+
+FINAL_CALL_PAGE = "vendor-trucks"
+
+def _parse_final_call(v):
+    s = str(v or "").strip().replace("T", " ")
+    for fmt, n in (("%Y-%m-%d %H:%M:%S", 19), ("%Y-%m-%d %H:%M", 16)):
+        try:
+            d = datetime.strptime(s[:n], fmt)
+        except ValueError:
+            continue
+        if 2000 <= d.year <= 2100:
+            return d.strftime("%Y-%m-%d %H:%M:%S")
+        break
+    raise HTTPException(400, "Enter the Final Call date and time")
+
+@app.put("/api/trips/{base}/final-call")
+async def set_trip_final_call(base: str, request: Request):
+    """Set or change the Final Call of a trip still waiting for a driver (Vendor Truck
+    Assignment). Internal users whose role has that page only - never vendors."""
+    u = get_user(request)
+    role = u.get("role", "")
+    if is_vendor_role(role) or role in ("vendor", DRIVER_FLEET_ROLE, "new_user", "viewer") or not has_page(u, FINAL_CALL_PAGE):
+        raise HTTPException(403, "Only internal users with Vendor Truck Assignment can set the Final Call")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    fc = _parse_final_call((body or {}).get("final_call_datetime") if isinstance(body, dict) else None)
+    rows = [r for r in _rows_for_base(base) if r.get("status_id") == 2]
+    if not rows:
+        raise HTTPException(404, "Trip not found (or it is no longer Allocated)")
+    if any(r.get("driver_account_id") or r.get("assigned_truck_id") for r in rows):
+        raise HTTPException(400, "A driver is already assigned to this trip - the Final Call can only be set before that")
+    who = u.get("email", "")
+    stamp = nows()
+    rids = [int(r["id"]) for r in rows]
+    before = next((to_gmt8(r.get("final_call_datetime")) for r in rows if r.get("final_call_datetime")), None)
+    if LOCAL_MODE:
+        for x in _store["truck_requests"]:
+            if x["id"] in rids:
+                x["final_call_datetime"] = fc
+                x["updated_by"] = who
+                x["updated_at"] = stamp
+    else:
+        db_x("UPDATE truck_requests SET final_call_datetime=%s, updated_by=%s, updated_at=%s WHERE id IN %s AND status_id=2"
+             " AND driver_account_id IS NULL AND assigned_truck_id IS NULL",
+             (fc, who, stamp, rids))
+    return {"ok": True, "trip_id": base, "final_call_datetime": fc, "previous": before, "updated": len(rids)}
 
 @app.post("/api/trips/{base}/cancel-allocation")
 def cancel_trip_allocation(base: str, request: Request):

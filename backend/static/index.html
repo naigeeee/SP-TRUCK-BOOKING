@@ -561,6 +561,7 @@ body.scan-mode .layout{display:none}
 <div class="fg2 vt-adm"><label>Truck Vendor</label><select class="f-input" id="vtVendor" onchange="renderVT()"></select></div>
 <div class="fg2"><label>Truck Type</label><select class="f-input" id="vtTT" onchange="renderVT()"></select></div>
 <div class="fg2"><label>Origin</label><select class="f-input" id="vtOrg" onchange="renderVT()"></select></div>
+<div class="fg2"><label>Call datetime</label><select class="f-input" id="vtCallBy" onchange="renderVT()"><option value="any">-- All trips --</option><option value="final">Has Final Call</option><option value="initial">Initial Call (TBC) only &ndash; no Final Call yet</option></select></div>
 <button class="btn btn-o btn-sm" onclick="vtClearFilters()"><i class="fas fa-times"></i> Clear filters</button>
 <span id="vtCount" style="font-size:12.5px;color:var(--muted)"></span>
 </div></div></div>
@@ -622,7 +623,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-vt">
 <div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 7. Vendor Truck Assignment</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Shows every trip that still needs a driver, with all its drops and MAWBs, and its Final Call &mdash; or its <strong>Initial Call datetime (TBC)</strong> when no Final Call is set yet.</li><li>Filter by <strong>Department</strong>, <strong>Truck Vendor</strong>, <strong>Truck Type</strong> and <strong>Origin</strong> (vendors see Truck Type and Origin).</li><li><strong>Vendors</strong> pick a Driver / Fleet account for each trip and click <strong>Assign Driver</strong> (see the User Guide for Vendors). Admins see the list in view-only mode, with one action: <strong>Cancel Trip</strong> (Admin / Master Admin, only before a driver is assigned). After you confirm in the pop-up, every request on that trip goes from <strong>Allocated</strong> back to <strong>Pending</strong> (its trip ID, vendor, truck type, drop order, Final Call and estimated cost are removed) and appears again on <strong>Pending Allocation to Vendors</strong> to be allocated again.</li><li>The trip then shows the driver and truck plate on the Masterlist. It stays <strong>Allocated</strong> until the driver taps <strong>Depart</strong> in the scanning app.</li></ol>
+<ol class="guide-steps"><li>Shows every trip that still needs a driver, with all its drops and MAWBs, and its Final Call &mdash; or its <strong>Initial Call datetime (TBC)</strong> when no Final Call is set yet, shown as a range from the earliest to the latest drop. The <strong>Initial Call (TBC)</strong> column shows each request&rsquo;s own.</li><li>Filter by <strong>Department</strong>, <strong>Truck Vendor</strong>, <strong>Truck Type</strong> and <strong>Origin</strong> (vendors see Truck Type and Origin), and by <strong>Call datetime</strong>: <em>Has Final Call</em> (trips with a Final Call set) or <em>Initial Call (TBC) only</em> (trips with no Final Call yet).</li><li><strong>Set Final Call</strong> / <strong>Edit Final Call</strong> (internal users with this page &mdash; not vendors): click it on a trip, pick the date and time and click <strong>Save Final Call</strong>. It applies to every request on the trip, and can be set or changed until a driver is assigned.</li><li><strong>Vendors</strong> pick a Driver / Fleet account for each trip and click <strong>Assign Driver</strong> (see the User Guide for Vendors). Internal users otherwise see the list in view-only mode; the other action is <strong>Cancel Trip</strong> (Admin / Master Admin, only before a driver is assigned). After you confirm in the pop-up, every request on that trip goes from <strong>Allocated</strong> back to <strong>Pending</strong> (its trip ID, vendor, truck type, drop order, Final Call and estimated cost are removed) and appears again on <strong>Pending Allocation to Vendors</strong> to be allocated again.</li><li>The trip then shows the driver and truck plate on the Masterlist. It stays <strong>Allocated</strong> until the driver taps <strong>Depart</strong> in the scanning app.</li></ol>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/07-vendor-trucks.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/07-vendor-trucks.jpg" alt="The filters (outlined) and a trip waiting for a driver, with its drops in order." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The filters (outlined) and a trip waiting for a driver, with its drops in order.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-da">
@@ -753,7 +754,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gv-assign">
 <div class="card-h"><h3><i class="fas fa-truck-pickup"></i> 3. Assign a driver to a trip</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Open <strong>Vendor Truck Assignment</strong>. Each card is a trip waiting for a driver, with its final call time (or its Initial Call (TBC) if no final call is set yet), truck type and every drop. Use the <strong>Truck Type</strong> and <strong>Origin</strong> filters to find a trip quickly.</li><li>In <strong>Select driver / fleet account</strong>, pick a driver. Only your <strong>active</strong> accounts whose truck matches the trip's <strong>truck type</strong> are listed (username, name, phone, plate).</li><li>Click <strong>Assign Driver</strong>. The trip leaves this list and appears in the driver's Scanning App. The SP PH operations team gets a Google Chat alert with the trip, driver and truck details.</li><li>No driver in the list? Add one (or set the right truck) on <strong>Driver / Fleet Accounts</strong>.</li></ol>
+<ol class="guide-steps"><li>Open <strong>Vendor Truck Assignment</strong>. Each card is a trip waiting for a driver, with its final call time (or its Initial Call (TBC) range if no final call is set yet; each drop&rsquo;s own is in the <strong>Initial Call (TBC)</strong> column), truck type and every drop. Use the <strong>Truck Type</strong>, <strong>Origin</strong> and <strong>Call datetime</strong> (has Final Call / Initial Call only) filters to find a trip quickly. The Final Call is set by the operations team &mdash; you cannot change it.</li><li>In <strong>Select driver / fleet account</strong>, pick a driver. Only your <strong>active</strong> accounts whose truck matches the trip's <strong>truck type</strong> are listed (username, name, phone, plate).</li><li>Click <strong>Assign Driver</strong>. The trip leaves this list and appears in the driver's Scanning App. The SP PH operations team gets a Google Chat alert with the trip, driver and truck details.</li><li>No driver in the list? Add one (or set the right truck) on <strong>Driver / Fleet Accounts</strong>.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> Wrong driver? While the trip is still <strong>Allocated</strong> (before the driver taps Depart), use <i class="fas fa-user-slash"></i> <strong>Remove driver</strong> on the Masterlist &mdash; the trip comes back here.</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/v04-assign.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/v04-assign.jpg" alt="Pick the driver for the trip, then Assign Driver." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Pick the driver for the trip, then Assign Driver.</figcaption></figure></div>
 </div></div>
@@ -2859,7 +2860,7 @@ async function loadVT(){
       if(isVendor){notice.style.display='none'}
       else{
         notice.style.display='block';
-        notice.innerHTML='<div class="card" style="border:1px solid var(--bdr);background:var(--bg)"><div class="card-b" style="padding:12px 16px;font-size:13px;color:var(--mut)"><i class="fas fa-eye" style="color:var(--info)"></i> View only &mdash; trucks are assigned by the vendor.'+(isAdmin?' Admins can <strong>Cancel Trip</strong> to send its requests back to <strong>Pending</strong> for re-allocation.':'')+'</div></div>';
+        notice.innerHTML='<div class="card" style="border:1px solid var(--bdr);background:var(--bg)"><div class="card-b" style="padding:12px 16px;font-size:13px;color:var(--mut)"><i class="fas fa-eye" style="color:var(--info)"></i> View only &mdash; trucks are assigned by the vendor.'+(vtCanSetFC()?' You can <strong>Set / Edit Final Call</strong> on a trip until a driver is assigned.':'')+(isAdmin?' Admins can <strong>Cancel Trip</strong> to send its requests back to <strong>Pending</strong> for re-allocation.':'')+'</div></div>';
       }
     }
     renderVT();
@@ -2878,15 +2879,28 @@ function vtFillSelect(id,pairs,ph){
   el.value=uniq.has(cur)?cur:'';
   return el.value;
 }
-function vtClearFilters(){['vtDept','vtVendor','vtTT','vtOrg'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});renderVT()}
+function vtClearFilters(){['vtDept','vtVendor','vtTT','vtOrg'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});const c=document.getElementById('vtCallBy');if(c)c.value='any';renderVT()}
+/* Call datetime filter: trips that have a Final Call, or only an Initial Call (TBC). */
+function vtCallMatch(g,by){
+  if(by==='final')return !!g.final_call_datetime;
+  if(by==='initial')return !g.final_call_datetime;
+  return true;
+}
+function vtCallRange(g){
+  const a=g.call_datetime,b=g.call_datetime_max||g.call_datetime;
+  if(!a)return '';
+  return fmtD(a)+(b&&String(b)!==String(a)?' &ndash; '+fmtD(b):'');
+}
+const vtCanSetFC=()=>!isVendor&&user&&!['driver_fleet','new_user','vendor','viewer'].includes(user.role)&&userPages.includes('vendor-trucks');
 function renderVT(){
     document.querySelectorAll('#pg-vendor-trucks .vt-adm').forEach(e=>e.style.display=isVendor?'none':'');
     const fDept=isVendor?'':vtFillSelect('vtDept',vtData.flatMap(g=>(g.requests||[]).map(r=>[r.department_id,r.department_name])),'-- All Depts --');
     const fVen=isVendor?'':vtFillSelect('vtVendor',vtData.map(g=>[g.vendor_id,g.vendor_name||'Unassigned vendor']),'-- All Vendors --');
     const fTT=vtFillSelect('vtTT',vtData.map(g=>[g.truck_type_id,g.truck_type_name]),'-- All Truck Types --');
     const fOrg=vtFillSelect('vtOrg',vtData.map(g=>[g.origin_port_id,g.origin_port_name]),'-- All Origins --');
+    const cBy=(document.getElementById('vtCallBy')||{}).value||'any';
     const keep=g=>(!fDept||(g.department_ids||[]).map(String).includes(fDept))&&(!fVen||String(g.vendor_id)===fVen)
-      &&(!fTT||String(g.truck_type_id)===fTT)&&(!fOrg||String(g.origin_port_id)===fOrg);
+      &&(!fTT||String(g.truck_type_id)===fTT)&&(!fOrg||String(g.origin_port_id)===fOrg)&&vtCallMatch(g,cBy);
     const shown=vtData.map((g,i)=>({g:g,i:i})).filter(p=>keep(p.g));
     const cnt=document.getElementById('vtCount');
     if(cnt)cnt.textContent=vtData.length?(shown.length===vtData.length?vtData.length+' trip(s)':shown.length+' of '+vtData.length+' trip(s)'):'';
@@ -2917,13 +2931,14 @@ function renderVT(){
       html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">';
       html+='<div><strong style="color:var(--pri);font-size:15px">'+(g.trip_id||'-')+'</strong> '+stBadge(g.status_id===3?'In Transit':'Allocated',g.status_id===3?'#8B5CF6':'#3B82F6')+' <span style="color:var(--mut);font-size:12px">| '+(g.requests?g.requests.length:0)+' request(s)</span></div>';
       const canCancel=!isVendor&&isAdmin&&!g.assigned_driver&&!g.assigned_truck&&g.status_id!==3;
-      html+='<div style="font-size:13px;color:var(--mut);display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(canCancel?'<button class="btn btn-sm btn-d vt-cancel" onclick="cancelTripAsk('+i+')" title="Send every request on this trip back to Pending"><i class="fas fa-ban"></i> Cancel Trip</button>':'')+'<span>'+(g.final_call_datetime?'<i class="fas fa-phone"></i> Final call: <strong>'+fmtD(g.final_call_datetime)+'</strong>':(g.call_datetime?'<i class="fas fa-clock"></i> Initial Call Datetime (TBC): <strong>'+fmtD(g.call_datetime)+'</strong> <span class="badge" style="background:#FEF3C7;color:#92400E">no Final Call yet</span>':''))+'</span></div></div>';
+      html+='<div style="font-size:13px;color:var(--mut);display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+(canCancel?'<button class="btn btn-sm btn-d vt-cancel" onclick="cancelTripAsk('+i+')" title="Send every request on this trip back to Pending"><i class="fas fa-ban"></i> Cancel Trip</button>':'')+'<span>'+(g.final_call_datetime?'<i class="fas fa-phone"></i> Final call: <strong class="vt-fc">'+fmtD(g.final_call_datetime)+'</strong>':(g.call_datetime?'<i class="fas fa-clock"></i> Initial Call Datetime (TBC): <strong class="vt-ic">'+vtCallRange(g)+'</strong> <span class="badge" style="background:#FEF3C7;color:#92400E">no Final Call yet</span>':''))+'</span>'+
+        (vtCanSetFC()&&!g.assigned_driver&&!g.assigned_truck&&g.status_id!==3?'<button class="btn btn-sm btn-o vt-fc-btn" onclick="vtFinalCallAsk('+i+')"><i class="fas fa-'+(g.final_call_datetime?'pen':'calendar-plus')+'"></i> '+(g.final_call_datetime?'Edit Final Call':'Set Final Call')+'</button>':'')+'</div></div>';
       const ad=g.assigned_driver;
       const who=ad?(ad.driver_name||ad.username)+(ad.plate_number?' ('+ad.plate_number+')':''):(tc?(tc.plate_number+(tc.driver_name?' ('+tc.driver_name+')':'')):'<span style="color:#D97706;font-weight:600">Not assigned</span>');
       html+='<div class="fr" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;font-size:13px"><div><label class="fl">Truck Type</label><p style="font-size:13px">'+(g.truck_type_name||'-')+'</p></div><div><label class="fl">Origin</label><p style="font-size:13px">'+(g.origin_port_name||'-')+'</p></div><div><label class="fl">Total Drops</label><p style="font-size:13px">'+((g.requests||[]).length||0)+'</p></div><div><label class="fl">'+(ad?'Assigned Driver':'Assigned Truck')+'</label><p style="font-size:13px">'+(ad?esc(who):who)+'</p></div></div>';
-      html+='<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase"><th style="padding:4px 6px">Drop</th><th>Request #</th><th>Requestor</th><th>Account</th><th>Origin</th><th>Destination</th><th>International MAWB</th><th>Domestic MAWB</th><th>Qty</th><th>Weight / Volume</th></tr></thead><tbody>';
+      html+='<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase"><th style="padding:4px 6px">Drop</th><th>Request #</th><th>Requestor</th><th>Account</th><th>Origin</th><th>Destination</th><th>Initial Call (TBC)</th><th>International MAWB</th><th>Domestic MAWB</th><th>Qty</th><th>Weight / Volume</th></tr></thead><tbody>';
       (g.requests||[]).forEach((r,ri)=>{
-        html+='<tr style="border-top:1px solid var(--bdr)"><td style="padding:5px 6px"><b>'+(r.drop_sequence||(ri+1))+'</b></td><td>'+(r.request_number||'')+'</td><td>'+esc(r.requestor_name||'')+'</td><td>'+esc(r.account_name||'-')+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.destination_port_name||'-')+'</td><td>'+esc(r.international_mawb||'-')+'</td><td>'+esc(r.domestic_mawb||'-')+'</td><td>'+(r.quantity||0)+' '+esc(r.packaging_type_name||'')+'</td><td>'+(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM</td></tr>';
+        html+='<tr style="border-top:1px solid var(--bdr)"><td style="padding:5px 6px"><b>'+(r.drop_sequence||(ri+1))+'</b></td><td>'+(r.request_number||'')+'</td><td>'+esc(r.requestor_name||'')+'</td><td>'+esc(r.account_name||'-')+'</td><td>'+esc(r.origin_port_name||'-')+'</td><td>'+esc(r.destination_port_name||'-')+'</td><td style="white-space:nowrap">'+(r.call_datetime?fmtD(r.call_datetime):'-')+'</td><td>'+esc(r.international_mawb||'-')+'</td><td>'+esc(r.domestic_mawb||'-')+'</td><td>'+(r.quantity||0)+' '+esc(r.packaging_type_name||'')+'</td><td>'+(r.weight_kg||0)+' KG / '+(r.volume_cbm||0)+' CBM</td></tr>';
       });
       html+='</tbody></table></div>';
       if(isVendor){
@@ -2941,6 +2956,32 @@ function renderVT(){
       });
     });
     body.innerHTML=html;
+}
+function vtFinalCallAsk(i){
+  const g=vtData[i];if(!g)return;
+  const cur=g.final_call_datetime||'';
+  const pre=String(cur||g.call_datetime||'').replace(' ','T').slice(0,16);
+  document.getElementById('mTitle').textContent=(cur?'Edit':'Set')+' Final Call - '+(g.trip_id||'');
+  document.getElementById('mBody').innerHTML='<p style="font-size:13px;color:var(--muted);margin-bottom:10px">'+
+    (cur?'Current Final Call: <strong>'+fmtD(cur)+'</strong>.':'This trip has no Final Call yet'+(g.call_datetime?' &mdash; Initial Call (TBC): <strong>'+vtCallRange(g)+'</strong>':'')+'.')+
+    ' The Final Call applies to all '+((g.requests||[]).length)+' request(s) on the trip.</p>'+
+    '<div class="fg"><label class="fl">Final Call datetime *</label><input type="datetime-local" class="fi" id="vtFcIn" value="'+esc(pre)+'"></div>'+
+    '<div style="font-size:12px;color:var(--muted)"><i class="fas fa-info-circle"></i> The vendor and driver see the new Final Call straight away. A driver who arrives at pickup after it must give a late reason.</div>';
+  document.getElementById('mFoot').innerHTML='<button class="btn btn-o" onclick="closeM()">Cancel</button><button class="btn btn-p" id="vtFcGo" onclick="vtFinalCallGo('+i+')"><i class="fas fa-save"></i> Save Final Call</button>';
+  document.getElementById('overlay').classList.add('on');
+}
+async function vtFinalCallGo(i){
+  const g=vtData[i];if(!g)return;
+  const v=(document.getElementById('vtFcIn').value||'').trim();
+  if(!v){toast('Enter the Final Call date and time','error');return}
+  const b=document.getElementById('vtFcGo');if(b)b.disabled=true;
+  try{
+    const res=await fetch('/api/trips/'+encodeURIComponent(g.trip_id)+'/final-call',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({final_call_datetime:v})});
+    if(!res.ok)throw new Error(await apiErr(res));
+    const out=await res.json();
+    closeM();toast('Final Call for '+(g.trip_id||'')+' '+(out.previous?'changed':'set')+' to '+fmtD(out.final_call_datetime));
+    loadVT();
+  }catch(e){toast(e.message||'Could not save','error');if(b)b.disabled=false}
 }
 function cancelTripAsk(i){
   const g=vtData[i];if(!g)return;
