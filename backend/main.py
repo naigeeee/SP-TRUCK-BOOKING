@@ -5587,7 +5587,7 @@ MILESTONE_LABEL = dict(MILESTONES)
 SCAN_WRITABLE = set(MILESTONE_FIELDS) | {"late_reason", "driver_account_id", "pickup_scan_key",
                                          "pickup_scan_closed_at", "unload_scan_key",
                                          "unload_scan_closed_at", "status_id", "unloading_remarks", "pickup_remarks",
-                                         "revised_qty_src", "pickup_manual_count", "unload_manual_count",
+                                         "revised_qty_src", "pickup_manual_count", "unload_manual_count", "unload_count_ref",
                                          "quantity", "milestone_geo"}
 UNLOADING_REMARKS_MAX = 1000
 _SCAN_FROM = """FROM truck_requests tr
@@ -6421,6 +6421,14 @@ def _unload_manual_ok(row, trip_rows):
     return (not _has_manifest(row.get("id")) and not _unload_scans(row.get("id"))
             and not _unload_reference(row, trip_rows))
 
+def _unload_count_required(row, trip_rows):
+    """Bags were pickup-scanned for this request but none has been unload-scanned: before
+    the unloading scan can be ended the driver must type how many bags were unloaded."""
+    return bool(_unload_reference(row, trip_rows)) and not _unload_scans(row.get("id"))
+
+def _unload_count_allowed(row, trip_rows):
+    return _unload_manual_ok(row, trip_rows) or _unload_count_required(row, trip_rows)
+
 def _clean_count(v, label):
     try:
         n = int(str(v).strip())
@@ -6469,7 +6477,9 @@ def _scan_summary(kind, rows, key, trip_rows=None):
     else:
         started = all(x.get("arrived_dest_datetime") for x in rows)
         mode = "pickup"
-        extra["manual_ok"] = len(rows) == 1 and _unload_manual_ok(rows[0], trip_rows)
+        extra["manual_ok"] = len(rows) == 1 and _unload_count_allowed(rows[0], trip_rows)
+        extra["manual_required"] = len(rows) == 1 and _unload_count_required(rows[0], trip_rows)
+        extra["pickup_scanned_count"] = len(_unload_reference(rows[0], trip_rows))
         extra["pickup_manual_count"] = rows[0].get("pickup_manual_count")
         extra["unload_manual_count"] = rows[0].get("unload_manual_count")
         extra["stop_size"] = len(rows)
@@ -6477,8 +6487,10 @@ def _scan_summary(kind, rows, key, trip_rows=None):
                                      "drop_sequence": _drop_no(x, trip_rows),
                                      "account_name": x.get("account_name") or "",
                                      "pickup_manual_count": x.get("pickup_manual_count"),
-                                     "unload_manual_count": x.get("unload_manual_count")}
-                                    for x in rows if _unload_manual_ok(x, trip_rows)]
+                                     "unload_manual_count": x.get("unload_manual_count"),
+                                     "required": _unload_count_required(x, trip_rows),
+                                     "pickup_scanned_count": len(_unload_reference(x, trip_rows))}
+                                    for x in rows if _unload_count_allowed(x, trip_rows)]
     usage = _att_usage([r.get("id") for r in rows])
     return {**extra, "kind": kind, "trip_id": base, "key": key,
             "mode": mode,
@@ -7513,9 +7525,17 @@ async def scan_unload_end(key: str, request: Request):
             raise HTTPException(400, "Unknown request in manual_counts")
         if rid not in by_id:
             raise HTTPException(400, "That request is not part of this drop")
-        if not _unload_manual_ok(by_id[rid], trip_rows):
-            raise HTTPException(400, "This drop has a manifest or scanned bags - its bag count comes from the scans")
+        if not _unload_count_allowed(by_id[rid], trip_rows):
+            raise HTTPException(400, "This drop has scanned bags - its bag count comes from the scans")
         clean[rid] = _clean_count(v, f"Unloading bag count for {by_id[rid].get('request_number') or rid}")
+    # Bags were scanned at pickup but none at unloading: the count must be typed first.
+    missing = [x for x in stop if _unload_count_required(x, trip_rows) and x.get("id") not in clean]
+    if missing:
+        raise HTTPException(400, {"code": "count_required",
+                                  "detail": "No bag was unload-scanned for " + ", ".join(str(x.get("request_number") or x.get("id")) for x in missing)
+                                            + " - type the unloading bag count before ending the unloading scan",
+                                  "request_ids": [x.get("id") for x in missing]})
+    refs = {x.get("id"): len(_unload_reference(x, trip_rows)) for x in stop if x.get("id") in clean and _unload_count_required(x, trip_rows)}
     now = nows()
     actor = _scan_actor(request)
     for x in stop:
@@ -7526,6 +7546,9 @@ async def scan_unload_end(key: str, request: Request):
             n = clean[x.get("id")]
             vals.update({"unload_manual_count": n, "quantity": n, "revised_qty_src": "unload_count",
                          "start_unloading_datetime": now})
+            if x.get("id") in refs:
+                # Compared with the bags scanned at pickup for this request.
+                vals["unload_count_ref"] = refs[x.get("id")]
         # Anyone on the unloading screen may end it: the scan link is the permission.
         _write_fields(x, vals, actor if x.get("id") in clean else None)
     stop2, trip2 = _unload_stop(_rows_by_unload_key(key) or rows)
@@ -8666,7 +8689,8 @@ def sync_masterlist():
         if pmc is not None:
             r["pickup_scan_status"], r["pickup_scan_url"] = f"Bag count entered: {pmc}", ""
         if umc is not None:
-            diff = (pmc - umc) if pmc is not None else None
+            ref = pmc if pmc is not None else r.get("unload_count_ref")
+            diff = (ref - umc) if ref is not None else None
             r["unload_scan_status"] = f"Bag count entered: {umc}" + (
                 f" (discrepancy: {abs(diff)} {'short' if diff > 0 else 'extra'})" if diff else "")
             r["unload_scan_url"] = ""
