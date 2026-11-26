@@ -2613,8 +2613,9 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
         add_distances_to_requests(reqs, coords)
         total = len(reqs)
         start = (page - 1) * per_page
-        page_items = reqs[start:start + per_page]
+        page_items = [dict(x) for x in reqs[start:start + per_page]]
         _mark_trip_drivers(page_items)
+        _geo_out(page_items)
         return {"items": page_items, "total": total, "page": page, "per_page": per_page}
 
     wh, pa = ["1=1"], []
@@ -2729,6 +2730,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     coords = get_port_coords_map()
     add_distances_to_requests(items, coords)
     _mark_trip_drivers(items)
+    _geo_out(items)
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 def _mark_trip_drivers(items):
@@ -3397,6 +3399,7 @@ def _scan_qty_summary(r):
 def _request_view_extras(r):
     """Fields the request view popup shows beside the stored columns: truck plate,
     vendor, driver, delivered date and the foul-trip approver's name."""
+    _geo_out([r])
     r["plate_number"] = _truck_plate(r.get("assigned_truck_id")) if r.get("assigned_truck_id") else ""
     vid = r.get("vendor_id")
     if not vid and r.get("assigned_truck_id"):
@@ -5574,7 +5577,7 @@ SCAN_WRITABLE = set(MILESTONE_FIELDS) | {"late_reason", "driver_account_id", "pi
                                          "pickup_scan_closed_at", "unload_scan_key",
                                          "unload_scan_closed_at", "status_id", "unloading_remarks",
                                          "revised_qty_src", "pickup_manual_count", "unload_manual_count",
-                                         "quantity"}
+                                         "quantity", "milestone_geo"}
 UNLOADING_REMARKS_MAX = 1000
 _SCAN_FROM = """FROM truck_requests tr
     LEFT JOIN accounts a ON tr.account_id=a.id
@@ -6004,8 +6007,161 @@ def _scan_row_names(r):
     r["destination_port_name"] = next((p["name"] for p in _store["ports"] if p["id"] == r.get("destination_port_id")), "")
     return r
 
+# --- Where the driver was for each milestone ------------------------------------
+# The scanning app sends the phone's location ({lat, lng, acc, addr} or {status} when
+# location is off / refused) with each step. Whatever milestone a step records is
+# stamped with it in truck_requests.milestone_geo, a JSON object
+#   {"arrived_pickup_datetime": {"lat":..,"lng":..,"acc":..,"addr":"..","at":".."}, ...}
+# The address comes from the phone (OpenStreetMap); when it is missing the server looks it
+# up in the background (OpenStreetMap Nominatim, cached, at most one lookup a second).
+_GEO = contextvars.ContextVar("scan_geo", default=None)
+GEO_STATUSES = ("denied", "off", "unavailable", "timeout", "unsupported")
+GEO_ADDR_MAX = 300
+NOMINATIM_URL = os.environ.get("NOMINATIM_URL", "https://nominatim.openstreetmap.org/reverse")
+GEO_USER_AGENT = os.environ.get("GEOCODE_USER_AGENT", "XB-Special-Projects-Truck-Booking/1.0")
+
+def _clean_geo(g):
+    """A location sent by the phone, checked; None when nothing usable was sent."""
+    if not isinstance(g, dict):
+        return None
+    try:
+        lat, lng = float(g.get("lat")), float(g.get("lng"))
+    except (TypeError, ValueError):
+        st = str(g.get("status") or "").strip().lower()
+        return {"status": st} if st in GEO_STATUSES else None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180) or (lat == 0 and lng == 0):
+        return None
+    out = {"lat": round(lat, 6), "lng": round(lng, 6)}
+    try:
+        acc = float(g.get("acc"))
+        if 0 <= acc <= 100000:
+            out["acc"] = round(acc)
+    except (TypeError, ValueError):
+        pass
+    addr = re.sub(r"[\x00-\x1f<>]", " ", str(g.get("addr") or "")).strip()
+    if addr:
+        out["addr"] = re.sub(r"\s+", " ", addr)[:GEO_ADDR_MAX]
+    return out
+
+async def _geo_begin(request):
+    """Read the phone's location from the request body for this step (None if absent)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    g = _clean_geo(body.get("geo")) if isinstance(body, dict) else None
+    _GEO.set(g)
+    return g
+
+def _geo_load(v):
+    if isinstance(v, dict):
+        return dict(v)
+    try:
+        d = json.loads(v) if v else {}
+    except Exception:
+        d = {}
+    return d if isinstance(d, dict) else {}
+
+def _geo_current(rid):
+    if LOCAL_MODE:
+        x = next((r for r in _store["truck_requests"] if r["id"] == rid), None)
+        return _geo_load((x or {}).get("milestone_geo"))
+    try:
+        row = db_1("SELECT milestone_geo FROM truck_requests WHERE id=%s", (rid,))
+    except Exception:
+        return {}
+    return _geo_load((row or {}).get("milestone_geo"))
+
+_GEO_CACHE = {}
+_GEO_LOCK = None
+
+def _geo_lookup_addr(lat, lng):
+    """Address for a point from OpenStreetMap Nominatim (cached; one call a second)."""
+    import threading as _th
+    import urllib.request as _ur
+    global _GEO_LOCK
+    k = (round(lat, 4), round(lng, 4))
+    if k in _GEO_CACHE:
+        return _GEO_CACHE[k]
+    if _GEO_LOCK is None:
+        _GEO_LOCK = _th.Lock()
+    with _GEO_LOCK:
+        if k in _GEO_CACHE:
+            return _GEO_CACHE[k]
+        url = f"{NOMINATIM_URL}?format=jsonv2&zoom=18&addressdetails=0&accept-language=en&lat={lat}&lon={lng}"
+        addr = ""
+        try:
+            req = _ur.Request(url, headers={"User-Agent": GEO_USER_AGENT, "Accept": "application/json"})
+            with _ur.urlopen(req, timeout=8) as r:
+                addr = str((json.loads(r.read().decode("utf-8")) or {}).get("display_name") or "")[:GEO_ADDR_MAX]
+        except Exception:
+            addr = ""
+        time.sleep(1.1)
+        if addr:
+            if len(_GEO_CACHE) > 5000:
+                _GEO_CACHE.clear()
+            _GEO_CACHE[k] = addr
+        return addr
+
+def _geo_fill_addr(rid, lat, lng):
+    """Background: add the address to this request's milestones recorded at (lat, lng)."""
+    try:
+        addr = _geo_lookup_addr(lat, lng)
+        if not addr:
+            return
+        cur = _geo_current(rid)
+        hit = False
+        for v in cur.values():
+            if isinstance(v, dict) and not v.get("addr") and v.get("lat") == lat and v.get("lng") == lng:
+                v["addr"] = addr
+                hit = True
+        if not hit:
+            return
+        js = json.dumps(cur, ensure_ascii=False)
+        if LOCAL_MODE:
+            for x in _store["truck_requests"]:
+                if x["id"] == rid:
+                    x["milestone_geo"] = js
+        else:
+            db_x("UPDATE truck_requests SET milestone_geo=%s WHERE id=%s", (js, rid))
+    except Exception:
+        pass
+
+def _geo_stamp(row, values):
+    """Add the step's location to `values` for every milestone this write records."""
+    g = _GEO.get()
+    if g is None or "milestone_geo" in values:
+        return None
+    new = [k for k in MILESTONE_FIELDS if values.get(k) and values.get(k) != row.get(k)]
+    if not new:
+        return None
+    cur = _geo_current(row["id"])
+    for k in new:
+        cur[k] = dict(g, at=str(values[k]))
+    values["milestone_geo"] = json.dumps(cur, ensure_ascii=False)
+    return g if ("lat" in g and not g.get("addr")) else None
+
+def _geo_out(items):
+    """milestone_geo as an object on request rows sent to the browser."""
+    for i in items or []:
+        if isinstance(i, dict):
+            i["milestone_geo"] = _geo_load(i.get("milestone_geo"))
+    return items
+
 def _write_fields(row, values, email=None):
     """Persist given truck_requests columns for one row, local + database."""
+    values = dict(values)
+    need_addr = _geo_stamp(row, values)
+    _write_fields_raw(row, values, email)
+    if need_addr and (not LOCAL_MODE or os.environ.get("GEOCODE_IN_LOCAL")):
+        # After the write, so the background lookup finds the new location.
+        try:
+            import threading as _th
+            _th.Thread(target=_geo_fill_addr, args=(row["id"], need_addr["lat"], need_addr["lng"]), daemon=True).start()
+        except Exception:
+            pass
+
+def _write_fields_raw(row, values, email=None):
     for k in values:
         if k not in SCAN_WRITABLE:
             raise HTTPException(500, "Unsupported field")
@@ -6813,6 +6969,7 @@ def scan_trips(request: Request):
 async def scan_pickup_arrival(base: str, request: Request):
     driver = get_driver(request)
     body = await request.json() or {}
+    await _geo_begin(request)
     rows = _driver_trip_rows(driver, base)
     if all(r.get("status_id") != 2 for r in rows):
         raise HTTPException(400, "This trip has already left")
@@ -6841,6 +6998,7 @@ async def scan_pickup_arrival(base: str, request: Request):
 @app.post("/api/scan/trips/{base}/end-loading")
 async def scan_end_loading(base: str, request: Request):
     driver = get_driver(request)
+    await _geo_begin(request)
     rows = [r for r in _driver_trip_rows(driver, base) if r.get("status_id") == 2]
     if not rows:
         raise HTTPException(400, "This trip has already left")
@@ -6870,6 +7028,7 @@ async def scan_depart(base: str, request: Request):
 @app.post("/api/scan/requests/{rid}/drop-arrival")
 async def scan_drop_arrival(rid: int, request: Request):
     driver = get_driver(request)
+    await _geo_begin(request)
     rows = _driver_trip_rows(driver, _trip_key_of(_scan_request_or_404(rid, driver)))
     target = next((r for r in rows if r.get("id") == rid), None)
     if not target:
@@ -6909,6 +7068,7 @@ async def scan_start_unload(rid: int, request: Request):
 @app.post("/api/scan/requests/{rid}/finish")
 async def scan_finish(rid: int, request: Request):
     driver = get_driver(request)
+    await _geo_begin(request)
     base_row = _scan_request_or_404(rid, driver)
     rows = _driver_trip_rows(driver, _trip_key_of(base_row))
     target = next((r for r in rows if r.get("id") == rid), None)
@@ -7058,6 +7218,7 @@ def scan_pickup_get(key: str, ov: Optional[str] = None):
 @app.post("/api/scan/pickup/{key}")
 async def scan_pickup_post(key: str, request: Request):
     body = await request.json() or {}
+    await _geo_begin(request)
     rows = _rows_by_pickup_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
@@ -7113,6 +7274,7 @@ async def scan_pickup_post(key: str, request: Request):
 @app.post("/api/scan/pickup/{key}/end")
 async def scan_pickup_end(key: str, request: Request):
     body = await request.json() or {}
+    await _geo_begin(request)
     rows = _rows_by_pickup_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
@@ -7179,6 +7341,7 @@ def scan_unload_get(key: str, ov: Optional[str] = None):
 @app.post("/api/scan/unload/{key}")
 async def scan_unload_post(key: str, request: Request):
     body = await request.json() or {}
+    await _geo_begin(request)
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
@@ -7250,6 +7413,7 @@ async def scan_unload_end(key: str, request: Request):
         body = await request.json() or {}
     except Exception:
         body = {}
+    await _geo_begin(request)
     if not isinstance(body, dict):
         body = {}
     rows = _rows_by_unload_key(key)

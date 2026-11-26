@@ -169,6 +169,7 @@ tr:hover td{background:#F8FAFC}
 .ca-grid{width:100%;border-collapse:collapse;font-size:13px}.ca-grid th,.ca-grid td{padding:8px 10px;border-bottom:1px solid var(--bdr,#E2E8F0);text-align:center}.ca-grid th:first-child,.ca-grid td:first-child{text-align:left}.ca-grid input{width:17px;height:17px;cursor:pointer}
 @media(max-width:768px){.m-bell.on{display:flex!important}.wa-panel{left:12px;right:12px;top:60px;bottom:auto;width:auto}}
 body.scan-mode .m-bell,body.scan-mode .wa-panel{display:none!important}
+.geo-ln{display:block;font-size:11.5px;line-height:1.35;margin-top:3px;min-width:170px;max-width:260px;white-space:normal}.geo-ln a{color:var(--pri);text-decoration:none}.geo-ln a:hover{text-decoration:underline}.geo-ln .geo-ll{display:block;color:var(--muted);font-size:11px}.geo-off{color:#B45309}.fv .geo-ln{max-width:none}
 .toast-c{position:fixed;top:20px;right:20px;z-index:10001;display:flex;flex-direction:column;gap:8px}.sugs-body{display:none}.expanded .sugs-body{display:block}
 .toast{padding:12px 20px;border-radius:8px;color:#fff;font-size:13px;font-weight:500;box-shadow:var(--sh2);animation:slIn .3s ease;display:flex;align-items:center;gap:8px}
 .t-ok{background:var(--ok)}.t-err{background:var(--err)}.t-info{background:var(--info)}
@@ -601,7 +602,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="g-ml">
 <div class="card-h"><h3><i class="fas fa-list-alt"></i> 4. Masterlist</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Find requests with the search box and filters. Click a column header to sort; drag a header to move a column (<strong>Reset Columns</strong> puts them back).</li><li>Actions on each row: <i class="fas fa-eye"></i> <strong>View</strong> (every detail on one screen, with the download links), <i class="fas fa-edit"></i> <strong>Edit</strong> (status, Revised Qty, milestones, attachments, manifest) and <i class="fas fa-trash"></i> <strong>Delete</strong> (Pending requests only). The Viewer role sees <strong>View</strong> only.</li><li><strong>Manifest:</strong> a red <strong>Missing Manifest</strong> means no file yet &mdash; click it, then upload the manifest in the Manifest section: an Excel (.xlsx / .xlsm) or CSV (.csv) file, up to 10&nbsp;MB. The bag / carton IDs are read from it and download as an Excel file (<strong>Download Excel</strong>).</li><li>Once the driver ends a scan, <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links appear in the Manifest column and in View. <strong>Unloading Remarks</strong> shows what the driver typed at the drop.</li><li><strong>Bag counts typed by the driver:</strong> when a request has no manifest and no bag was scanned, the driver types the bag count when ending the pickup scan and the unloading scan. No scan file is made for it, so the Manifest column and View show <strong>Pickup count</strong> and <strong>Unloading count</strong> instead of the download links, with a red <strong>Discrepancy</strong> flag when the two differ. The unloading count becomes the <strong>Revised Qty</strong> (View: <em>From unloading bag count</em>).</li><li>In <strong>View</strong>, under each scan manifest, the scan counts show how many bags were <span style="color:#166534;font-weight:600">successful</span> and had <span style="color:#991B1B;font-weight:600">no scan</span>, for that request (its own manifest IDs at pickup; the bags picked up for its drop at unloading). <span style="color:#92400E;font-weight:600">Override (not on manifest)</span> appears only when bags that were not on the manifest were accepted with the override code (at pickup) or unloaded at this drop.</li><li><strong>Truck Type</strong> (Edit): the requests on one trip always share the truck type &mdash; changing it on one request changes it on every other open request of the same trip, and the trip&rsquo;s estimated cost is worked out again. Once a driver / fleet account is assigned to the trip, the truck type is <strong>locked</strong>; remove the driver on <strong>Vendor Truck Assignment</strong> first, then change it.</li><li><strong>Revised Qty</strong> is set by whatever happened last: the Qty typed (New Request / Edit), a <strong>manifest upload</strong> (its number of IDs), the end of the <strong>unloading scan</strong> (bags unloaded) or the <strong>unloading bag count</strong> the driver typed (no manifest, no scans). Typing a different Qty in Edit after a manifest or unloading scan overrides it. Masterlist, View, Edit and Trip Utilisation all show the same latest number; View also says where the last change came from (e.g. <em>From manifest IDs</em>).</li><li><strong>Pickup / Unloading Scan Manifest</strong> downloads are Excel files: bag IDs show in full and Trip IDs stay as text (e.g. 11E-00087). Override bags show the Trip ID of the drop where they were unloaded (e.g. 11E-00087-A), or the trip ID if not unloaded yet.</li><li>An allocated trip with a driver shows <i class="fas fa-user-slash"></i> <strong>Remove driver</strong>: the trip goes back to Vendor Truck Assignment.</li><li><strong>Export CSV</strong> downloads every request that matches your filters, with the same columns as the table.</li><li><strong>Master Admin only:</strong> <strong>Clear All</strong> deletes every request in the system &mdash; it cannot be undone.</li></ol>
+<ol class="guide-steps"><li><strong>Driver locations:</strong> under each scanning-app time (Arrived Pickup, Start Loading, End Loading, Arrived Destination, Start Unloading, End Unloading) the Masterlist and View show where the driver was &mdash; the address (click it to open Google Maps) and the lat/long. <em>Location not captured</em> means the driver&rsquo;s phone had location off or refused. Times typed by hand in Edit have no location. Export CSV includes them.</li><li>Find requests with the search box and filters. Click a column header to sort; drag a header to move a column (<strong>Reset Columns</strong> puts them back).</li><li>Actions on each row: <i class="fas fa-eye"></i> <strong>View</strong> (every detail on one screen, with the download links), <i class="fas fa-edit"></i> <strong>Edit</strong> (status, Revised Qty, milestones, attachments, manifest) and <i class="fas fa-trash"></i> <strong>Delete</strong> (Pending requests only). The Viewer role sees <strong>View</strong> only.</li><li><strong>Manifest:</strong> a red <strong>Missing Manifest</strong> means no file yet &mdash; click it, then upload the manifest in the Manifest section: an Excel (.xlsx / .xlsm) or CSV (.csv) file, up to 10&nbsp;MB. The bag / carton IDs are read from it and download as an Excel file (<strong>Download Excel</strong>).</li><li>Once the driver ends a scan, <strong>Pickup Scan Manifest</strong> and <strong>Unloading Scan Manifest</strong> download links appear in the Manifest column and in View. <strong>Unloading Remarks</strong> shows what the driver typed at the drop.</li><li><strong>Bag counts typed by the driver:</strong> when a request has no manifest and no bag was scanned, the driver types the bag count when ending the pickup scan and the unloading scan. No scan file is made for it, so the Manifest column and View show <strong>Pickup count</strong> and <strong>Unloading count</strong> instead of the download links, with a red <strong>Discrepancy</strong> flag when the two differ. The unloading count becomes the <strong>Revised Qty</strong> (View: <em>From unloading bag count</em>).</li><li>In <strong>View</strong>, under each scan manifest, the scan counts show how many bags were <span style="color:#166534;font-weight:600">successful</span> and had <span style="color:#991B1B;font-weight:600">no scan</span>, for that request (its own manifest IDs at pickup; the bags picked up for its drop at unloading). <span style="color:#92400E;font-weight:600">Override (not on manifest)</span> appears only when bags that were not on the manifest were accepted with the override code (at pickup) or unloaded at this drop.</li><li><strong>Truck Type</strong> (Edit): the requests on one trip always share the truck type &mdash; changing it on one request changes it on every other open request of the same trip, and the trip&rsquo;s estimated cost is worked out again. Once a driver / fleet account is assigned to the trip, the truck type is <strong>locked</strong>; remove the driver on <strong>Vendor Truck Assignment</strong> first, then change it.</li><li><strong>Revised Qty</strong> is set by whatever happened last: the Qty typed (New Request / Edit), a <strong>manifest upload</strong> (its number of IDs), the end of the <strong>unloading scan</strong> (bags unloaded) or the <strong>unloading bag count</strong> the driver typed (no manifest, no scans). Typing a different Qty in Edit after a manifest or unloading scan overrides it. Masterlist, View, Edit and Trip Utilisation all show the same latest number; View also says where the last change came from (e.g. <em>From manifest IDs</em>).</li><li><strong>Pickup / Unloading Scan Manifest</strong> downloads are Excel files: bag IDs show in full and Trip IDs stay as text (e.g. 11E-00087). Override bags show the Trip ID of the drop where they were unloaded (e.g. 11E-00087-A), or the trip ID if not unloaded yet.</li><li>An allocated trip with a driver shows <i class="fas fa-user-slash"></i> <strong>Remove driver</strong>: the trip goes back to Vendor Truck Assignment.</li><li><strong>Export CSV</strong> downloads every request that matches your filters, with the same columns as the table.</li><li><strong>Master Admin only:</strong> <strong>Clear All</strong> deletes every request in the system &mdash; it cannot be undone.</li></ol>
 <div class="guide-tip"><i class="fas fa-lightbulb"></i> Status flow: <strong>Pending</strong> &rarr; <strong>Allocated</strong> &rarr; <strong>In Transit</strong> &rarr; <strong>Delivered</strong>. On Hold, Cancelled and Foul Trip are set from Edit (Foul Trip needs a date, a reason and a count of 1 or 2).</div>
 <div class="g-shots"><figure class="g-shot"><a href="/guide/04-masterlist.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04-masterlist.jpg" alt="The Actions column (outlined): View, Edit and Delete." loading="lazy"></a><figcaption><i class="fas fa-image"></i> The <strong>Actions</strong> column (outlined): View, Edit and Delete.</figcaption></figure><figure class="g-shot"><a href="/guide/04b-view.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/04b-view.jpg" alt="View shows every detail of a request, with the scan manifest downloads and their scan counts (outlined)." loading="lazy"></a><figcaption><i class="fas fa-image"></i> <strong>View</strong> shows every detail of a request, with the scan manifest downloads and their scan counts (outlined).</figcaption></figure></div>
 </div></div>
@@ -791,7 +792,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-signin">
 <div class="card-h"><h3><i class="fas fa-right-to-bracket"></i> 1. Sign in</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Open the app link on your phone (it ends in <strong>#/scan</strong>) &mdash; or tap <strong>Scanning App</strong> in the menu.</li><li>Type the <strong>username</strong> and <strong>password</strong> your company gave you and tap <strong>Sign in</strong>. You stay signed in on this phone for 30 days. The first time you sign in, your app account is switched to <strong>Driver/Fleet</strong> for you, so you do not need to ask anyone for access.</li><li><strong>My trips</strong> lists the trips given to you. Tap <strong>Open trip</strong>.</li></ol>
+<ol class="guide-steps"><li>Open the app link on your phone (it ends in <strong>#/scan</strong>) &mdash; or tap <strong>Scanning App</strong> in the menu.</li><li>Type the <strong>username</strong> and <strong>password</strong> your company gave you and tap <strong>Sign in</strong>. You stay signed in on this phone for 30 days. The first time you sign in, your app account is switched to <strong>Driver/Fleet</strong> for you, so you do not need to ask anyone for access.</li><li><strong>My trips</strong> lists the trips given to you. Tap <strong>Open trip</strong>.</li><li><strong>Allow location</strong> when the phone asks. Each step (Arrived at pickup, pickup scan, End loading, Arrived at destination, unloading scan, Finish) saves where you are (lat/long and address) with its time, and your photos get a location stamp. If location is off or refused, the step still works but shows <em>Location not captured</em> &mdash; turn on Location / GPS and allow it for this site.</li></ol>
 <div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d01-signin.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d01-signin.jpg" alt="Sign in, then open your trip from My trips." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Sign in, then open your trip from <strong>My trips</strong>.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-steps">
@@ -816,7 +817,7 @@ body.scan-mode .layout{display:none}
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-drop">
 <div class="card-h"><h3><i class="fas fa-location-dot"></i> 5. At each drop</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
-<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted (a bag accepted with the override code at pickup can be unloaded at any drop).</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards. <strong>No manifest and no bags scanned</strong> for this request? The summary shows the bag count typed at pickup as <em>Total pickup bag / carton IDs</em>; type the <strong>Unloading bag count</strong> and any difference shows as <strong>(Discrepancy)</strong>. The unloading count becomes the request&rsquo;s Revised Qty, and its <strong>Start Unloading</strong> time is recorded when you confirm the count; <strong>End Unloading</strong> is still recorded when you tap Finish Drop.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery), and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>Check your photos</strong> &mdash; tap a photo to see it full screen (use the arrows for the others). To remove a photo you added on this phone, tap its <i class="fas fa-trash-can"></i> (or <strong>Remove this photo</strong>) and confirm; files added by the office cannot be removed from the phone. A drop holds up to 8 files in total (including any the office attached); photos can be removed until you tap Finish Drop.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it, the operations team is told the drop is delivered, and the next drop unlocks.</li></ol>
+<ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted (a bag accepted with the override code at pickup can be unloaded at any drop).</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards. <strong>No manifest and no bags scanned</strong> for this request? The summary shows the bag count typed at pickup as <em>Total pickup bag / carton IDs</em>; type the <strong>Unloading bag count</strong> and any difference shows as <strong>(Discrepancy)</strong>. The unloading count becomes the request&rsquo;s Revised Qty, and its <strong>Start Unloading</strong> time is recorded when you confirm the count; <strong>End Unloading</strong> is still recorded when you tap Finish Drop.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery). Every photo gets a <strong>location stamp</strong> in the bottom corner: place and address, lat/long, date and time (GMT +08:00), trip, request #, truck plate and driver. A photo from the gallery uses the location and time saved in the photo when it has them; otherwise the phone&rsquo;s location and the upload time, and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>Check your photos</strong> &mdash; tap a photo to see it full screen (use the arrows for the others). To remove a photo you added on this phone, tap its <i class="fas fa-trash-can"></i> (or <strong>Remove this photo</strong>) and confirm; files added by the office cannot be removed from the phone. A drop holds up to 8 files in total (including any the office attached); photos can be removed until you tap Finish Drop.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it, the operations team is told the drop is delivered, and the next drop unlocks.</li></ol>
 <div class="guide-tip"><i class="fas fa-layer-group"></i> <strong>Same destination? Steps a&ndash;d are done once.</strong> When drops that follow each other go to the <strong>same destination port</strong> (for example, every request on the trip goes to the same port), the app shows them as one card &mdash; <em>Drops 1&ndash;3</em>. Tap <strong>Arrived at destination</strong> once, do <strong>one unloading scan</strong> for all of them (each bag is saved on the request it was loaded for), add photos and remarks once (they are saved on every request of the card), and tap <strong>Finish Drops</strong> once. Each request still keeps its own scans, discrepancy and Revised Qty. If any of these requests has no manifest and no scans, the End Unloading Scan popup asks for the unloading bag count of each such request.</div>
 <div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d06-unload.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d06-unload.jpg" alt="Unloading scan, then the summary before ending it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Unloading scan, then the summary before ending it.</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d07-photos.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d07-photos.jpg" alt="Add photos and remarks, then Finish Drop." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add photos and remarks, then <strong>Finish Drop</strong>.</figcaption></figure><figure class="g-shot g-pair"><a href="/guide/d08-review.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d08-review.jpg" alt="Review a photo full screen, and confirm before removing it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Review a photo full screen, and confirm before removing it.</figcaption></figure></div>
 </div></div>
@@ -1800,7 +1801,7 @@ function mlRowHtml(r,mlItems){
         }else if(r.drop_sequence&&(multiDrop||r.status_id===7||r.status_id===4||r.status_id===5)){
           dropCell='<strong>'+r.drop_sequence+'</strong>';
         }
-        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&(r.driver_account_id||r.trip_has_driver)&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+esc(r.fid||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+'</td><td>'+fmtD(r.end_loading_datetime)+'</td><td>'+fmtD(r.arrived_dest_datetime)+'</td><td>'+fmtD(r.start_unloading_datetime)+'</td><td>'+fmtD(r.end_unloading_datetime)+'</td><td>'+(r.unloading_remarks?('<span title="'+esc(r.unloading_remarks)+'">'+esc(String(r.unloading_remarks).substring(0,60))+(String(r.unloading_remarks).length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
+        return'<tr><td><strong style="color:var(--pri)">'+(r.request_number||'')+'</strong></td><td>'+(isViewer?'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button>':'<button class="btn btn-sm btn-o" onclick="viewReq('+r.id+')" title="View"><i class="fas fa-eye"></i></button> <button class="btn btn-sm btn-o" onclick="editReq('+r.id+')" title="Edit"><i class="fas fa-edit"></i></button>'+(r.status_id===1?' <button class="btn btn-sm btn-d" onclick="delReq('+r.id+')" title="Delete"><i class="fas fa-trash"></i></button>':''))+((!isViewer&&(r.driver_account_id||r.trip_has_driver)&&r.status_id===2)?' <button class="btn btn-sm btn-d" onclick="unassignDriver('+r.id+')" title="Remove this driver and free the trip for reassignment"><i class="fas fa-user-slash"></i></button>':'')+'</td><td>'+(r.requestor_name||'')+'<br><small style="color:var(--muted)">'+(r.requestor_email||'')+'</small></td><td>'+mfCell+'</td><td>'+stBadge(r.status_name,r.status_color)+'</td><td>'+(r.account_name||'')+'</td><td>'+(r.department_name||'')+'</td><td>'+(r.origin_port_name||'')+'</td><td>'+(r.destination_port_name||'')+'</td><td>'+(r.international_mawb||'-')+'</td><td>'+(r.domestic_mawb||'-')+'</td><td>'+esc(r.fid||'-')+'</td><td>'+(r.truck_type_name||'')+'</td><td>'+(r.plate_number||'-')+'</td><td>'+(r.packaging_type_name||'-')+'</td><td>'+(r.initial_quantity!=null?r.initial_quantity:(r.quantity||0))+'</td><td>'+(r.revised_qty!=null?r.revised_qty:(r.quantity||0))+'</td><td>'+(r.vendor_name||'-')+'</td><td>'+fmtD(r.final_call_datetime)+'</td><td>'+(r.trip_id?'<span class="badge b-bl">'+r.trip_id+'</span>':'-')+'</td><td>'+esc(r.driver_username||'-')+'</td><td>'+esc(r.driver_name||'-')+'</td><td>'+esc(r.driver_phone||'-')+'</td><td>'+dropCell+'</td><td>'+(r.distance_km!=null?'<strong style="color:#DC2626">'+r.distance_km+'</strong>':'-')+'</td><td>'+(r.booking_date||'-')+'</td><td>'+fmtD(r.call_datetime)+'</td><td>'+fmtD(r.customs_cleared_datetime)+'</td><td>'+(r.special_instructions?('<span title="'+String(r.special_instructions).replace(/"/g,'&quot;')+'">'+String(r.special_instructions).substring(0,60)+(r.special_instructions.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.arrived_pickup_datetime)+geoHtml(r,'arrived_pickup_datetime')+'</td><td>'+(r.late_reason?('<span title="'+String(r.late_reason).replace(/"/g,'&quot;')+'">'+esc(String(r.late_reason).substring(0,60))+(r.late_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtD(r.start_loading_datetime)+geoHtml(r,'start_loading_datetime')+'</td><td>'+fmtD(r.end_loading_datetime)+geoHtml(r,'end_loading_datetime')+'</td><td>'+fmtD(r.arrived_dest_datetime)+geoHtml(r,'arrived_dest_datetime')+'</td><td>'+fmtD(r.start_unloading_datetime)+geoHtml(r,'start_unloading_datetime')+'</td><td>'+fmtD(r.end_unloading_datetime)+geoHtml(r,'end_unloading_datetime')+'</td><td>'+(r.unloading_remarks?('<span title="'+esc(r.unloading_remarks)+'">'+esc(String(r.unloading_remarks).substring(0,60))+(String(r.unloading_remarks).length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.delivered_date)+'</td><td>'+(r.foul_trip_reason?('<span title="'+String(r.foul_trip_reason).replace(/"/g,'&quot;')+'">'+String(r.foul_trip_reason).substring(0,60)+(r.foul_trip_reason.length>60?'...':'')+'</span>'):'-')+'</td><td>'+fmtDDate(r.foul_trip_date)+'</td><td>'+ftCnt+'</td><td>'+ftApr+'</td><td>'+fmtDDate(r.cancellation_date)+'</td><td>'+(consolTag?'<span class="badge b-bl" title="Consolidated"><i class="fas fa-link"></i> Consol</span>':'-')+'</td><td>'+attInd+'</td><td>'+(r.updated_by_name||r.updated_by||'-')+'<br><small style="color:var(--muted)">'+(r.updated_by_email||'')+'</small></td><td>'+(r.updated_at?fmtD(r.updated_at):'-')+'</td></tr>';
 }
 function mlQuery(page,per){
   const p=new URLSearchParams({page:page,per_page:per,sort_by:mlSort,sort_dir:mlDir});
@@ -1975,9 +1976,9 @@ async function viewReq(id){
       f('Vendor',v(r.vendor_name)),f('Driver',v(r.driver_username)),
       f('Driver Name',v(r.driver_name)),f('Driver Phone',v(r.driver_phone))]);
     h+=sec('Milestones','clock',[
-      f('Arrived Pickup',fmtD(r.arrived_pickup_datetime)),f('Start Loading',fmtD(r.start_loading_datetime)),
-      f('End Loading',fmtD(r.end_loading_datetime)),f('Arrived Destination',fmtD(r.arrived_dest_datetime)),
-      f('Start Unloading',fmtD(r.start_unloading_datetime)),f('End Unloading',fmtD(r.end_unloading_datetime)),
+      f('Arrived Pickup',fmtD(r.arrived_pickup_datetime)+geoHtml(r,'arrived_pickup_datetime',1)),f('Start Loading',fmtD(r.start_loading_datetime)+geoHtml(r,'start_loading_datetime',1)),
+      f('End Loading',fmtD(r.end_loading_datetime)+geoHtml(r,'end_loading_datetime',1)),f('Arrived Destination',fmtD(r.arrived_dest_datetime)+geoHtml(r,'arrived_dest_datetime',1)),
+      f('Start Unloading',fmtD(r.start_unloading_datetime)+geoHtml(r,'start_unloading_datetime',1)),f('End Unloading',fmtD(r.end_unloading_datetime)+geoHtml(r,'end_unloading_datetime',1)),
       f('Delivered Date',fmtDDate(r.delivered_date)),f('Late Reason',v(r.late_reason)),f('Unloading Remarks',v(r.unloading_remarks))]);
     h+=sec('Foul trip &amp; cancellation','flag',[
       f('Foul Trip Reason',v(r.foul_trip_reason)),f('Foul Trip Date',fmtDDate(r.foul_trip_date)),
@@ -2190,6 +2191,20 @@ async function confirmClearAll(){
    exactly the table's columns, in the order shown on screen (dragged column order
    included), and the same values. Action-only columns (buttons) are left out. ---- */
 const CSV_SKIP_HEADERS=['actions','action','approve',''];
+/* Where the driver was when the scanning app recorded a milestone (under its date / time). */
+function geoHtml(r,k,full){
+  const g=(r&&r.milestone_geo||{})[k];
+  if(!g||!r[k])return '';
+  const tg=full?'span':'div';   // a <span> inside the view's <p>; a <div> in tables (CSV keeps it apart)
+  if(g.status){const why={denied:'location permission refused',off:'location off',unavailable:'no GPS signal',timeout:'no GPS fix in time',unsupported:'not supported on the phone'}[g.status]||g.status;
+    return '<'+tg+' class="geo-ln geo-off"><i class="fas fa-location-crosshairs"></i> Location not captured ('+esc(why)+')</'+tg+'>'}
+  if(g.lat==null||g.lng==null)return '';
+  const ll=Number(g.lat).toFixed(6)+', '+Number(g.lng).toFixed(6);
+  const url='https://www.google.com/maps?q='+encodeURIComponent(g.lat+','+g.lng);
+  const addr=String(g.addr||'');
+  const shown=full||addr.length<=70?addr:addr.slice(0,67)+'...';
+  return '<'+tg+' class="geo-ln"><a href="'+url+'" target="_blank" rel="noopener" title="'+esc(addr||'Open in Google Maps')+'"><i class="fas fa-location-dot"></i> '+(shown?esc(shown):'Open map')+'</a><span class="geo-ll">Lat/Long '+ll+(g.acc!=null?' (&plusmn;'+esc(g.acc)+' m)':'')+'</span></'+tg+'>';
+}
 function csvCellText(el){
   const c=el.cloneNode(true);
   c.querySelectorAll('select').forEach(sel=>{const o=sel.options[sel.selectedIndex];sel.replaceWith(document.createTextNode(o&&o.value!==''?o.text:'-'))});
@@ -4495,6 +4510,7 @@ function scanShell(title,body,back){
   const app=document.getElementById('scanApp');
   if(!app)return;
   app.innerHTML='<div class="sc-top"><h4><i class="fas fa-barcode"></i> '+title+'</h4><div class="sc-top-acts"><button class="btn btn-sm btn-o sc-guide-btn" onclick="scanGuide()" title="How to use the scanning app"><i class="fas fa-circle-question"></i> Guide</button>'+(back||'')+'</div></div><div class="sc-wrap">'+body+'</div><div class="sc-flash" id="scFlash"></div>';
+  scGeoWarnShow();
 }
 /* Driver / Fleet guide inside the scanning app (same content as the menu page). */
 function scanGuide(){
@@ -4557,6 +4573,7 @@ function scanFlash(color){
 }
 function scanRoute(){
   const h=(location.hash||'').replace(/^#\/?/,'');
+  if(/^(scan|s\/)/.test(h))scGeoWatchStart();
   const m=h.match(/^s\/(pickup|unload)\/([^?]+)(\?.*)?$/);
   const app=document.getElementById('scanApp');
   if(!app)return;
@@ -4947,6 +4964,12 @@ async function scAct(kind,rid){
     else if(kind==='end-loading'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/end-loading'}
     else if(kind==='depart'){path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/depart'}
     else{path='/api/scan/requests/'+rid+'/'+kind}
+    if(['pickup-arrival','end-loading','drop-arrival','finish'].includes(kind)){
+      const w=document.getElementById('scLateWrap');
+      if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-location-crosshairs fa-beat"></i> Getting your location...</div>';
+      opts.json.geo=await scGeoPayload();
+      if(w)w.innerHTML='';
+    }
     if(kind==='finish'){
       const ta=document.getElementById('scRemark'+rid);
       const rem=(ta?ta.value:(scRemarkDraft[rid]||'')).trim();
@@ -4994,7 +5017,7 @@ async function scLateSend(kind,rid){
     let path;
     if(kind==='pickup-arrival')path='/api/scan/trips/'+encodeURIComponent(t.trip_id)+'/pickup-arrival';
     else path='/api/scan/requests/'+rid+'/'+kind;
-    await scanApi(path,{method:'POST',json:{late_reason:v}});
+    await scanApi(path,{method:'POST',json:{late_reason:v,geo:await scGeoPayload()}});
     await scanReloadTrip();
     scanOkSound();scanFlash('#10B981');
   }catch(e){scanSiren();scanAlert(e.message)}
@@ -5103,7 +5126,172 @@ function scLoadImg(file){
     img.src=url;
   });
 }
-async function scCompress(file){
+/* ---- Phone location for each step + photo watermark -----------------------------
+   Each step (Arrived at pickup, pickup scan, End loading, Arrived at destination,
+   unloading scan, Finish) sends where the phone is. Addresses come from OpenStreetMap
+   (the server fills them in when the phone could not look one up). If location is off or
+   refused, the step still goes through and is marked "not captured". */
+let scGeoFix=null,scGeoState='',scGeoWatchId=null;
+const scGeoAddrCache={};
+function scGeoWatchStart(){
+  if(scGeoWatchId!==null||!('geolocation' in navigator))return;
+  try{scGeoWatchId=navigator.geolocation.watchPosition(p=>{scGeoFix={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()};scGeoState='ok'},
+    e=>{scGeoState=e&&e.code===1?'denied':e&&e.code===3?'timeout':'unavailable'},{enableHighAccuracy:true,maximumAge:30000,timeout:20000})}catch(e){}
+}
+function scGeoErr(e){return e&&e.code===1?'denied':e&&e.code===3?'timeout':'unavailable'}
+function scGeoGet(wait){
+  if(!('geolocation' in navigator))return Promise.resolve({status:'unsupported'});
+  scGeoWatchStart();
+  if(scGeoFix&&Date.now()-scGeoFix.t<60000)return Promise.resolve({lat:scGeoFix.lat,lng:scGeoFix.lng,acc:scGeoFix.acc});
+  return new Promise(res=>{
+    let done=false;const fin=v=>{if(!done){done=true;res(v)}};
+    setTimeout(()=>fin(scGeoFix&&Date.now()-scGeoFix.t<300000?{lat:scGeoFix.lat,lng:scGeoFix.lng,acc:scGeoFix.acc}:{status:scGeoState==='denied'?'denied':'timeout'}),wait||7000);
+    try{navigator.geolocation.getCurrentPosition(p=>{scGeoFix={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()};scGeoState='ok';fin({lat:scGeoFix.lat,lng:scGeoFix.lng,acc:scGeoFix.acc})},
+      e=>{scGeoState=scGeoErr(e);fin({status:scGeoState})},{enableHighAccuracy:true,maximumAge:30000,timeout:(wait||7000)-200})}catch(e){fin({status:'unavailable'})}
+  });
+}
+async function scGeoAddr(lat,lng,wait){
+  const k=lat.toFixed(4)+','+lng.toFixed(4);
+  if(scGeoAddrCache[k]!==undefined)return scGeoAddrCache[k];
+  try{
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),wait||3500);
+    const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=0&accept-language=en&lat='+lat+'&lon='+lng,{signal:ctl.signal,headers:{'Accept':'application/json'}});
+    clearTimeout(tm);
+    const d=r.ok?await r.json():null;
+    const a=d&&d.display_name?String(d.display_name).slice(0,300):'';
+    if(a)scGeoAddrCache[k]=a;
+    return a;
+  }catch(e){return ''}
+}
+/* Location for a step: waits a few seconds for GPS and the address. */
+async function scGeoPayload(){
+  const g=await scGeoGet(7000);
+  if(g.lat!=null){const a=await scGeoAddr(g.lat,g.lng,3000);if(a)g.addr=a}
+  scGeoWarn(g);
+  return g;
+}
+/* For bag scans: never waits (uses the last known position). */
+function scGeoQuick(){
+  scGeoWatchStart();
+  if(scGeoFix&&Date.now()-scGeoFix.t<300000){
+    const g={lat:scGeoFix.lat,lng:scGeoFix.lng,acc:scGeoFix.acc};
+    const a=scGeoAddrCache[scGeoFix.lat.toFixed(4)+','+scGeoFix.lng.toFixed(4)];if(a)g.addr=a;
+    else scGeoAddr(scGeoFix.lat,scGeoFix.lng).catch(()=>{});
+    return g;
+  }
+  return scGeoState&&scGeoState!=='ok'?{status:scGeoState}:undefined;
+}
+let scGeoWarnMsg='';
+function scGeoWarn(g){
+  scGeoWarnMsg='';
+  if(g&&g.status){
+    scGeoWarnMsg=g.status==='denied'?'Location is blocked for this app. Allow <strong>Location</strong> for this site in your browser / phone settings so each step records where you are.'
+      :g.status==='unsupported'?'This phone cannot share its location.'
+      :'Could not get your location (turn on <strong>Location / GPS</strong>). The step was still recorded.';
+  }
+  scGeoWarnShow();
+}
+/* The warning stays on screen (also after the trip screen refreshes) until a step gets a location. */
+function scGeoWarnShow(){
+  const old=document.getElementById('scGeoWarn');if(old)old.remove();
+  if(!scGeoWarnMsg)return;
+  const wrap=document.querySelector('#scanApp .sc-wrap');if(!wrap)return;
+  wrap.insertAdjacentHTML('afterbegin','<div class="sc-warn" id="scGeoWarn"><i class="fas fa-location-crosshairs"></i> Location not captured. '+scGeoWarnMsg+'</div>');
+}
+/* EXIF in a JPEG: GPS position and the time the photo was taken. */
+async function scExif(file){
+  try{
+    if(!/jpe?g/i.test(file.type||'')&&!/\.jpe?g$/i.test(file.name||''))return {};
+    const buf=await file.slice(0,262144).arrayBuffer();const v=new DataView(buf);
+    if(v.getUint16(0)!==0xFFD8)return {};
+    let o=2;
+    while(o+4<v.byteLength){
+      const mk=v.getUint16(o),len=v.getUint16(o+2);
+      if(mk===0xFFE1&&v.getUint32(o+4)===0x45786966){return scExifTiff(v,o+10)}
+      if((mk&0xFF00)!==0xFF00)break;
+      o+=2+len;
+    }
+  }catch(e){}
+  return {};
+}
+function scExifTiff(v,t){
+  const le=v.getUint16(t)===0x4949;
+  const u16=x=>v.getUint16(x,le),u32=x=>v.getUint32(x,le);
+  const ifd=off=>{const out={};const n=u16(t+off);for(let i=0;i<n;i++){const e=t+off+2+i*12;out[u16(e)]={type:u16(e+2),count:u32(e+4),vo:e+8}}return out};
+  const str=en=>{if(!en)return '';const p=en.count>4?t+u32(en.vo):en.vo;let s='';for(let i=0;i<en.count-1;i++)s+=String.fromCharCode(v.getUint8(p+i));return s};
+  const rats=en=>{const p=t+u32(en.vo),a=[];for(let i=0;i<en.count;i++){const d=u32(p+i*8+4);a.push(d?u32(p+i*8)/d:0)}return a};
+  const out={};
+  const i0=ifd(u32(t+4));
+  if(i0[0x8769]){const ex=ifd(u32(i0[0x8769].vo));const dt=str(ex[0x9003])||str(i0[0x0132]);if(dt)out.time=dt;const of=str(ex[0x9011]);if(of)out.offset=of}
+  if(i0[0x8825]){
+    const g=ifd(u32(i0[0x8825].vo));
+    if(g[2]&&g[4]){
+      const dm=a=>a[0]+(a[1]||0)/60+(a[2]||0)/3600;
+      let lat=dm(rats(g[2])),lng=dm(rats(g[4]));
+      if(String.fromCharCode(v.getUint8(g[1]?g[1].vo:0))==='S')lat=-lat;
+      if(String.fromCharCode(v.getUint8(g[3]?g[3].vo:0))==='W')lng=-lng;
+      if(isFinite(lat)&&isFinite(lng)&&!(lat===0&&lng===0)&&Math.abs(lat)<=90&&Math.abs(lng)<=180){out.lat=lat;out.lng=lng}
+    }
+  }
+  return out;
+}
+function scWmTime(exif){
+  const pad=n=>String(n).padStart(2,'0');
+  const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const fmt=(y,mo,d,h,mi,off)=>{const wd=DAYS[new Date(Date.UTC(y,mo-1,d)).getUTCDay()];const h12=h%12||12;return wd+', '+pad(d)+'/'+pad(mo)+'/'+y+' '+pad(h12)+':'+pad(mi)+' '+(h<12?'AM':'PM')+' GMT '+off};
+  const m=exif&&exif.time&&exif.time.match(/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d)/);
+  if(m){
+    const off=exif.offset&&/^[+-]\d\d:\d\d$/.test(exif.offset)?exif.offset:'+08:00';
+    return {text:fmt(+m[1],+m[2],+m[3],+m[4],+m[5],off),from:'photo'};
+  }
+  const d=new Date(Date.now()+8*3600000);
+  return {text:fmt(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate(),d.getUTCHours(),d.getUTCMinutes(),'+08:00'),from:'now'};
+}
+/* What goes on a photo: place, address, lat/long, date/time, trip details. */
+async function scWatermarkInfo(file,rid){
+  const ex=await scExif(file);
+  let g,src;
+  if(ex.lat!=null){g={lat:ex.lat,lng:ex.lng};src='photo';}
+  else{g=await scGeoGet(7000);src='phone';}
+  if(g.lat!=null){const a=await scGeoAddr(g.lat,g.lng,3500);if(a)g.addr=a}
+  const t=scanCur||{},r=(t.requests||[]).find(x=>x.id===rid)||{},d=t.driver||{};
+  const tm=scWmTime(ex);
+  return {g,src,time:tm.text,timeFrom:tm.from,
+    trip:[t.trip_id?'Trip '+t.trip_id:'',r.request_number||'',d.plate_number?'Plate '+d.plate_number:''].filter(Boolean).join(' · '),
+    driver:d.driver_name||d.username||''};
+}
+function scDrawWatermark(cx,W,H,info){
+  const fs=Math.max(13,Math.round(Math.min(W,H)*0.028));
+  const pad=Math.round(fs*0.8),lh=Math.round(fs*1.32);
+  const g=info.g||{};
+  const addr=g.addr||'';
+  const parts=addr.split(',').map(x=>x.trim()).filter(x=>x&&!/^\d[\d\s-]*$/.test(x));
+  const head=parts.length?parts.slice(Math.max(0,parts.length-3)).join(', '):(g.lat!=null?'Location':'Location not available');
+  const lines=[];
+  cx.font='600 '+Math.round(fs*1.15)+'px Arial, sans-serif';
+  const maxW=W-pad*4;
+  const wrap=(txt,font,max)=>{cx.font=font;const out=[];let cur='';txt.split(' ').forEach(w=>{const tr=cur?cur+' '+w:w;if(cx.measureText(tr).width>max&&cur){out.push(cur);cur=w}else cur=tr});if(cur)out.push(cur);return out.slice(0,max===maxW?3:2)};
+  const fB='700 '+Math.round(fs*1.15)+'px Arial, sans-serif',fN=fs+'px Arial, sans-serif',fS=Math.round(fs*0.85)+'px Arial, sans-serif';
+  wrap(head,fB,maxW).slice(0,1).forEach(x=>lines.push([x,fB]));
+  if(addr)wrap(addr,fN,maxW).slice(0,3).forEach(x=>lines.push([x,fN]));
+  if(g.lat!=null)lines.push(['Lat '+g.lat.toFixed(6)+'° Long '+g.lng.toFixed(6)+'°'+(g.acc!=null?' (±'+Math.round(g.acc)+' m)':''),fN]);
+  else lines.push(['Location not captured ('+(g.status==='denied'?'permission refused':'GPS off / no signal')+')',fN]);
+  lines.push([info.time,fN]);
+  if(info.trip)lines.push([info.trip,fN]);
+  if(info.driver)lines.push(['Driver: '+info.driver,fN]);
+  lines.push([(info.src==='photo'?'Location: from the photo':'Location: phone at upload')+' · '+(info.timeFrom==='photo'?'time photo was taken':'time of upload')+' · XB Special Projects',fS]);
+  const boxH=pad*2+lines.length*lh;
+  const boxW=Math.min(W-pad*2,Math.max(...lines.map(([t,f])=>{cx.font=f;return cx.measureText(t).width}))+pad*2);
+  const x0=pad,y0=H-boxH-pad;
+  cx.save();
+  cx.fillStyle='rgba(0,0,0,0.62)';
+  const rr=Math.round(fs*0.6);
+  cx.beginPath();cx.moveTo(x0+rr,y0);cx.arcTo(x0+boxW,y0,x0+boxW,y0+boxH,rr);cx.arcTo(x0+boxW,y0+boxH,x0,y0+boxH,rr);cx.arcTo(x0,y0+boxH,x0,y0,rr);cx.arcTo(x0,y0,x0+boxW,y0,rr);cx.closePath();cx.fill();
+  cx.fillStyle='#fff';cx.textBaseline='top';
+  lines.forEach(([t,f],i)=>{cx.font=f;cx.fillStyle=i===lines.length-1?'#CBD5E1':'#fff';cx.fillText(t,x0+pad,y0+pad+i*lh+Math.round((lh-fs)/4))});
+  cx.restore();
+}
+async function scCompress(file,wm){
   if(!file||!/^image\//i.test(file.type||'')||/gif|svg/i.test(file.type))return file;
   try{
     const img=await scLoadImg(file);
@@ -5113,8 +5301,9 @@ async function scCompress(file){
     const cw=Math.max(1,Math.round(w*k)),ch=Math.max(1,Math.round(h*k));
     const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
     const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cw,ch);cx.drawImage(img,0,0,cw,ch);
+    if(wm)scDrawWatermark(cx,cw,ch,wm);
     const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',SC_PHOTO_Q));
-    if(!blob||blob.size>=file.size)return file;
+    if(!blob||(!wm&&blob.size>=file.size))return file;
     const base=String(file.name||'photo').replace(/\.[^.]*$/,'')||'photo';
     return new File([blob],base+'.jpg',{type:'image/jpeg',lastModified:Date.now()});
   }catch(e){return file}
@@ -5128,9 +5317,12 @@ async function scPhotoSend(rid,input){
   const w=document.getElementById('scLateWrap');
   let done=0,before=0,after=0,err=null;
   for(let i=0;i<files.length;i++){
-    if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-spinner fa-spin"></i> Compressing and uploading file '+(i+1)+' of '+files.length+'...</div>';
+    if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-spinner fa-spin"></i> Adding location and uploading file '+(i+1)+' of '+files.length+'...</div>';
     try{
-      const small=await scCompress(files[i]);
+      // Image files get the location / time watermark (PDFs are uploaded as they are).
+      const isImg=/^image\//i.test(files[i].type||'')&&!/gif|svg/i.test(files[i].type);
+      const wm=isImg?await scWatermarkInfo(files[i],rid):null;
+      const small=await scCompress(files[i],wm);
       for(const id of (scStopIds[rid]||[rid])){
         const fd2=new FormData();fd2.append('file',small,small.name);
         await scanApi('/api/scan/requests/'+id+'/photo',{method:'POST',body:fd2});
@@ -5353,7 +5545,7 @@ async function scSend(kind,key,bag,ovCode){
   scSending=true;
   const box=document.getElementById('scResult');
   try{
-    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:(kind==='pickup'&&ovCode)||undefined}});
+    const r=await scanApi('/api/scan/'+kind+'/'+key,{method:'POST',json:{bag_id:bag,ov:(kind==='pickup'&&ovCode)||undefined,geo:scGeoQuick()}});
     scanSum=r;
     if(r.result==='success'){scanOkSound();scanFlash('#10B981')}
     else{scanSiren();scanFlash(r.result==='duplicate'?'#F59E0B':'#DC2626')}
@@ -5495,7 +5687,7 @@ function scReadCounts(m,sel){
 }
 async function scEnd(kind,key){
   try{
-    const r=await scanApi('/api/scan/'+kind+'/'+key+'/end',{method:'POST',json:Object.assign({ov:(kind==='pickup'&&scanOv)||undefined},scEndExtra||{})});
+    const r=await scanApi('/api/scan/'+kind+'/'+key+'/end',{method:'POST',json:Object.assign({ov:(kind==='pickup'&&scanOv)||undefined,geo:await scGeoPayload()},scEndExtra||{})});
     scEndExtra={};
     scanSum=Object.assign({},scanSum,r);
     scanStopCam();
