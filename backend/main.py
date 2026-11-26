@@ -6271,10 +6271,16 @@ def _scan_summary(kind, rows, key, trip_rows=None):
         scans = _pickup_scans(base)
         expected = _expected_pickup_ids(rows)
     else:
-        scans = _unload_scans(rows[0]["id"])
+        # One unloading screen can cover a whole stop (several drops, same destination).
         if trip_rows is None:
             trip_rows = _rows_for_base(base) or rows
-        expected = _unload_reference(rows[0], trip_rows)
+        scans, expected, seen = [], [], set()
+        for x in rows:
+            scans.extend(_unload_scans(x["id"]))
+            for b in _unload_reference(x, trip_rows):
+                if str(b).lower() not in seen:
+                    seen.add(str(b).lower())
+                    expected.append(b)
     exp_set = {str(x).lower() for x in expected}
     scanned = []
     for s in scans:
@@ -6294,11 +6300,18 @@ def _scan_summary(kind, rows, key, trip_rows=None):
         manual_ids = set(_pickup_manual_ids(rows, scans))
         extra["manual_count_ids"] = sorted(manual_ids)
     else:
-        started = bool(rows[0].get("arrived_dest_datetime"))
+        started = all(x.get("arrived_dest_datetime") for x in rows)
         mode = "pickup"
-        extra["manual_ok"] = _unload_manual_ok(rows[0], trip_rows)
+        extra["manual_ok"] = len(rows) == 1 and _unload_manual_ok(rows[0], trip_rows)
         extra["pickup_manual_count"] = rows[0].get("pickup_manual_count")
         extra["unload_manual_count"] = rows[0].get("unload_manual_count")
+        extra["stop_size"] = len(rows)
+        extra["manual_requests"] = [{"id": x.get("id"), "request_number": x.get("request_number"),
+                                     "drop_sequence": _drop_no(x, trip_rows),
+                                     "account_name": x.get("account_name") or "",
+                                     "pickup_manual_count": x.get("pickup_manual_count"),
+                                     "unload_manual_count": x.get("unload_manual_count")}
+                                    for x in rows if _unload_manual_ok(x, trip_rows)]
     return {**extra, "kind": kind, "trip_id": base, "key": key,
             "mode": mode,
             "expected_count": (len(exp_set) if (exp_set or kind == "unload") else None),
@@ -6698,6 +6711,13 @@ def _trip_detail(driver, rows):
     pk = next((r.get("pickup_scan_key") for r in rows if r.get("pickup_scan_key")), None)
     closed = next((r.get("pickup_scan_closed_at") for r in rows if r.get("pickup_scan_closed_at")), None)
     reqs = []
+    stop_lead, stop_size, lead_stop = {}, {}, set()
+    for si, st in enumerate(_stops(rows)):
+        for x in st:
+            stop_lead[x.get("id")] = st[0].get("id")
+            stop_size[x.get("id")] = len(st)
+            if si == 0:
+                lead_stop.add(x.get("id"))
     for i, r in enumerate(_ordered(rows)):
         usc = _unload_scans(r.get("id"))
         uref = _unload_reference(r, all_rows)
@@ -6725,7 +6745,12 @@ def _trip_detail(driver, rows):
             "unload_scan_closed": bool(r.get("unload_scan_closed_at")),
             "unload_scan_count": len(usc),
             "unload_expected_count": len(uref),
-            "is_next_drop": i == 0,
+            "is_next_drop": r.get("id") in lead_stop,
+            "stop_lead_id": stop_lead.get(r.get("id")),
+            "stop_size": stop_size.get(r.get("id"), 1),
+            "destination_port_id": r.get("destination_port_id"),
+            "pickup_manual_count": r.get("pickup_manual_count"),
+            "unload_manual_count": r.get("unload_manual_count"),
             "attachments": _scan_att_list(r.get("id"), driver),
         })
     fcs = [to_gmt8(r.get("final_call_datetime")) for r in rows if r.get("final_call_datetime")]
@@ -6852,9 +6877,11 @@ async def scan_drop_arrival(rid: int, request: Request):
     if target.get("status_id") not in (2, 3):
         raise HTTPException(400, "This drop is already finished")
     _check_drop_turn(rows, target)
-    if target.get("arrived_dest_datetime"):
+    stop = [x for x in _stop_of(rows, target) if not x.get("arrived_dest_datetime")]
+    if not stop:
         raise HTTPException(409, "Arrived at destination is already recorded for this drop")
-    _set_milestones([target], "arrived_dest_datetime", driver.get("username"))
+    # Same destination, back to back: one tap records the arrival for every drop of the stop.
+    _set_milestones(stop, "arrived_dest_datetime", driver.get("username"))
     return _trip_detail(driver, _driver_trip_rows(driver, _trip_key_of(target)))
 
 @app.post("/api/scan/requests/{rid}/start-unload")
@@ -6872,10 +6899,11 @@ async def scan_start_unload(rid: int, request: Request):
     if not target.get("arrived_dest_datetime"):
         raise HTTPException(400, "Tap Arrived at destination for this drop first")
     # Start Unloading is no longer stamped here: the first bag accepted by the
-    # unloading scan records it. This only makes sure the scan link exists.
-    if not target.get("unload_scan_key"):
-        _write_fields(target, {"unload_scan_key": secrets.token_hex(16)},
-                      driver.get("username"))
+    # unloading scan records it. This only makes sure the scan link exists (one per
+    # request; a stop's unloading screen is opened with its first request's link).
+    for x in _stop_of(rows, target):
+        if not x.get("unload_scan_key"):
+            _write_fields(x, {"unload_scan_key": secrets.token_hex(16)}, driver.get("username"))
     return _trip_detail(driver, _driver_trip_rows(driver, _trip_key_of(target)))
 
 @app.post("/api/scan/requests/{rid}/finish")
@@ -6893,10 +6921,12 @@ async def scan_finish(rid: int, request: Request):
     if target.get("end_unloading_datetime"):
         return {"ok": True, "status_id": target.get("status_id")}
     _check_drop_turn(rows, target)
-    if not target.get("arrived_dest_datetime"):
-        raise HTTPException(400, "Tap Arrived at destination for this drop first")
-    if not target.get("unload_scan_closed_at"):
-        raise HTTPException(400, "End the unloading scan for this drop before finishing it")
+    stop = [x for x in _stop_of(rows, target) if not x.get("end_unloading_datetime")]
+    for x in stop:
+        if not x.get("arrived_dest_datetime"):
+            raise HTTPException(400, "Tap Arrived at destination for this drop first")
+        if not x.get("unload_scan_closed_at"):
+            raise HTTPException(400, "End the unloading scan for this drop before finishing it")
     try:
         req_body = await request.json()
     except Exception:
@@ -6905,29 +6935,55 @@ async def scan_finish(rid: int, request: Request):
     if len(remarks) > UNLOADING_REMARKS_MAX:
         raise HTTPException(400, f"Unloading remarks can be at most {UNLOADING_REMARKS_MAX} characters")
     now = nows()
-    vals = {"end_unloading_datetime": now, "status_id": 4}
-    if remarks:
-        vals["unloading_remarks"] = remarks
-    if not target.get("start_unloading_datetime"):
-        # Nothing was scanned at this drop, so no bag stamped Start Unloading.
-        vals["start_unloading_datetime"] = now
-    body = {f: target.get(f) for f in MILESTONE_FIELDS}
-    body.update({k: v for k, v in vals.items() if k in MILESTONE_FIELDS})
-    validate_delivered_chronology(body)
-    _write_fields(target, vals, driver.get("username"))
-    _finalize_delivered(target, driver.get("username"))
-    alert_request("delivered", rid, _alert_before(target))
-    left = [r for r in rows if r.get("id") != rid]
+    # Check every drop of the stop first, then finish them all (one tap for the stop).
+    plan = []
+    for x in stop:
+        vals = {"end_unloading_datetime": now, "status_id": 4}
+        if remarks:
+            vals["unloading_remarks"] = remarks
+        if not x.get("start_unloading_datetime"):
+            # Nothing was scanned at this drop, so no bag stamped Start Unloading.
+            vals["start_unloading_datetime"] = now
+        body = {f: x.get(f) for f in MILESTONE_FIELDS}
+        body.update({k: v for k, v in vals.items() if k in MILESTONE_FIELDS})
+        validate_delivered_chronology(body)
+        plan.append((x, vals))
+    for x, vals in plan:
+        _write_fields(x, vals, driver.get("username"))
+        _finalize_delivered(x, driver.get("username"))
+        alert_request("delivered", x.get("id"), _alert_before(x))
+    done_ids = {x.get("id") for x, _v in plan}
+    left = [r for r in rows if r.get("id") not in done_ids]
     if not left:
         _set_active_trip(driver, None)
-    return {"ok": True, "status_id": 4, "trip_complete": not left}
+    return {"ok": True, "status_id": 4, "trip_complete": not left, "finished": len(done_ids)}
+
+def _stops(rows):
+    """Open drops grouped into stops: drops next to each other (in drop order) that go to
+    the same destination port are one stop, done with one set of steps a - d."""
+    out = []
+    for r in _ordered(rows):
+        if out and out[-1][0].get("destination_port_id") and \
+                out[-1][0].get("destination_port_id") == r.get("destination_port_id"):
+            out[-1].append(r)
+        else:
+            out.append([r])
+    return out
+
+def _stop_of(rows, target):
+    for st in _stops(rows):
+        if any(x.get("id") == target.get("id") for x in st):
+            return st
+    return [target]
 
 def _check_drop_turn(rows, target):
-    """Drops are worked strictly in drop # order, and only after Depart."""
+    """Drops are worked strictly in drop # order, and only after Depart. Drops of the
+    current stop (same destination, back to back) are worked together."""
     if target.get("status_id") != 3:
         raise HTTPException(400, "Complete Step 4 (Depart) before working on the drops")
-    first = _ordered(rows)[0] if rows else None
-    if first and first.get("id") != target.get("id"):
+    stops = _stops(rows) if rows else []
+    first = stops[0][0] if stops else None
+    if first and not any(x.get("id") == target.get("id") for x in stops[0]):
         full = _rows_for_base(_scan_base(rows)) or rows
         raise HTTPException(400, f"Finish drop {_drop_no(first, full)} ({first.get('request_number') or ''}) first - drops are done in order")
 
@@ -7091,12 +7147,27 @@ async def scan_pickup_end(key: str, request: Request):
         _write_fields(r, vals)
     return _scan_summary("pickup", _rows_by_pickup_key(key) or rows, key)
 
+def _unload_stop(key_rows):
+    """The requests one unloading screen covers: the request of the scan link plus the
+    other open drops of the same stop (same destination, back to back) in the same state."""
+    row = key_rows[0]
+    trip_rows = _rows_for_base(_scan_base(key_rows)) or key_rows
+    same = [r for r in trip_rows if r.get("status_id") in (2, 3)
+            and bool(r.get("unload_scan_closed_at")) == bool(row.get("unload_scan_closed_at"))]
+    if not any(r.get("id") == row.get("id") for r in same):
+        return [row], trip_rows
+    stop = _stop_of(same, row)
+    # The scan link's own request comes first (photos / overrides attach to it).
+    stop = [next(r for r in stop if r.get("id") == row.get("id"))] + [r for r in stop if r.get("id") != row.get("id")]
+    return stop, trip_rows
+
 @app.get("/api/scan/unload/{key}")
 def scan_unload_get(key: str, ov: Optional[str] = None):
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
-    return _scan_summary("unload", rows, key)
+    stop, trip_rows = _unload_stop(rows)
+    return _scan_summary("unload", stop, key, trip_rows)
 
 @app.post("/api/scan/unload/{key}")
 async def scan_unload_post(key: str, request: Request):
@@ -7104,67 +7175,67 @@ async def scan_unload_post(key: str, request: Request):
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
-    row = rows[0]
-    rid = row.get("id")
+    stop, trip_rows = _unload_stop(rows)
+    row = stop[0]
     bag = str(body.get("bag_id") or "").strip()
     if not bag:
         raise HTTPException(400, "No bag ID was read")
     if len(bag) > 255:
         raise HTTPException(400, "Bag ID is too long")
-    if row.get("unload_scan_closed_at"):
+    if any(x.get("unload_scan_closed_at") for x in stop):
         raise HTTPException(409, "Unloading has already been completed for this drop")
-    if not row.get("arrived_dest_datetime"):
+    if not all(x.get("arrived_dest_datetime") for x in stop):
         raise HTTPException(409, "The driver must tap Arrived at destination for this drop before unloading")
-    trip_rows = _rows_for_base(_scan_base(rows)) or rows
-    here = _drop_info(row, trip_rows)
+    summary = lambda: _scan_summary("unload", stop, key, trip_rows)
     actor = _scan_actor(request)
-    # A bag already unloaded here is a duplicate: reported, never recorded again.
-    if _scan_kind_of(_unload_scans(rid), bag):
-        return {"result": "duplicate", "bag_id": bag, "drop": here,
-                "detail": "Bag ID already scanned at this drop",
-                **_scan_summary("unload", rows, key, trip_rows)}
-    ref_list = _unload_reference(row, trip_rows)
-    ref = {str(x).lower() for x in ref_list}
-    kind = "original"
-    # Record the bag exactly as it was picked up (same letters/case).
-    bag = next((str(x) for x in ref_list if str(x).lower() == bag.lower()), bag)
-    if bag.lower() not in ref:
+    # A bag already unloaded at this stop is a duplicate: reported, never recorded again.
+    hit = next((x for x in stop if _scan_kind_of(_unload_scans(x.get("id")), bag)), None)
+    if hit:
+        return {"result": "duplicate", "bag_id": bag, "drop": _drop_info(hit, trip_rows),
+                "detail": "Bag ID already scanned at this drop", **summary()}
+    # Bags picked up for any drop of this stop are accepted, each recorded on its own request.
+    owner, kind = None, "original"
+    for x in stop:
+        m = next((str(b) for b in _unload_reference(x, trip_rows) if str(b).lower() == bag.lower()), None)
+        if m is not None:
+            owner, bag = x, m       # record the bag exactly as it was picked up
+            break
+    if owner is None:
         pick = _pickup_scan_row(bag, _scan_base(trip_rows))
         if pick and (pick.get("scan_kind") or "") == "override" and not pick.get("request_id"):
             # A bag forced through at pickup belongs to no drop: it may be unloaded at
             # whichever drop it turns up at - but only once on the whole trip.
             where = next((r for r in _ordered(trip_rows)
-                          if r.get("id") != rid and _scan_kind_of(_unload_scans(r.get("id")), bag)), None)
+                          if _scan_kind_of(_unload_scans(r.get("id")), bag)), None)
             if where:
                 return {"result": "duplicate", "bag_id": bag, "drop": _drop_info(where, trip_rows),
                         "detail": f"Override bag already unloaded at drop {_drop_no(where, trip_rows)}",
-                        **_scan_summary("unload", rows, key, trip_rows)}
-            kind = "override"
+                        **summary()}
+            owner, kind = row, "override"
             bag = str(pick.get("bag_id") or bag)
-    if bag.lower() not in ref and kind != "override":
-        owner, picked = _pickup_owner(bag, trip_rows)
-        if owner and owner.get("id") != rid:
-            why = (f"Bag ID belongs to drop {_drop_no(owner, trip_rows)} "
-                   f"({owner.get('account_name') or ''} - {owner.get('destination_port_name') or ''}), not this drop")
+    if owner is None:
+        other, picked = _pickup_owner(bag, trip_rows)
+        if other and not any(x.get("id") == other.get("id") for x in stop):
+            why = (f"Bag ID belongs to drop {_drop_no(other, trip_rows)} "
+                   f"({other.get('account_name') or ''} - {other.get('destination_port_name') or ''}), not this drop")
         elif picked:
             why = "Bag ID was pickup-scanned but is not tied to this drop"
         else:
             why = "Bag ID was not pickup-scanned on this trip"
         return {"result": "failed", "bag_id": bag, "drop": None,
-                "other_drop": _drop_info(owner, trip_rows) if owner and owner.get("id") != rid else None,
-                "detail": why, **_scan_summary("unload", rows, key, trip_rows)}
+                "other_drop": _drop_info(other, trip_rows) if other and not any(x.get("id") == other.get("id") for x in stop) else None,
+                "detail": why, **summary()}
     ok = _record_scan("scan_unload",
                       {"bag_id": bag, "scan_kind": kind, "scanned_by": actor},
-                      rid=rid, bag=bag)
+                      rid=owner.get("id"), bag=bag)
     if not ok:
-        return {"result": "duplicate", "bag_id": bag, "drop": here,
-                "detail": "Bag ID already scanned at this drop",
-                **_scan_summary("unload", rows, key, trip_rows)}
-    if not row.get("start_unloading_datetime"):
+        return {"result": "duplicate", "bag_id": bag, "drop": _drop_info(owner, trip_rows),
+                "detail": "Bag ID already scanned at this drop", **summary()}
+    if not owner.get("start_unloading_datetime"):
         # The first accepted bag is what records Start Unloading.
-        _set_milestones([row], "start_unloading_datetime", actor)
-    return {"result": "success", "bag_id": bag, "scan_kind": kind, "drop": here,
-            **_scan_summary("unload", rows, key, trip_rows)}
+        _set_milestones([owner], "start_unloading_datetime", actor)
+    return {"result": "success", "bag_id": bag, "scan_kind": kind, "drop": _drop_info(owner, trip_rows),
+            **summary()}
 
 @app.post("/api/scan/unload/{key}/end")
 async def scan_unload_end(key: str, request: Request):
@@ -7177,22 +7248,45 @@ async def scan_unload_end(key: str, request: Request):
     rows = _rows_by_unload_key(key)
     if not rows:
         raise HTTPException(404, "This scan link is not valid any more")
-    if rows[0].get("unload_scan_closed_at"):
-        return _scan_summary("unload", rows, key)
-    if not rows[0].get("arrived_dest_datetime"):
+    stop, trip_rows = _unload_stop(rows)
+    if stop[0].get("unload_scan_closed_at"):
+        return _scan_summary("unload", stop, key, trip_rows)
+    if not all(x.get("arrived_dest_datetime") for x in stop):
         raise HTTPException(409, "The driver must tap Arrived at destination for this drop first")
+    # Typed bag counts (no manifest, no scans): {request id: count}; manual_count = the
+    # scan link's own request (a stop of one).
+    counts = body.get("manual_counts") or {}
+    if not isinstance(counts, dict):
+        raise HTTPException(400, "manual_counts must be an object")
+    counts = dict(counts)
     mc = body.get("manual_count")
-    vals = {"unload_scan_closed_at": nows(), "revised_qty_src": "unload"}
     if mc is not None and str(mc).strip() != "":
-        trip_rows = _rows_for_base(_scan_base(rows)) or rows
-        if not _unload_manual_ok(rows[0], trip_rows):
+        counts[str(stop[0].get("id"))] = mc
+    by_id = {x.get("id"): x for x in stop}
+    clean = {}
+    for k, v in counts.items():
+        if v is None or str(v).strip() == "":
+            continue
+        try:
+            rid = int(k)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Unknown request in manual_counts")
+        if rid not in by_id:
+            raise HTTPException(400, "That request is not part of this drop")
+        if not _unload_manual_ok(by_id[rid], trip_rows):
             raise HTTPException(400, "This drop has a manifest or scanned bags - its bag count comes from the scans")
-        n = _clean_count(mc, "Unloading bag count")
-        # The typed unloading count becomes the Revised Qty.
-        vals.update({"unload_manual_count": n, "quantity": n, "revised_qty_src": "unload_count"})
-    # Anyone on the unloading screen may end it: the scan link is the permission.
-    _write_fields(rows[0], vals)
-    return _scan_summary("unload", _rows_by_unload_key(key), key)
+        clean[rid] = _clean_count(v, f"Unloading bag count for {by_id[rid].get('request_number') or rid}")
+    now = nows()
+    for x in stop:
+        vals = {"unload_scan_closed_at": now, "revised_qty_src": "unload"}
+        if x.get("id") in clean:
+            # The typed unloading count becomes the Revised Qty.
+            n = clean[x.get("id")]
+            vals.update({"unload_manual_count": n, "quantity": n, "revised_qty_src": "unload_count"})
+        # Anyone on the unloading screen may end it: the scan link is the permission.
+        _write_fields(x, vals)
+    stop2, trip2 = _unload_stop(_rows_by_unload_key(key) or rows)
+    return _scan_summary("unload", stop2, key, trip2)
 
 OVERRIDE_MAX_FAILS = 8          # wrong codes allowed per scan session...
 OVERRIDE_LOCK_SECONDS = 900     # ...within this window before overrides are paused

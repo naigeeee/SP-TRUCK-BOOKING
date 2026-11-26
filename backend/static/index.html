@@ -276,7 +276,7 @@ body.scan-mode .layout{display:none}
 .da-trip small{color:var(--muted)}
 .sc-locked{opacity:.6}
 .sc-cur{border-color:#3B82F6;box-shadow:0 0 0 1px #3B82F6 inset}
-.sc-modal{position:fixed;inset:0;z-index:300;background:rgba(2,6,23,.78);display:flex;align-items:center;justify-content:center;padding:16px}
+.sc-stop-list{margin-top:6px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:#CBD5E1}.sc-modal{position:fixed;inset:0;z-index:300;background:rgba(2,6,23,.78);display:flex;align-items:center;justify-content:center;padding:16px}
 .sc-modal-box{width:100%;max-width:440px;background:#111C33;border:1px solid #334155;border-radius:14px;padding:18px;color:#E2E8F0;max-height:90vh;overflow:auto}
 .sc-modal-box h5{font-size:16px;color:#fff;margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .sc-modal-body{font-size:14px;line-height:1.55}
@@ -802,6 +802,7 @@ body.scan-mode .layout{display:none}
 <div class="card-h"><h3><i class="fas fa-location-dot"></i> 5. At each drop</h3><a href="javascript:void(0)" onclick="return guideJump(this,'top')" style="font-size:12px;color:var(--muted);text-decoration:none"><i class="fas fa-arrow-up"></i> Top</a></div>
 <div class="card-b">
 <ol class="guide-steps"><li>Drops are done in order: Drop 1, then Drop 2, &hellip;</li><li><strong>(a) Arrived at destination</strong> &mdash; tap it when you arrive.</li><li><strong>(b) Unloading scan</strong> &mdash; tap <strong>Open unloading scan</strong> and scan each bag you unload. Only bags loaded for this drop are accepted (a bag accepted with the override code at pickup can be unloaded at any drop).</li><li>Tap <strong>End Unloading Scan</strong>, check the summary and confirm. Bags still without an unloading scan are shown as <strong>(Discrepancy)</strong>. It cannot be reopened afterwards. <strong>No manifest and no bags scanned</strong> for this request? The summary shows the bag count typed at pickup as <em>Total pickup bag / carton IDs</em>; type the <strong>Unloading bag count</strong> and any difference shows as <strong>(Discrepancy)</strong>. The unloading count becomes the request&rsquo;s Revised Qty.</li><li><strong>(c) Photos and remarks</strong> (optional) &mdash; tap <strong>Add photo</strong> to take or choose photos (e.g. proof of delivery), and type any <strong>Unloading remarks</strong> (e.g. damaged cartons, who received the bags).</li><li><strong>Check your photos</strong> &mdash; tap a photo to see it full screen (use the arrows for the others). To remove a photo you added on this phone, tap its <i class="fas fa-trash-can"></i> (or <strong>Remove this photo</strong>) and confirm; files added by the office cannot be removed from the phone. A drop holds up to 8 files in total (including any the office attached); photos can be removed until you tap Finish Drop.</li><li><strong>(d) Finish Drop</strong> &mdash; tap it to complete the drop. Your remarks are saved with it, the operations team is told the drop is delivered, and the next drop unlocks.</li></ol>
+<div class="guide-tip"><i class="fas fa-layer-group"></i> <strong>Same destination? Steps a&ndash;d are done once.</strong> When drops that follow each other go to the <strong>same destination port</strong> (for example, every request on the trip goes to the same port), the app shows them as one card &mdash; <em>Drops 1&ndash;3</em>. Tap <strong>Arrived at destination</strong> once, do <strong>one unloading scan</strong> for all of them (each bag is saved on the request it was loaded for), add photos and remarks once (they are saved on every request of the card), and tap <strong>Finish Drops</strong> once. Each request still keeps its own scans, discrepancy and Revised Qty. If any of these requests has no manifest and no scans, the End Unloading Scan popup asks for the unloading bag count of each such request.</div>
 <div class="g-shots"><figure class="g-shot g-pair"><a href="/guide/d06-unload.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d06-unload.jpg" alt="Unloading scan, then the summary before ending it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Unloading scan, then the summary before ending it.</figcaption></figure><figure class="g-shot g-phone"><a href="/guide/d07-photos.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d07-photos.jpg" alt="Add photos and remarks, then Finish Drop." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Add photos and remarks, then <strong>Finish Drop</strong>.</figcaption></figure><figure class="g-shot g-pair"><a href="/guide/d08-review.jpg" target="_blank" rel="noopener" title="Open full size"><img src="/guide/d08-review.jpg" alt="Review a photo full screen, and confirm before removing it." loading="lazy"></a><figcaption><i class="fas fa-image"></i> Review a photo full screen, and confirm before removing it.</figcaption></figure></div>
 </div></div>
 <div class="card" style="margin-bottom:16px;scroll-margin-top:90px" data-gid="gd-done">
@@ -4650,6 +4651,58 @@ function scDropCard(t,r,i,prevNo){
     (r.late_reason?'<div class="s" style="color:#FCD34D">Late reason: '+esc(r.late_reason)+'</div>':'')+
     '</div></div>'+a+b+c+d+'</div>';
 }
+function scStopLabel(st){const a=scDropNo(st[0].r,st[0].i),b=scDropNo(st[st.length-1].r,st[st.length-1].i);return a+'&ndash;'+b}
+const scStopIds={};   // lead request id -> every request id of its stop
+function scStopCard(t,st,prevNo){
+  const rs=st.map(x=>x.r),lead=rs[0],lbl=scStopLabel(st);
+  scStopIds[lead.id]=rs.map(r=>r.id);
+  const departed=t.status_id===3;
+  const myTurn=departed&&lead.is_next_drop;
+  const arrived=rs.every(r=>r.arrived_dest_datetime);
+  const closed=rs.every(r=>r.unload_scan_closed);
+  const done=rs.every(r=>r.end_unloading_datetime);
+  const sum=k=>rs.reduce((n,r)=>n+(+r[k]||0),0);
+  let wait='';
+  if(!departed)wait='Complete Step 4 (Depart) first';
+  else if(!lead.is_next_drop)wait='Finish Drop '+prevNo+' first';
+  const startU=rs.map(r=>r.start_unloading_datetime).filter(Boolean).sort()[0];
+  let a='<div class="sc-step"><div class="sc-dot '+(arrived?'done':myTurn?'now':'')+'">a</div><div class="sc-body"><div class="t">Arrived at destination <span class="sc-badge b">Drops '+lbl+'</span></div>';
+  if(arrived)a+='<div class="s">'+scTs(lead.arrived_dest_datetime)+' &middot; recorded for all '+rs.length+' drops</div>';
+  else if(myTurn)a+='<button class="sc-btn" onclick="scAct(\'drop-arrival\','+lead.id+')"><i class="fas fa-map-marker-alt"></i> Arrived at destination - Drops '+lbl+'</button>';
+  else a+=scLockNote(wait);
+  a+='</div></div>';
+  let b='<div class="sc-step"><div class="sc-dot '+(closed?'done':arrived?'now':'')+'">b</div><div class="sc-body"><div class="t">Unloading scan <span style="font-weight:400;color:#94A3B8;font-size:12px">(one scan for all '+rs.length+' drops)</span></div>';
+  if(closed)b+='<div class="s">Ended &middot; '+sum('unload_scan_count')+' of '+sum('unload_expected_count')+' bag(s) unloaded'+(startU?' &middot; Start unloading '+scTs(startU):'')+'</div>';
+  else if(arrived&&myTurn)b+='<div class="s">'+sum('unload_scan_count')+' of '+sum('unload_expected_count')+' bag(s) scanned &middot; each bag is saved on its own request</div>'+
+    '<button class="sc-btn" onclick="scOpenUnload('+lead.id+')"><i class="fas fa-barcode"></i> Open unloading scan - Drops '+lbl+'</button>';
+  else b+=scLockNote(arrived?wait:'Tap Arrived at destination first');
+  b+='</div></div>';
+  const atts=lead.attachments||[];
+  const draft=scRemarkDraft[lead.id]!=null?scRemarkDraft[lead.id]:(lead.unloading_remarks||'');
+  const room=Math.min(...rs.map(r=>8-((r.attachments||[]).length)));
+  let c='<div class="sc-step"><div class="sc-dot '+(atts.length||lead.unloading_remarks?'done':'')+'">c</div><div class="sc-body"><div class="t">Photos and remarks <span style="font-weight:400;color:#94A3B8;font-size:12px">(optional)</span></div>';
+  if(arrived&&!done)c+='<div class="s">'+atts.length+' of 8 attached &middot; each photo is saved on all '+rs.length+' requests</div>'+scThumbs(lead)+
+    (room>0?'<button class="sc-btn sec" onclick="scPhoto('+lead.id+')"><i class="fas fa-camera"></i> Add photo (camera or gallery)</button>':'<div class="s" style="color:#FCD34D;margin-top:8px">8 files is the limit - remove one to add another.</div>')+
+    '<input type="file" id="scFile'+lead.id+'" accept="image/*,application/pdf" multiple style="display:none" onchange="scPhotoSend('+lead.id+',this)">'+
+    '<label class="sc-hint" for="scRemark'+lead.id+'" style="display:block;margin-top:12px">Unloading remarks (optional) - saved on all '+rs.length+' requests</label>'+
+    '<textarea class="sc-in" id="scRemark'+lead.id+'" rows="3" maxlength="1000" style="margin-top:6px;font-size:15px" placeholder="Type any remarks about this stop..." oninput="scRemarkDraft['+lead.id+']=this.value">'+esc(draft)+'</textarea>'+
+    '<div class="s" style="margin-top:4px">Saved when you tap <strong>Finish Drops '+lbl+'</strong>.</div>';
+  else if(arrived)c+='<div class="s">'+atts.length+' attached</div>'+(lead.unloading_remarks?'<div class="s" style="white-space:pre-wrap;color:#E2E8F0"><i class="fas fa-comment-dots"></i> '+esc(lead.unloading_remarks)+'</div>':'');
+  else c+=scLockNote('Available after Arrived at destination');
+  c+='</div></div>';
+  let d='<div class="sc-step"><div class="sc-dot '+(done?'done':closed?'now':'')+'">d</div><div class="sc-body"><div class="t">Finish these drops</div>';
+  if(done)d+='<div class="s">'+scTs(lead.end_unloading_datetime)+'</div>';
+  else if(closed&&myTurn)d+='<button class="sc-btn ok" onclick="scAct(\'finish\','+lead.id+')"><i class="fas fa-check-double"></i> Finish Drops '+lbl+'</button>';
+  else d+=scLockNote(arrived?'End the unloading scan first':'Tap Arrived at destination first');
+  d+='</div></div>';
+  const list='<div class="sc-stop-list">'+st.map(({r,i})=>'<div><span class="sc-badge b">Drop '+scDropNo(r,i)+'</span> '+esc(r.request_number||'')+' &middot; '+esc(r.account_name||'')+'</div>').join('')+'</div>';
+  return '<div class="sc-card'+(myTurn?' sc-cur':'')+'"><div class="sc-step" style="border:0;padding:0 0 8px">'+
+    '<div class="sc-dot '+(done?'done':myTurn?'now':'')+'" style="width:auto;min-width:34px;padding:0 8px;height:34px;font-size:13px;border-radius:17px">'+lbl+'</div>'+
+    '<div class="sc-body"><div class="t">Drops '+lbl+' &middot; '+esc(lead.destination_port_name||'')+'</div>'+
+    '<div class="s"><i class="fas fa-layer-group"></i> '+rs.length+' requests, same destination &mdash; done together</div>'+list+
+    (lead.late_reason?'<div class="s" style="color:#FCD34D">Late reason: '+esc(lead.late_reason)+'</div>':'')+
+    '</div></div>'+a+b+c+d+'</div>';
+}
 function renderScanTrip(){
   const t=scanCur;if(!t){scanHome();return}
   const rs=t.requests||[];
@@ -4692,9 +4745,16 @@ function renderScanTrip(){
     '<br>Drops: <strong>'+(t.delivered_drops||0)+' of '+(t.total_drops||rs.length)+' delivered</strong></div></div>';
   body+='<div id="scLateWrap"></div>';
   body+='<div class="sc-card"><h5><i class="fas fa-list-ol"></i> Trip steps</h5>'+steps+'</div>';
-  body+='<div class="sc-card" style="padding-bottom:4px"><h5><i class="fas fa-boxes-stacked"></i> Drops ('+rs.length+' left)</h5><div class="sc-hint" style="margin-bottom:10px">Drops are done in order. Each drop unlocks after the one before it is finished.</div></div>';
+  // Drops next to each other that go to the same destination are one stop (steps a-d once).
+  const stops=[];
+  rs.forEach((r,i)=>{const last=stops[stops.length-1];if(last&&r.stop_lead_id&&last[0].r.stop_lead_id===r.stop_lead_id)last.push({r,i});else stops.push([{r,i}])});
+  const merged=stops.some(st=>st.length>1);
+  body+='<div class="sc-card" style="padding-bottom:4px"><h5><i class="fas fa-boxes-stacked"></i> Drops ('+rs.length+' left)</h5><div class="sc-hint" style="margin-bottom:10px">Drops are done in order. Each drop unlocks after the one before it is finished.'+(merged?' Drops going to the <strong>same destination</strong> one after another are done together &mdash; steps a&ndash;d once for all of them.':'')+'</div></div>';
   let prevNo=null;
-  rs.forEach((r,i)=>{body+=scDropCard(t,r,i,prevNo);prevNo=scDropNo(r,i)});
+  stops.forEach(st=>{
+    if(st.length===1){const {r,i}=st[0];body+=scDropCard(t,r,i,prevNo);prevNo=scDropNo(r,i)}
+    else{body+=scStopCard(t,st,prevNo);prevNo=scStopLabel(st)}
+  });
   scanShell(esc(t.trip_id),body,scanBack('Trips','scanHome()'));
   scLoadThumbs();
 }
@@ -4866,7 +4926,13 @@ async function scPhotoDel(rid,aid,fromViewer){
   if(!ok)return;
   if(scanBusy)return;scanBusy=true;
   try{
+    const me=atts.find(a=>a.id===aid)||{};
     await scanApi('/api/scan/requests/'+rid+'/attachments/'+aid,{method:'DELETE'});
+    // A stop's photo was saved on each of its requests: remove those copies too.
+    for(const id of (scStopIds[rid]||[]).filter(x=>x!==rid)){
+      const twin=scAttsOf(id).find(a=>a.mine&&a.original_filename===me.original_filename&&a.file_size===me.file_size);
+      if(twin){try{await scanApi('/api/scan/requests/'+id+'/attachments/'+twin.id,{method:'DELETE'})}catch(e){}}
+    }
     if(scThumbUrl[aid]){URL.revokeObjectURL(scThumbUrl[aid]);delete scThumbUrl[aid]}
     scanBusy=false;
     await scanReloadTrip();
@@ -4914,9 +4980,10 @@ async function scPhotoSend(rid,input){
     if(w)w.innerHTML='<div class="sc-ok"><i class="fas fa-spinner fa-spin"></i> Compressing and uploading file '+(i+1)+' of '+files.length+'...</div>';
     try{
       const small=await scCompress(files[i]);
-      const fd=new FormData();
-      fd.append('file',small,small.name);
-      await scanApi('/api/scan/requests/'+rid+'/photo',{method:'POST',body:fd});
+      for(const id of (scStopIds[rid]||[rid])){
+        const fd2=new FormData();fd2.append('file',small,small.name);
+        await scanApi('/api/scan/requests/'+id+'/photo',{method:'POST',body:fd2});
+      }
       done++;before+=files[i].size;after+=small.size;
     }catch(e){err=e;break}
   }
@@ -4975,7 +5042,12 @@ function scPills(kind,s){
     ['scPRem',s.remaining_count,'Remaining']];
 }
 function scDropLine(s){
-  const r=(s.requests||[])[0]||{};
+  const rs=s.requests||[],r=rs[0]||{};
+  if(rs.length>1){
+    const nos=rs.map(x=>x.drop_sequence).filter(x=>x!=null);
+    return '<span class="sc-badge b">Drops '+esc(nos.length?Math.min(...nos)+'–'+Math.max(...nos):'')+'</span> '+esc(rs.map(x=>x.request_number).join(', '))+' &rarr; '+esc(r.destination_port_name||'')+
+      '<div style="margin-top:4px;font-size:12px;color:#94A3B8"><i class="fas fa-layer-group"></i> Same destination: one unloading scan for all '+rs.length+' drops &mdash; each bag is saved on its own request.</div>';
+  }
   return '<span class="sc-badge b">Drop '+esc(r.drop_sequence||'-')+'</span> '+esc(r.request_number||'')+' &middot; '+esc(r.account_name||'')+' &rarr; '+esc(r.destination_port_name||'');
 }
 function renderScanKey(kind,key){
@@ -4989,7 +5061,7 @@ function renderScanKey(kind,key){
         {label:'Original successful scans',value:s.original_count,cls:'g'},
         {label:'Manifest IDs not scanned (Discrepancy)',value:s.expected_count==null?'-':s.remaining_count,cls:s.remaining_count?'r':''},
         {label:'Override scans (not on manifest)',value:s.override_count,cls:s.override_count?'y':''}]
-      :[{label:'Pickup-scanned bags for this drop',value:s.expected_count||0},
+      :[{label:'Pickup-scanned bags for '+((s.stop_size||1)>1?'these '+s.stop_size+' drops':'this drop'),value:s.expected_count||0},
         {label:'Successful unloading scans',value:s.scanned_count,cls:'g'},
         {label:'Bags without an unloading scan (Discrepancy)',value:s.remaining_count,cls:s.remaining_count?'r':''}];
     body+='<div class="sc-ok"><i class="fas fa-lock"></i> '+(kind==='pickup'?'Pickup scan':'Unloading scan')+' ended'+(s.closed_at?' at '+esc(fmtD(s.closed_at)):'')+'. No more bags can be scanned.</div>';
@@ -5183,6 +5255,7 @@ async function scEndAsk(kind,key){
     if(ok)scEnd(kind,key);
     return;
   }
+  if((s.stop_size||1)>1&&(s.manual_requests||[]).length){scEndStopManual(kind,key,s);return}
   const manual=!!s.manual_ok;
   let typed=null;
   const go=await scanModal({title:'End Unloading Scan',icon:'clipboard-check',ok:'Confirm End Unloading Scan',okClass:'danger',cancel:'Resume scan',
@@ -5199,6 +5272,37 @@ async function scEndAsk(kind,key){
       (manual&&typed!=null?'<p class="sc-hint" style="margin-top:8px">Unloading bag count: <strong>'+typed+'</strong> &mdash; this becomes the Revised Qty.</p>':'')+
       (gap?'<p class="sc-hint" style="margin-top:8px;color:#FCA5A5">'+(manual?'Discrepancy: '+Math.abs(gap)+' bag(s) '+(gap>0?'fewer':'more')+' than the pickup count ('+pk+').':gap+' bag(s) still have no unloading scan.')+'</p>':'')});
   if(sure){scEndExtra=(manual&&typed!=null)?{manual_count:typed}:{};scEnd(kind,key)}
+}
+/* A stop (several drops, same destination) where some drops have no manifest and no scans:
+   one typed unloading count per such drop, each with its own discrepancy. */
+async function scEndStopManual(kind,key,s){
+  const mr=s.manual_requests||[];
+  let counts=null;
+  const go=await scanModal({title:'End Unloading Scan',icon:'clipboard-check',ok:'Confirm End Unloading Scan',okClass:'danger',cancel:'Resume scan',
+    html:'<div class="sc-hint" style="margin-bottom:8px">'+scDropLine(s)+'</div>'+scSumRows([
+      {label:'Total pickup bag / carton IDs (scanned, all drops)',value:s.expected_count||0},
+      {label:'Successful unloading scans',value:s.scanned_count||0,cls:'g'},
+      {label:'Remaining IDs without an unloading scan (Discrepancy)',value:s.remaining_count||0,cls:s.remaining_count?'r':''}])+
+      '<div class="sc-card" style="margin-top:12px;padding:12px"><h5 style="margin-bottom:6px"><i class="fas fa-keyboard"></i> Unloading bag count (no manifest, no scans)</h5>'+
+      mr.map(r=>{const pk=r.pickup_manual_count;return '<div style="margin-top:10px"><label class="sc-hint" for="scMcS'+r.id+'"><span class="sc-badge b">Drop '+esc(r.drop_sequence||'')+'</span> '+esc(r.request_number||'')+' &middot; pickup count <strong>'+(pk==null?'not entered':pk)+'</strong></label>'+
+        '<input class="sc-in sc-mc-s" id="scMcS'+r.id+'" data-rid="'+r.id+'" type="number" inputmode="numeric" min="0" step="1" placeholder="Bag count unloaded" style="margin-top:4px" oninput="scMcGapS('+r.id+','+(pk==null?'null':pk)+')">'+
+        '<div class="s" id="scMcGS'+r.id+'" style="font-size:12.5px;margin-top:2px"></div></div>'}).join('')+
+      '<div class="sc-hint" style="margin-top:8px">Each count becomes that request&rsquo;s Revised Qty.</div></div>',
+    onOk:m=>{const c=scReadCounts(m,'.sc-mc-s');if(c===null)return false;counts=c;return true}});
+  if(!go)return;
+  const gaps=mr.filter(r=>counts[r.id]!=null&&r.pickup_manual_count!=null&&counts[r.id]!==r.pickup_manual_count);
+  const sure=await scanModal({title:'Are you sure?',icon:'exclamation-triangle',ok:'Yes, end unloading',okClass:'danger',cancel:'Go back',
+    html:'<p>Ending the unloading scan is final for all '+(s.requests||[]).length+' drops of this stop.</p>'+
+      (gaps.length?'<p class="sc-hint" style="margin-top:8px;color:#FCA5A5">'+gaps.map(r=>esc(r.request_number)+': discrepancy '+Math.abs(r.pickup_manual_count-counts[r.id])+' ('+(r.pickup_manual_count>counts[r.id]?'fewer':'more')+' than the pickup count '+r.pickup_manual_count+')').join('<br>')+'</p>':'')+
+      (s.remaining_count?'<p class="sc-hint" style="margin-top:8px;color:#FCA5A5">'+s.remaining_count+' scanned bag(s) still have no unloading scan.</p>':'')});
+  if(sure){scEndExtra={manual_counts:counts};scEnd(kind,key)}
+}
+function scMcGapS(id,pk){
+  const el=document.getElementById('scMcS'+id),out=document.getElementById('scMcGS'+id);if(!el||!out)return;
+  const v=el.value.trim();
+  if(v===''||pk==null){out.textContent='';return}
+  const d=pk-parseInt(v,10);
+  out.innerHTML=isNaN(d)?'':(d?'<span style="color:#FCA5A5">Discrepancy: '+d+'</span>':'<span style="color:#6EE7B7">Matches the pickup count</span>');
 }
 /* Bag counts typed by the driver when a request has no manifest and no bag was scanned. */
 let scEndExtra={};
