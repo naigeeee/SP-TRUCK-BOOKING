@@ -7140,11 +7140,18 @@ async def scan_pickup_end(key: str, request: Request):
             raise HTTPException(400, f"{by_id[rid].get('request_number') or rid} has a manifest or scanned bags - its bag count comes from the scans")
         clean[rid] = _clean_count(v, f"Bag count for {by_id[rid].get('request_number') or rid}")
     now = nows()
+    actor = _scan_actor(request)
     for r in rows:
         vals = {"pickup_scan_closed_at": now}
         if r.get("id") in clean:
             vals["pickup_manual_count"] = clean[r.get("id")]
-        _write_fields(r, vals)
+            # No manifest and no bag scanned: Start Loading is when the driver confirms
+            # the bag count (End Loading still comes from the End Loading button).
+            vals["start_loading_datetime"] = now
+            if not r.get("arrived_pickup_datetime"):
+                # Like every other milestone: an earlier empty one is filled too.
+                vals["arrived_pickup_datetime"] = now
+        _write_fields(r, vals, actor if r.get("id") in clean else None)
     return _scan_summary("pickup", _rows_by_pickup_key(key) or rows, key)
 
 def _unload_stop(key_rows):
@@ -7277,14 +7284,17 @@ async def scan_unload_end(key: str, request: Request):
             raise HTTPException(400, "This drop has a manifest or scanned bags - its bag count comes from the scans")
         clean[rid] = _clean_count(v, f"Unloading bag count for {by_id[rid].get('request_number') or rid}")
     now = nows()
+    actor = _scan_actor(request)
     for x in stop:
         vals = {"unload_scan_closed_at": now, "revised_qty_src": "unload"}
         if x.get("id") in clean:
-            # The typed unloading count becomes the Revised Qty.
+            # The typed unloading count becomes the Revised Qty, and Start Unloading is
+            # when the driver confirms it (End Unloading still comes from Finish Drop).
             n = clean[x.get("id")]
-            vals.update({"unload_manual_count": n, "quantity": n, "revised_qty_src": "unload_count"})
+            vals.update({"unload_manual_count": n, "quantity": n, "revised_qty_src": "unload_count",
+                         "start_unloading_datetime": now})
         # Anyone on the unloading screen may end it: the scan link is the permission.
-        _write_fields(x, vals)
+        _write_fields(x, vals, actor if x.get("id") in clean else None)
     stop2, trip2 = _unload_stop(_rows_by_unload_key(key) or rows)
     return _scan_summary("unload", stop2, key, trip2)
 
