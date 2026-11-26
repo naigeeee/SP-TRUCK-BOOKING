@@ -92,6 +92,7 @@ var FIELDS = {
     ["Late Reason", "late_reason"],
     ["Start Loading", "start_loading_datetime", "datetime"],
     ["End Loading", "end_loading_datetime", "datetime"],
+    ["Pickup Remarks", "pickup_remarks"],
     ["Arrived Destination", "arrived_dest_datetime", "datetime"],
     ["Start Unloading", "start_unloading_datetime", "datetime"],
     ["End Unloading", "end_unloading_datetime", "datetime"],

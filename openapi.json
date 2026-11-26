@@ -3369,6 +3369,44 @@
         }
       }
     },
+    "/api/scan/pickup/{key}/remarks": {
+      "post": {
+        "summary": "Scan Pickup Remarks",
+        "description": "Pickup remarks typed by the driver on the pickup scan page: saved on every request\nof the trip. They can be changed until the pickup scan is ended.",
+        "operationId": "scan_pickup_remarks_api_scan_pickup__key__remarks_post",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scan/pickup/{key}/end": {
       "post": {
         "summary": "Scan Pickup End",
@@ -3534,6 +3572,7 @@
     "/api/scan/requests/{rid}/photo": {
       "post": {
         "summary": "Scan Photo",
+        "description": "A photo / file from the scanning app: at the pickup scan, the unloading scan or the\ndrop (step c). Any number of files, up to 25 MB in total per request.",
         "operationId": "scan_photo_api_scan_requests__rid__photo_post",
         "parameters": [
           {
@@ -5164,6 +5203,11 @@
             "type": "string",
             "format": "binary",
             "title": "File"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage",
+            "default": "drop"
           }
         },
         "type": "object",

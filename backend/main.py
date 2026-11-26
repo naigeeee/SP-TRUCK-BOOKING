@@ -21,7 +21,7 @@ from urllib.parse import urlparse, unquote
 from typing import Optional
 from decimal import Decimal
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
@@ -2548,6 +2548,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
             r["revised_qty"] = _revised_qty(r)
             r["delivered_date"] = (r.get("end_unloading_datetime") or "")[:10]
             r.setdefault("unloading_remarks", None)
+            r.setdefault("pickup_remarks", None)
             if r.get("assigned_truck_id") and r.get("status_id") in (2, 3, 4, 5, 7):
                 truck_reqs = [x for x in _store["truck_requests"] if x.get("assigned_truck_id") == r["assigned_truck_id"]]
                 r["trip_id"] = resolve_trip_id(r, truck_reqs)
@@ -2650,7 +2651,7 @@ def list_requests(request: Request, status_id: Optional[int] = None, account_id:
     elif manifest == "uploaded":
         wh.append("EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)")
     ws = " AND ".join(wh)
-    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "unloading_remarks",               "foul_trip_reason", "international_mawb", "domestic_mawb", "fid", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at",               "revised_qty", "unload_scan_count", "driver_username", "driver_name", "driver_phone"):
+    if sort_by not in ("created_at", "request_number", "pickup_datetime", "status_id", "account_name", "department_name", "origin_port_name", "destination_port_name", "truck_type_name", "packaging_type_name", "quantity", "initial_quantity", "vendor_name", "plate_number", "booking_date", "trip_id", "status_name", "call_datetime", "customs_cleared_datetime", "special_instructions", "arrived_pickup_datetime", "start_loading_datetime", "end_loading_datetime", "arrived_dest_datetime", "start_unloading_datetime", "end_unloading_datetime", "unloading_remarks", "pickup_remarks",               "foul_trip_reason", "international_mawb", "domestic_mawb", "fid", "delivered_date", "foul_trip_date", "cancellation_date", "manifest_status", "updated_at",               "revised_qty", "unload_scan_count", "driver_username", "driver_name", "driver_phone"):
         sort_by = "created_at"
     _MFSQL = "EXISTS (SELECT 1 FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
     _MFCNT = "(SELECT COALESCE(MAX(mf.id_count),0) FROM request_manifests mf WHERE mf.truck_request_id=tr.id)"
@@ -3445,7 +3446,7 @@ def _request_view_extras(r):
     rq, rsrc = _revised_qty_and_source(r)
     r["revised_qty"] = rq
     r["revised_qty_source"] = REVISED_SRC_LABEL[rsrc]
-    for k in ("trip_id", "drop_sequence", "late_reason", "unloading_remarks", "special_instructions", "foul_trip_reason",
+    for k in ("trip_id", "drop_sequence", "late_reason", "unloading_remarks", "pickup_remarks", "special_instructions", "foul_trip_reason",
               "foul_trip_date", "foul_trip_count", "cancellation_date", "final_call_datetime"):
         r.setdefault(k, None)
     for k in ("final_call_datetime", "call_datetime", "customs_cleared_datetime", "foul_trip_approved_at",
@@ -3485,7 +3486,7 @@ def _insert_request(user, body):
             "vendor_id": None, "final_call_datetime": None, "trip_id": None, "drop_sequence": None,
             "trip_date": None, "arrived_pickup_datetime": None, "start_loading_datetime": None,
             "end_loading_datetime": None, "arrived_dest_datetime": None, "start_unloading_datetime": None,
-            "end_unloading_datetime": None, "unloading_remarks": None, "foul_trip_reason": None, "foul_trip_count": None,
+            "end_unloading_datetime": None, "unloading_remarks": None, "pickup_remarks": None, "foul_trip_reason": None, "foul_trip_count": None,
             "foul_trip_approved_by": None, "foul_trip_approved_at": None,
             "created_at": nows(), "updated_at": nows()}
         _store["truck_requests"].append(req)
@@ -5064,6 +5065,18 @@ async def _save_att_bytes(rid: int, fn: str, content: bytes, ctype: str) -> str:
         f.write(content)
     return fp
 
+# Attachments: no limit on the number of files, only on their total size per request.
+ATTACH_MAX_BYTES = 25 * 1024 * 1024
+
+def _mb(n):
+    return f"{n / 1048576:.1f} MB"
+
+def _check_attach_room(existing, size):
+    used = sum(int(a.get("file_size") or 0) for a in existing)
+    if used + size > ATTACH_MAX_BYTES:
+        raise HTTPException(400, f"Max 25 MB of files per request: {_mb(used)} used, "
+                                 f"{_mb(max(0, ATTACH_MAX_BYTES - used))} left, this file is {_mb(size)}")
+
 @app.post("/api/requests/{rid}/attachments")
 async def upload_att(rid: int, request: Request, file: UploadFile = File(...)):
     scope_vid, user = vendor_scope(request)
@@ -5073,10 +5086,8 @@ async def upload_att(rid: int, request: Request, file: UploadFile = File(...)):
         if not req_row or not _owned_by_vendor(req_row, scope_vid): raise HTTPException(404, "Not found")
     if LOCAL_MODE:
         existing = [a for a in _store["attachments"] if a.get("truck_request_id") == rid]
-        if len(existing) >= 8: raise HTTPException(400, "Max 8 attachments")
         content = await file.read()
-        if sum(a.get("file_size", 0) for a in existing) + len(content) > 25 * 1024 * 1024:
-            raise HTTPException(400, "Max 25MB total")
+        _check_attach_room(existing, len(content))
         fid = uuid.uuid4().hex
         raw_ext = os.path.splitext(file.filename or "")[1].lower()
         ext = raw_ext if (len(raw_ext) <= 9 and raw_ext.startswith(".") and raw_ext[1:].isalnum()) else ""
@@ -5088,10 +5099,8 @@ async def upload_att(rid: int, request: Request, file: UploadFile = File(...)):
         _store["attachments"].append(att)
         return row2d(att)
     existing = db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (rid,))
-    if len(existing) >= 8: raise HTTPException(400, "Max 8 attachments")
     content = await file.read()
-    if sum(a.get("file_size", 0) for a in existing) + len(content) > 25 * 1024 * 1024:
-        raise HTTPException(400, "Max 25MB total")
+    _check_attach_room(existing, len(content))
     fid = uuid.uuid4().hex
     raw_ext = os.path.splitext(file.filename or "")[1].lower()
     ext = raw_ext if (len(raw_ext) <= 9 and raw_ext.startswith(".") and raw_ext[1:].isalnum()) else ""
@@ -5577,7 +5586,7 @@ MILESTONE_FIELDS = [m[0] for m in MILESTONES]
 MILESTONE_LABEL = dict(MILESTONES)
 SCAN_WRITABLE = set(MILESTONE_FIELDS) | {"late_reason", "driver_account_id", "pickup_scan_key",
                                          "pickup_scan_closed_at", "unload_scan_key",
-                                         "unload_scan_closed_at", "status_id", "unloading_remarks",
+                                         "unload_scan_closed_at", "status_id", "unloading_remarks", "pickup_remarks",
                                          "revised_qty_src", "pickup_manual_count", "unload_manual_count",
                                          "quantity", "milestone_geo"}
 UNLOADING_REMARKS_MAX = 1000
@@ -6470,8 +6479,11 @@ def _scan_summary(kind, rows, key, trip_rows=None):
                                      "pickup_manual_count": x.get("pickup_manual_count"),
                                      "unload_manual_count": x.get("unload_manual_count")}
                                     for x in rows if _unload_manual_ok(x, trip_rows)]
+    usage = _att_usage([r.get("id") for r in rows])
     return {**extra, "kind": kind, "trip_id": base, "key": key,
             "mode": mode,
+            "attach_max_bytes": ATTACH_MAX_BYTES,
+            "pickup_remarks": next((r.get("pickup_remarks") for r in rows if r.get("pickup_remarks")), None) if kind == "pickup" else None,
             "expected_count": (len(exp_set) if (exp_set or kind == "unload") else None),
             "scanned_count": len(scans),
             "original_count": original,
@@ -6485,7 +6497,27 @@ def _scan_summary(kind, rows, key, trip_rows=None):
                           "account_name": r.get("account_name") or "",
                           "destination_port_name": r.get("destination_port_name") or "",
                           "pickup_manual_count": r.get("pickup_manual_count"),
+                          "att_bytes": usage.get(r.get("id"), (0, 0))[0],
+                          "att_count": usage.get(r.get("id"), (0, 0))[1],
                           "status_id": r.get("status_id")} for r in rows]}
+
+def _att_usage(ids):
+    """{request id: (bytes, files)} of the requests' attachments."""
+    ids = [int(i) for i in ids if i]
+    if not ids:
+        return {}
+    out = {}
+    if LOCAL_MODE:
+        for a in _store["attachments"]:
+            rid = a.get("truck_request_id")
+            if rid in ids:
+                b, n = out.get(rid, (0, 0))
+                out[rid] = (b + int(a.get("file_size") or 0), n + 1)
+        return out
+    for row in db_q("SELECT truck_request_id AS rid, COALESCE(SUM(file_size),0) AS b, COUNT(*) AS n "
+                    "FROM truck_request_attachments WHERE truck_request_id IN %s GROUP BY truck_request_id", (ids,)):
+        out[int(row["rid"])] = (int(row["b"] or 0), int(row["n"] or 0))
+    return out
 
 SCAN_CSV_HEADER = ["Bag ID", "Trip ID", "International MAWB", "Domestic MAWB", "Account",
                    "Origin", "Destination", "Drop #", "Remark"]
@@ -6898,6 +6930,7 @@ def _trip_detail(driver, rows):
             "end_unloading_datetime": to_gmt8(r.get("end_unloading_datetime")),
             "late_reason": r.get("late_reason"),
             "unloading_remarks": r.get("unloading_remarks"),
+            "pickup_remarks": r.get("pickup_remarks"),
             "pickup_scan_key": r.get("pickup_scan_key"),
             "unload_scan_key": uk,
             "unload_scan_closed": bool(r.get("unload_scan_closed_at")),
@@ -6922,7 +6955,8 @@ def _trip_detail(driver, rows):
                        "mode": "manifest" if expected else "free",
                        "expected_count": (len(expected) if expected else None),
                        "scanned_count": len(scans),
-                       "closed": bool(closed), "closed_at": to_gmt8(closed)},
+                       "closed": bool(closed), "closed_at": to_gmt8(closed),
+                       "remarks": next((r.get("pickup_remarks") for r in all_rows if r.get("pickup_remarks")), None)},
             "requests": reqs}
 
 def _driver_active_rows(driver):
@@ -7273,6 +7307,36 @@ async def scan_pickup_post(key: str, request: Request):
             "drop": _drop_info(owner, rows) if owner else None,
             **_scan_summary("pickup", rows, key)}
 
+PICKUP_REMARKS_MAX = 1000
+
+def _clean_pickup_remarks(v):
+    t = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", str(v or "")).strip()
+    if len(t) > PICKUP_REMARKS_MAX:
+        raise HTTPException(400, f"Pickup remarks can be at most {PICKUP_REMARKS_MAX} characters")
+    return t
+
+@app.post("/api/scan/pickup/{key}/remarks")
+async def scan_pickup_remarks(key: str, request: Request):
+    """Pickup remarks typed by the driver on the pickup scan page: saved on every request
+    of the trip. They can be changed until the pickup scan is ended."""
+    driver = get_driver(request)
+    try:
+        body = await request.json() or {}
+    except Exception:
+        body = {}
+    rows = _rows_by_pickup_key(key)
+    if not rows:
+        raise HTTPException(404, "This scan link is not valid any more")
+    if not any(r.get("driver_account_id") == driver.get("id") for r in rows):
+        raise HTTPException(403, "This trip is not yours")
+    if any(r.get("pickup_scan_closed_at") for r in rows):
+        raise HTTPException(409, "The pickup scan has ended - remarks can no longer be changed")
+    rem = _clean_pickup_remarks(body.get("pickup_remarks") if isinstance(body, dict) else "")
+    for r in rows:
+        if r.get("status_id") in (2, 3):
+            _write_fields(r, {"pickup_remarks": rem or None}, driver.get("username"))
+    return {"ok": True, "pickup_remarks": rem or None}
+
 @app.post("/api/scan/pickup/{key}/end")
 async def scan_pickup_end(key: str, request: Request):
     body = await request.json() or {}
@@ -7305,8 +7369,11 @@ async def scan_pickup_end(key: str, request: Request):
         clean[rid] = _clean_count(v, f"Bag count for {by_id[rid].get('request_number') or rid}")
     now = nows()
     actor = _scan_actor(request)
+    rem = _clean_pickup_remarks(body.get("pickup_remarks")) if "pickup_remarks" in body else None
     for r in rows:
         vals = {"pickup_scan_closed_at": now}
+        if rem is not None:
+            vals["pickup_remarks"] = rem or None
         if r.get("id") in clean:
             vals["pickup_manual_count"] = clean[r.get("id")]
             # No manifest and no bag scanned: Start Loading is when the driver confirms
@@ -7513,19 +7580,25 @@ def _may_close(request, body, key):
     except HTTPException:
         return False
 
+SCAN_PHOTO_STAGES = {"pickup": "Pickup scan", "unload": "Unloading scan", "drop": ""}
+
 @app.post("/api/scan/requests/{rid}/photo")
-async def scan_photo(rid: int, request: Request, file: UploadFile = File(...)):
+async def scan_photo(rid: int, request: Request, file: UploadFile = File(...), stage: str = Form("drop")):
+    """A photo / file from the scanning app: at the pickup scan, the unloading scan or the
+    drop (step c). Any number of files, up to 25 MB in total per request."""
     driver = get_driver(request)
     row = _scan_request_or_404(rid, driver)
+    if row.get("status_id") not in (2, 3):
+        raise HTTPException(400, "This drop is already finished - photos can no longer be added")
+    stage = stage if stage in SCAN_PHOTO_STAGES else "drop"
     existing = ([a for a in _store["attachments"] if a.get("truck_request_id") == rid] if LOCAL_MODE
                 else db_q("SELECT * FROM truck_request_attachments WHERE truck_request_id=%s", (rid,)))
-    if len(existing) >= 8:
-        raise HTTPException(400, "Max 8 attachments")
     content = await file.read()
-    if sum(a.get("file_size", 0) for a in existing) + len(content) > 25 * 1024 * 1024:
-        raise HTTPException(400, "Max 25MB total")
     if not content:
         raise HTTPException(400, "The uploaded file is empty")
+    _check_attach_room(existing, len(content))
+    label = SCAN_PHOTO_STAGES[stage]
+    shown_name = ((label + " - ") if label else "") + str(file.filename or "photo.jpg")[:200]
     fid = uuid.uuid4().hex
     raw_ext = os.path.splitext(file.filename or "")[1].lower()
     ext = raw_ext if (len(raw_ext) <= 9 and raw_ext.startswith(".") and raw_ext[1:].isalnum()) else ".jpg"
@@ -7534,14 +7607,14 @@ async def scan_photo(rid: int, request: Request, file: UploadFile = File(...)):
     fp = await _save_att_bytes(rid, fn, content, ctype)
     if LOCAL_MODE:
         att = {"id": nid("attachments"), "truck_request_id": rid, "filename": fn,
-               "original_filename": file.filename or "photo.jpg", "file_size": len(content),
+               "original_filename": shown_name, "file_size": len(content),
                "file_type": ctype, "storage_path": fp, "uploaded_by": driver.get("username") or "driver",
                "created_at": nows()}
         _store["attachments"].append(att)
         return row2d(att)
     aid = db_i("""INSERT INTO truck_request_attachments (truck_request_id,filename,original_filename,
         file_size,file_type,storage_path,uploaded_by) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-        (rid, fn, file.filename or "photo.jpg", len(content), ctype, fp, driver.get("username") or "driver"))
+        (rid, fn, shown_name, len(content), ctype, fp, driver.get("username") or "driver"))
     return db_1("SELECT * FROM truck_request_attachments WHERE id=%s", (aid,))
 
 def _scan_att_list(rid, driver=None):
@@ -7785,7 +7858,7 @@ async def unassign_driver(rid: int, request: Request):
         raise HTTPException(400, "A driver can only be removed while the trip is Allocated")
     base = _trip_key_of(row)
     rows = [r for r in _rows_for_base(base) if r.get("status_id") == 2] or [row]
-    clears = {k: None for k in ("driver_account_id", "late_reason", "unloading_remarks", "pickup_scan_key",
+    clears = {k: None for k in ("driver_account_id", "late_reason", "unloading_remarks", "pickup_remarks", "pickup_scan_key",
                                 "pickup_scan_closed_at", "unload_scan_key",
                                 "unload_scan_closed_at") + tuple(MILESTONE_FIELDS)}
     for r in rows:
