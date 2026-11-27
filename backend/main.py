@@ -4038,34 +4038,8 @@ def foul_trip_review(request: Request):
             "pending": sum(1 for r in rows if not r.get("foul_trip_approved_by")),
             "approved": sum(1 for r in rows if r.get("foul_trip_approved_by"))}
 
-@app.delete("/api/requests/clear-all")
-def clear_all_requests(request: Request):
-    require_master(request)
-    try:
-        if LOCAL_MODE:
-            for a in _store["attachments"]:
-                _delete_att_file(a.get("storage_path", ""))
-            _store["truck_requests"] = []
-            _store["attachments"] = []
-            _store["pending_allocations"] = []
-            _store["truck_request_history"] = []
-            for t in _store["trucks"]:
-                t["status"] = "available"
-            _store["_cnt"]["truck_requests"] = 0
-            _store["_cnt"]["attachments"] = 0
-            _store["_cnt"]["pending_allocations"] = 0
-            _store["_cnt"]["truck_request_history"] = 0
-            return {"ok": True, "message": "All requests cleared"}
-        for a in db_q("SELECT storage_path FROM truck_request_attachments"):
-            _delete_att_file(a.get("storage_path", ""))
-        for tbl in ["truck_request_history", "pending_allocations", "attachments"]:
-            try: db_x(f"DELETE FROM {tbl}")
-            except Exception: pass
-        db_x("UPDATE trucks SET status='available'")
-        db_x("DELETE FROM truck_requests")
-        return {"ok": True, "message": "All requests cleared"}
-    except Exception as e:
-        raise HTTPException(500, str(e))
+# "Clear All" (DELETE /api/requests/clear-all) was removed on purpose: it wiped every
+# request in production by accident. Do not bring back a bulk delete of requests.
 
 @app.delete("/api/requests/{rid}")
 def delete_request(rid: int, request: Request):
